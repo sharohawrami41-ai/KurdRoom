@@ -25,7 +25,8 @@
   .cbtn.recing { background: var(--high); color:#fff; animation: softPulse 1s infinite; }
   .bub { max-width:78%; padding:9px 13px; font-size:.9rem; position:relative;
     border:1px solid var(--card-border); animation: popIn .3s ease both;
-    cursor:pointer; }
+    cursor:pointer; user-select:none; -webkit-user-select:none;
+    -webkit-touch-callout:none; }
   .bub.me { align-self:flex-end; border-radius:16px 16px 4px 16px;
     background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent),
                 color-mix(in srgb, var(--accent) 25%, transparent)); }
@@ -116,7 +117,7 @@
       </div>
       {% endif %}
       {% if m.kind == 'image' and m.stored %}
-        <a href="{{ url_for('dm_file', msg_id=m.id) }}" target="_blank">
+        <a href="{{ url_for('dm_file', msg_id=m.id) }}">
           <img src="{{ url_for('dm_file', msg_id=m.id) }}" alt=""></a>
       {% elif m.kind == 'voice' and m.stored %}
         <div style="display:flex; align-items:center; gap:8px">🎤
@@ -326,7 +327,39 @@
       pick.style.insetInlineStart = "0"; pick.style.insetInlineEnd = "auto";
     }
   }
+  /* hold a message (long-press) to open the options menu on touch screens */
+  const coarsePtr = matchMedia("(pointer: coarse)").matches;
+  let lpTimer = null, lpFired = false, lpStart = null;
+  function lpCancel() { clearTimeout(lpTimer); lpTimer = null; lpStart = null; }
+  box.addEventListener("pointerdown", (e) => {
+    if (!coarsePtr) return;
+    const b = e.target.closest(".bub");
+    if (!b || e.target.closest(".pick")) return;
+    lpStart = [e.clientX, e.clientY];
+    lpTimer = setTimeout(() => {
+      lpFired = true;
+      if (navigator.vibrate) navigator.vibrate(35);
+      showPick(b);
+    }, 420);
+  });
+  box.addEventListener("pointermove", (e) => {
+    if (lpStart && Math.hypot(e.clientX - lpStart[0], e.clientY - lpStart[1]) > 12) lpCancel();
+  });
+  box.addEventListener("pointerup", lpCancel);
+  box.addEventListener("pointercancel", lpCancel);
+  box.addEventListener("scroll", lpCancel, { passive: true });
+  box.addEventListener("contextmenu", (e) => {
+    if (e.target.closest(".bub")) e.preventDefault();
+  });
+
   box.addEventListener("click", (e) => {
+    if (lpFired) {
+      // swallow the tap that follows a long-press
+      lpFired = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (e.target.closest(".pick")) return;
     const chip = e.target.closest(".rx button");
     if (chip) {
@@ -346,7 +379,8 @@
     }
     if (e.target.closest("a, audio")) return;
     const b = e.target.closest(".bub");
-    if (b) showPick(b); else hidePick();
+    if (b && !coarsePtr) showPick(b);      // desktop: click opens the menu
+    else if (!b || !pick.contains(e.target)) hidePick();  // touch: tap elsewhere closes
   });
 
   async function react(mid, emoji) {

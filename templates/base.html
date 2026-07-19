@@ -402,6 +402,18 @@ body.light .tw { color: #1e1450; }
   to   { transform: rotate(24deg) translateX(85vw); } }
 body.light .beam { opacity: .5; }
 
+/* ---------- in-app photo viewer ---------- */
+.lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(4,2,14,.94);
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px); }
+.lightbox.open { display: flex; animation: fadeUp .18s ease both; }
+.lightbox img { max-width: 96vw; max-height: 88vh; border-radius: 14px;
+  box-shadow: 0 20px 70px rgba(0,0,0,.7); }
+.lightbox .lb-x { position: fixed; top: 16px; inset-inline-end: 16px; width: 44px;
+  height: 44px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.15rem;
+  background: rgba(255,255,255,.14); color: #fff; z-index: 201;
+  display: inline-flex; align-items: center; justify-content: center; }
+
 /* ---------- touch ripple ---------- */
 * { -webkit-tap-highlight-color: transparent; }
 button, .pill, .tab, .icon-btn, .bottombar a { position: relative; overflow: hidden; }
@@ -855,6 +867,42 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
         if (o !== d) o.removeAttribute("open");
       });
     });
+  });
+
+  // ---------- in-app photo viewer (no more leaving the app for pictures) ----------
+  const lb = document.createElement("div");
+  lb.className = "lightbox";
+  lb.innerHTML = '<button class="lb-x" type="button" aria-label="close">✕</button><img alt="">';
+  document.body.appendChild(lb);
+  const lbImg = lb.querySelector("img");
+  function openLb(src) {
+    lbImg.src = src;
+    lb.classList.add("open");
+    document.body.style.overflow = "hidden";
+    history.pushState({ lb: 1 }, "");   // phone back button closes the photo
+  }
+  function closeLb(fromPop) {
+    if (!lb.classList.contains("open")) return;
+    lb.classList.remove("open");
+    document.body.style.overflow = "";
+    lbImg.src = "";
+    if (!fromPop && history.state && history.state.lb) history.back();
+  }
+  window.addEventListener("popstate", () => closeLb(true));
+  lb.addEventListener("click", () => closeLb(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLb(false); });
+  document.addEventListener("click", (e) => {
+    const img = e.target.closest("img");
+    if (!img || lb.contains(img)) return;
+    const a = img.closest("a");
+    const href = a ? (a.getAttribute("href") || "") : "";
+    const src = img.getAttribute("src") || "";
+    const linkedImg = a && (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(href) ||
+                            href.indexOf("/dmfile/") === 0);
+    const plainImg = !a && (src.indexOf("/postimg/") === 0);
+    if (!linkedImg && !plainImg) return;
+    e.preventDefault();
+    openLb(img.currentSrc || src);
   });
 </script>
 </body>
