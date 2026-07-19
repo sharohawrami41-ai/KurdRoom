@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% macro plan_item(p) %}
+<div class="plan {{ p.priority }} {{ 'done' if p.done }}">
+  <div class="plan-body">
+    <div class="plan-title">{{ p.title }}</div>
+    {% if p.details %}<div class="plan-details">{{ p.details }}</div>{% endif %}
+    <div class="plan-meta">
+      <span class="badge {{ p.priority }}">{{ t('p_' + p.priority) }}</span>
+      {% if p.due_date %}
+        {% if not p.done and p.due_date < today %}
+          <span class="badge overdue">⚠ {{ t('overdue') }} · {{ p.due_date }}</span>
+        {% elif p.due_date == today %}
+          <span class="badge today">{{ t('today') }}</span>
+        {% else %}
+          <span>📅 {{ p.due_date }}</span>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  <div class="plan-actions">
+    <form method="post" action="{{ url_for('plan_toggle', plan_id=p.id) }}">
+      <button class="small" type="submit">{{ t('undo') if p.done else '✓ ' + t('done') }}</button>
+    </form>
+    <form method="post" action="{{ url_for('plan_delete', plan_id=p.id) }}"
+          onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+      <button class="small warn" type="submit">✕ {{ t('delete') }}</button>
+    </form>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  {% if streak > 0 %}
+  <div style="display:flex; align-items:center; gap:10px; margin:14px 0; padding:12px 18px;
+              border-radius:14px; background:linear-gradient(100deg, rgba(255,140,50,.16), rgba(255,200,87,.08));
+              border:1px solid rgba(255,160,60,.45)">
+    <span style="font-size:1.6rem">🔥</span>
+    <div>
+      <strong style="font-size:1.05rem">{{ streak }} {{ t('streak') }}</strong>
+      <div style="font-size:.78rem; color:var(--muted)">{{ t('streak_msg') }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if total %}
+  <div class="progress-wrap">
+    <div class="progress"><div style="width: {{ pct }}%"></div></div>
+    <span class="progress-label">{{ done_count }}/{{ total }} {{ t('progress') }} · {{ pct }}%</span>
+  </div>
+  {% endif %}
+
+  {% if feed %}
+  {% from "_widgets.html" import avi with context %}
+  <div class="card" style="margin-bottom:22px">
+    <h2>⚡ {{ t('activity_today') }}</h2>
+    <div class="hint"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      {% for f in feed %}
+      <a href="{{ url_for('user_profile', username=f.user.username) }}" style="color:inherit">
+        <div style="display:flex; align-items:center; gap:10px; padding:10px 16px;
+             border-radius:999px; background:var(--card); border:1px solid var(--card-border);
+             transition:.2s" onmouseover="this.style.borderColor='var(--accent)'"
+             onmouseout="this.style.borderColor=''">
+          {{ avi(f.user.id, f.user.username, 32, '.85rem') }}
+          <span style="font-size:.85rem"><strong>{{ f.user.username }}</strong>
+            {% if f.plans %} · ✓{{ f.plans }} {{ t('f_plans') }}{% endif %}
+            {% if f.habits %} · 🔁{{ f.habits }} {{ t('f_habits') }}{% endif %}
+            {% for b in f.badges %} · {{ BADGES.get(b, '🏅') }}{% endfor %}
+          </span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card" style="margin-bottom:22px">
+    <h2>➕ {{ t('new_plan') }}</h2>
+    <div class="hint">{{ t('important_first') }}</div>
+    <form method="post" action="{{ url_for('plan_add') }}">
+      <div class="grid2">
+        <div>
+          <label>{{ t('title') }}</label>
+          <input name="title" required maxlength="120">
+          <label>{{ t('details') }}</label>
+          <textarea name="details" rows="2" maxlength="500"></textarea>
+        </div>
+        <div>
+          <div class="grid2">
+            <div>
+              <label>{{ t('type') }}</label>
+              <select name="plan_type">
+                <option value="short">⚡ {{ t('t_short') }}</option>
+                <option value="long">🎯 {{ t('t_long') }}</option>
+              </select>
+            </div>
+            <div>
+              <label>{{ t('priority') }}</label>
+              <select name="priority">
+                <option value="high">🔥 {{ t('p_high') }}</option>
+                <option value="medium" selected>• {{ t('p_medium') }}</option>
+                <option value="low">· {{ t('p_low') }}</option>
+              </select>
+            </div>
+          </div>
+          <label>{{ t('due') }}</label>
+          <input type="date" name="due_date">
+          <div style="margin-top:14px">
+            <button class="primary" type="submit">{{ t('add') }}</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>⚡ {{ t('short_term') }}</h2>
+      <div class="hint">{{ t('short_hint') }}</div>
+      {% for p in short_plans %}{{ plan_item(p) }}{% else %}
+        <p style="color:var(--muted); font-size:.88rem">{{ t('empty_short') }}</p>
+      {% endfor %}
+    </div>
+    <div class="card">
+      <h2>🎯 {{ t('long_term') }}</h2>
+      <div class="hint">{{ t('long_hint') }}</div>
+      {% for p in long_plans %}{{ plan_item(p) }}{% else %}
+        <p style="color:var(--muted); font-size:.88rem">{{ t('empty_long') }}</p>
+      {% endfor %}
+    </div>
+  </div>
+
+<div id="cheer" style="display:none; position:fixed; top:18px; left:50%; transform:translateX(-50%);
+     z-index:60; padding:12px 26px; border-radius:999px; font-weight:700; color:#fff;
+     background:linear-gradient(90deg, var(--accent), #e879f9); box-shadow:0 10px 30px rgba(0,0,0,.35)"></div>
+<canvas id="confetti" style="position:fixed; inset:0; pointer-events:none; z-index:50"></canvas>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  if (!params.get("celebrate")) return;
+  const big = params.get("big") === "1";
+  history.replaceState({}, "", location.pathname);
+
+  const msg = document.getElementById("cheer");
+  msg.textContent = big ? {{ t('celebrate_high')|tojson }} : {{ t('celebrate_normal')|tojson }};
+  msg.style.display = "block";
+  setTimeout(() => { msg.style.transition = "opacity .6s"; msg.style.opacity = "0"; }, 2600);
+  setTimeout(() => msg.remove(), 3300);
+
+  const cv = document.getElementById("confetti"), ctx = cv.getContext("2d");
+  cv.width = innerWidth; cv.height = innerHeight;
+  const colors = ["#7c5cff","#e879f9","#3ddc97","#ffc857","#ff5d73","#5cc8ff"];
+  const N = big ? 220 : 90;
+  const parts = Array.from({length: N}, () => ({
+    x: Math.random() * cv.width,
+    y: -20 - Math.random() * cv.height * 0.4,
+    w: 6 + Math.random() * 6, h: 8 + Math.random() * 8,
+    vy: 2.2 + Math.random() * 3.4, vx: -1.6 + Math.random() * 3.2,
+    rot: Math.random() * Math.PI, vr: -0.12 + Math.random() * 0.24,
+    c: colors[(Math.random() * colors.length) | 0]
+  }));
+  let frames = 0;
+  (function draw() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const p of parts) {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += 0.02;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); ctx.restore();
+    }
+    if (++frames < 260) requestAnimationFrame(draw); else cv.remove();
+  })();
+})();
+</script>
+{% endblock %}

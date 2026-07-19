@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="max-width:760px; margin:6vh auto 0; text-align:center; padding:40px">
+    <div style="font-size:3rem">😵</div>
+    <h2 style="margin-top:12px; font-size:1.4rem">Oops — something went wrong</h2>
+    <p style="color:var(--muted); margin-top:8px; font-size:.9rem">
+      The error has been saved to <code>error.log</code> next to <code>app.py</code>.</p>
+    {% if tb %}
+    <pre dir="ltr" style="text-align:left; margin-top:20px; padding:16px; border-radius:12px;
+         background:rgba(0,0,0,.35); border:1px solid var(--card-border);
+         font-size:.72rem; line-height:1.5; overflow-x:auto; white-space:pre-wrap;
+         color:#ffb3bf">{{ tb }}</pre>
+    {% endif %}
+  </div>
+{% endblock %}

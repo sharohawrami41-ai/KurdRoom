@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ gfonts }}">
+<style>
+{% for f in user_fonts %}
+@font-face { font-family: "{{ f.name }}";
+  src: url("{{ url_for('static', filename='fonts/' + f.stored) }}"); }
+{% endfor %}
+.opt-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+.color-dot { width:100%; height:44px; padding:3px; border-radius:12px; cursor:pointer; }
+</style>
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">🎨 {{ t('poster_maker') }}</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.1fr">
+    <div class="card">
+      <div class="opt-row">
+        <div>
+          <label>{{ t('p_template') }}</label>
+          <select id="tpl" onchange="applyTpl()">
+            <option value="0">🟣 Violet Night</option>
+            <option value="1">🌅 Sunset</option>
+            <option value="2">🌊 Ocean</option>
+            <option value="3">🌿 Forest</option>
+            <option value="4">🖤 Bold Black</option>
+            <option value="5">🤍 Elegant Light</option>
+          </select>
+        </div>
+        <div>
+          <label>{{ t('size') }}</label>
+          <select id="size" onchange="applySize()">
+            <option value="800x1130">📄 {{ t('s_a4') }}</option>
+            <option value="1080x1080">⬛ {{ t('s_sq') }}</option>
+            <option value="720x1280">📱 {{ t('s_story') }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="opt-row">
+        <div>
+          <label>{{ t('font') }}</label>
+          <select id="font" onchange="loadFontAndDraw()">
+            {% for f in fonts %}<option value="{{ f }}" {{ 'selected' if f == 'Bebas Neue' }}>{{ f }}</option>{% endfor %}
+            {% for f in user_fonts %}<option value="{{ f.name }}">★ {{ f.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>{{ t('pattern') }}</label>
+          <select id="pat" onchange="draw()">
+            <option value="circles">⭕ {{ t('pt_circles') }}</option>
+            <option value="grid">▦ {{ t('pt_grid') }}</option>
+            <option value="waves">〰 {{ t('pt_waves') }}</option>
+            <option value="none">◻ {{ t('pt_none') }}</option>
+          </select>
+        </div>
+      </div>
+      <label>{{ t('custom_colors') }} · {{ t('text_color') }}</label>
+      <div style="display:flex; gap:10px">
+        <input type="color" id="c1" class="color-dot" value="#2b1f5c" oninput="draw()">
+        <input type="color" id="c2" class="color-dot" value="#7c5cff" oninput="draw()">
+        <input type="color" id="c3" class="color-dot" value="#e879f9" oninput="draw()">
+        <input type="color" id="ctxt" class="color-dot" value="#ffffff" oninput="draw()">
+      </div>
+      <label>{{ t('title_size') }} <span id="tsv" style="color:var(--accent)">100</span></label>
+      <input type="range" id="tsize" min="50" max="160" value="100" oninput="
+        document.getElementById('tsv').textContent=this.value; draw()">
+      <label>{{ t('p_emoji') }}</label>
+      <input id="emoji" value="🎓" maxlength="4" oninput="draw()">
+      <label>{{ t('p_title') }}</label>
+      <input id="ttl" value="STUDY GROUP" maxlength="40" oninput="draw()">
+      <label>{{ t('p_subtitle') }}</label>
+      <input id="sub" value="Every Thursday · 4 PM" maxlength="60" oninput="draw()">
+      <label>{{ t('p_body') }}</label>
+      <textarea id="body" rows="3" oninput="draw()">Library, Room 12
+Bring your notes
+Everyone is welcome!</textarea>
+      <div style="margin-top:16px">
+        <button class="primary" onclick="dl()" style="width:auto; padding:12px 30px">
+          ⬇ {{ t('p_download') }}</button>
+      </div>
+
+      <hr style="border:none; border-top:1px solid var(--card-border); margin:20px 0 14px">
+      <label>✒️ {{ t('add_font') }}</label>
+      <form method="post" action="{{ url_for('font_upload') }}" enctype="multipart/form-data"
+            style="display:flex; gap:8px">
+        <input type="file" name="font" accept=".ttf,.otf,.woff,.woff2" required style="flex:1">
+        <button class="small" type="submit">➕ {{ t('upload_font') }}</button>
+      </form>
+      {% if user_fonts %}
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px">
+        {% for f in user_fonts %}
+        <span class="badge medium" style="display:inline-flex; align-items:center; gap:6px; font-size:.74rem">
+          ★ {{ f.name }}
+          <form method="post" action="{{ url_for('font_delete', font_id=f.id) }}" style="display:inline">
+            <button type="submit" style="background:none; border:none; color:var(--high);
+                    cursor:pointer; padding:0; font-size:.8rem">✕</button>
+          </form>
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="card" style="display:flex; align-items:center; justify-content:center">
+      <canvas id="cv" width="800" height="1130"
+              style="max-width:100%; max-height:78vh; height:auto; border-radius:14px;
+              box-shadow:0 14px 40px rgba(0,0,0,.4)"></canvas>
+    </div>
+  </div>
+<script>
+const TPLS = [
+  {c:["#2b1f5c","#7c5cff","#e879f9"], txt:"#ffffff"},
+  {c:["#7c2d12","#f97316","#fde047"], txt:"#ffffff"},
+  {c:["#0c4a6e","#0ea5e9","#67e8f9"], txt:"#ffffff"},
+  {c:["#14532d","#22c55e","#bef264"], txt:"#ffffff"},
+  {c:["#09090b","#27272a","#52525b"], txt:"#fafafa"},
+  {c:["#faf7f2","#f1e8dc","#e7d8c9"], txt:"#3b2f2f"},
+];
+const cvs = document.getElementById("cv"), x = cvs.getContext("2d");
+const V = id => document.getElementById(id).value;
+function applyTpl() {
+  const t = TPLS[+V("tpl")];
+  ["c1","c2","c3"].forEach((id, i) => document.getElementById(id).value = t.c[i]);
+  document.getElementById("ctxt").value = t.txt;
+  draw();
+}
+function applySize() {
+  const [w, h] = V("size").split("x").map(Number);
+  cvs.width = w; cvs.height = h; draw();
+}
+function loadFontAndDraw() {
+  const f = V("font");
+  Promise.all([
+    document.fonts.load('700 100px "' + f + '"'),
+    document.fonts.load('100px "' + f + '"')
+  ]).then(draw).catch(draw);
+}
+function draw() {
+  const W = cvs.width, H = cvs.height, txtC = V("ctxt"), font = V("font");
+  const g = x.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, V("c1")); g.addColorStop(.55, V("c2")); g.addColorStop(1, V("c3"));
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  // decoration
+  const pat = V("pat");
+  x.globalAlpha = .13; x.fillStyle = txtC; x.strokeStyle = txtC;
+  if (pat === "circles") {
+    [[W*.9,H*.07,W*.16],[W*.06,H*.86,W*.2],[W*.14,H*.13,W*.08],[W*.88,H*.78,W*.1]]
+      .forEach(([cx,cy,r]) => { x.beginPath(); x.arc(cx,cy,r,0,7); x.fill(); });
+  } else if (pat === "grid") {
+    x.lineWidth = 1;
+    for (let i = 0; i < W; i += 60) { x.beginPath(); x.moveTo(i,0); x.lineTo(i,H); x.stroke(); }
+    for (let i = 0; i < H; i += 60) { x.beginPath(); x.moveTo(0,i); x.lineTo(W,i); x.stroke(); }
+  } else if (pat === "waves") {
+    x.lineWidth = 3;
+    for (let yy = H*.75; yy < H; yy += 26) {
+      x.beginPath();
+      for (let xx = 0; xx <= W; xx += 8)
+        x.lineTo(xx, yy + Math.sin(xx/46 + yy) * 9);
+      x.stroke();
+    }
+  }
+  x.globalAlpha = 1;
+  // top accent bar
+  x.fillStyle = txtC; x.globalAlpha = .85;
+  x.fillRect(W/2 - 40, H*.045, 80, 6); x.globalAlpha = 1;
+  // emoji
+  x.textAlign = "center";
+  x.font = Math.round(W*.2) + "px serif";
+  x.fillText(V("emoji") || "🎓", W/2, H*.24);
+  // title
+  const ts = +V("tsize") * W / 800;
+  x.fillStyle = txtC;
+  x.font = '700 ' + ts + 'px "' + font + '", Segoe UI, sans-serif';
+  wrap(V("ttl"), W/2, H*.4, W-120, ts*1.08);
+  // divider
+  x.globalAlpha = .6; x.fillRect(W/2 - W*.14, H*.5, W*.28, 3); x.globalAlpha = 1;
+  // subtitle
+  x.font = '600 ' + Math.round(W*.05) + 'px "' + font + '", Segoe UI, sans-serif';
+  x.globalAlpha = .95;
+  wrap(V("sub"), W/2, H*.575, W-140, W*.062);
+  // body
+  x.font = Math.round(W*.037) + "px Poppins, Segoe UI, sans-serif";
+  x.globalAlpha = .88;
+  let y = H*.68;
+  V("body").split("\n").slice(0, 6).forEach(line => {
+    if (line.trim()) { x.fillText(line.trim(), W/2, y); y += W*.062; }
+  });
+  x.globalAlpha = .55; x.font = Math.round(W*.026) + "px Poppins, sans-serif";
+  x.fillText("— {{ settings.site_name }} —", W/2, H - H*.035);
+  x.globalAlpha = 1;
+}
+function wrap(text, cx, cy, maxW, lh) {
+  const words = (text || "").split(" "); let line = "", y = cy;
+  words.forEach(w => {
+    if (x.measureText(line + " " + w).width > maxW && line) {
+      x.fillText(line, cx, y); line = w; y += lh;
+    } else line = line ? line + " " + w : w;
+  });
+  x.fillText(line, cx, y);
+}
+function dl() {
+  const a = document.createElement("a");
+  a.download = "poster.png"; a.href = cvs.toDataURL("image/png"); a.click();
+}
+document.fonts.ready.then(loadFontAndDraw);
+loadFontAndDraw();
+</script>
+{% endblock %}

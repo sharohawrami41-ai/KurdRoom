@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ gfonts }}">
+<style>
+{% for f in user_fonts %}
+@font-face { font-family: "{{ f.name }}";
+  src: url("{{ url_for('static', filename='fonts/' + f.stored) }}"); }
+{% endfor %}
+#cvPreview { background:#fff; color:#20242e; border-radius:14px; overflow:hidden;
+  min-height:640px; box-shadow:0 14px 44px rgba(0,0,0,.35); }
+#cvPreview .inner { padding:38px 44px; }
+#cvPreview h1 { font-size:1.85rem; margin-bottom:2px; line-height:1.15 }
+#cvPreview .role { font-weight:700; font-size:1rem }
+#cvPreview .contact { color:#5b6270; font-size:.84rem; margin-top:5px }
+#cvPreview h3 { font-size:.82rem; text-transform:uppercase; letter-spacing:2px;
+  padding-bottom:5px; margin:22px 0 9px; }
+#cvPreview p, #cvPreview li { font-size:.9rem; line-height:1.6 }
+#cvPreview ul { padding-inline-start:18px }
+#cvPreview .chip { display:inline-block; border-radius:999px;
+  padding:4px 13px; font-size:.78rem; margin:2px; font-weight:600 }
+/* classic */
+#cvPreview.classic .inner { text-align:center }
+#cvPreview.classic h3 { border-bottom:2px solid; text-align:start }
+#cvPreview.classic ul, #cvPreview.classic p { text-align:start }
+/* modern: top banner */
+#cvPreview.modern .banner { padding:34px 44px 26px; color:#fff }
+#cvPreview.modern .banner h1 { color:#fff }
+#cvPreview.modern .banner .role { color:rgba(255,255,255,.92) }
+#cvPreview.modern .banner .contact { color:rgba(255,255,255,.75) }
+#cvPreview.modern h3 { border-inline-start:4px solid; padding-inline-start:10px }
+/* minimal */
+#cvPreview.minimal h1 { font-weight:300; letter-spacing:1px }
+#cvPreview.minimal h3 { border-bottom:1px solid #d8dbe2; color:#7a8194 }
+#cvPreview.minimal .chip { background:#f1f2f6 !important; color:#3a4152 !important }
+@media print {
+  .topbar, .bottombar, .mobile-menu, footer, .no-print, .flash { display:none !important; }
+  body { background:#fff !important; padding:0 !important; }
+  .container { max-width:none; padding:0; }
+  .grid2 { display:block; }
+  #cvPreview { border-radius:0; box-shadow:none; }
+}
+</style>
+  <h2 class="no-print" style="font-size:1.4rem; margin:8px 0 18px">📄 {{ t('cv_builder') }}</h2>
+  <div class="grid2" style="grid-template-columns: 1fr 1.2fr">
+    <div class="card no-print">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px">
+        <div>
+          <label>{{ t('cv_template') }}</label>
+          <select id="f_tpl" onchange="cvDraw()">
+            <option value="classic">{{ t('cvt_classic') }}</option>
+            <option value="modern" selected>{{ t('cvt_modern') }}</option>
+            <option value="minimal">{{ t('cvt_minimal') }}</option>
+          </select>
+        </div>
+        <div>
+          <label>{{ t('font') }}</label>
+          <select id="f_font" onchange="cvDraw()">
+            <option value="Georgia">Georgia</option>
+            {% for f in fonts %}<option value="{{ f }}" {{ 'selected' if f == 'Poppins' }}>{{ f }}</option>{% endfor %}
+            {% for f in user_fonts %}<option value="{{ f.name }}">★ {{ f.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>{{ t('accent') }}</label>
+          <input type="color" id="f_accent" value="#7c5cff" style="height:44px; padding:3px"
+                 oninput="cvDraw()">
+        </div>
+      </div>
+      <label>{{ t('full_name') }}</label>
+      <input id="f_name" value="{{ cu.full_name or cu.username }}" oninput="cvDraw()">
+      <label>{{ t('cv_title') }}</label>
+      <input id="f_role" placeholder="Computer Science Student" oninput="cvDraw()">
+      <label>{{ t('cv_contact') }}</label>
+      <input id="f_contact" value="{{ cu.email or '' }}" oninput="cvDraw()">
+      <label>{{ t('cv_summary') }}</label>
+      <textarea id="f_sum" rows="3" oninput="cvDraw()">{{ cu.bio or '' }}</textarea>
+      <label>{{ t('cv_education') }}</label>
+      <textarea id="f_edu" rows="3" oninput="cvDraw()">2022–2026 — B.Sc. Computer Science, University</textarea>
+      <label>{{ t('cv_experience') }}</label>
+      <textarea id="f_exp" rows="3" oninput="cvDraw()"></textarea>
+      <label>{{ t('cv_skills') }}</label>
+      <input id="f_skills" placeholder="Python, Excel, Teamwork" oninput="cvDraw()">
+      <label>{{ t('cv_langs') }}</label>
+      <input id="f_langs" placeholder="Kurdish, Arabic, English" oninput="cvDraw()">
+      <div style="margin-top:16px">
+        <button class="primary" onclick="window.print()" style="width:auto; padding:12px 30px">
+          🖨 {{ t('cv_print') }}</button>
+      </div>
+      <hr style="border:none; border-top:1px solid var(--card-border); margin:20px 0 14px">
+      <label>✒️ {{ t('add_font') }}</label>
+      <form method="post" action="{{ url_for('font_upload') }}" enctype="multipart/form-data"
+            style="display:flex; gap:8px">
+        <input type="file" name="font" accept=".ttf,.otf,.woff,.woff2" required style="flex:1">
+        <button class="small" type="submit">➕ {{ t('upload_font') }}</button>
+      </form>
+    </div>
+    <div id="cvPreview" class="modern"><div id="cvInner"></div></div>
+  </div>
+<script>
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+function lines(id){ return document.getElementById(id).value.split("\n").filter(l=>l.trim()); }
+function chips(id){ return document.getElementById(id).value.split(",").map(s=>s.trim()).filter(Boolean); }
+const V = id => document.getElementById(id).value;
+function sec(title, inner) {
+  return "<h3 style='border-color:" + V("f_accent") + "'>" + title + "</h3>" + inner;
+}
+function cvDraw() {
+  const tpl = V("f_tpl"), ac = V("f_accent"), prev = document.getElementById("cvPreview");
+  prev.className = tpl;
+  prev.style.fontFamily = '"' + V("f_font") + '", Georgia, serif';
+  let head =
+    "<h1>" + esc(V("f_name")) + "</h1>" +
+    (V("f_role") ? '<div class="role" style="color:' + (tpl==='modern'?'':'') + ac + '">' + esc(V("f_role")) + "</div>" : "") +
+    (V("f_contact") ? '<div class="contact">' + esc(V("f_contact")) + "</div>" : "");
+  let body = "";
+  if (V("f_sum")) body += sec("{{ t('cv_summary') }}", "<p>" + esc(V("f_sum")) + "</p>");
+  if (lines("f_edu").length) body += sec("{{ t('cv_education').split('(')[0] }}",
+    "<ul>" + lines("f_edu").map(l => "<li>" + esc(l) + "</li>").join("") + "</ul>");
+  if (lines("f_exp").length) body += sec("{{ t('cv_experience').split('(')[0] }}",
+    "<ul>" + lines("f_exp").map(l => "<li>" + esc(l) + "</li>").join("") + "</ul>");
+  if (chips("f_skills").length) body += sec("{{ t('cv_skills').split('(')[0] }}",
+    chips("f_skills").map(s => '<span class="chip" style="background:' + ac + '22; color:' + ac + '">' + esc(s) + "</span>").join(" "));
+  if (chips("f_langs").length) body += sec("{{ t('cv_langs').split('(')[0] }}",
+    chips("f_langs").map(s => '<span class="chip" style="background:' + ac + '22; color:' + ac + '">' + esc(s) + "</span>").join(" "));
+  if (tpl === "modern") {
+    prev.innerHTML = '<div class="banner" style="background:linear-gradient(115deg,' + ac + ", " + ac + 'cc)">' +
+      head + '</div><div class="inner">' + body + "</div>";
+  } else {
+    prev.innerHTML = '<div class="inner">' + head + body + "</div>";
+  }
+}
+document.getElementById("f_font").addEventListener("change", () => {
+  document.fonts.load('16px "' + V("f_font") + '"').then(cvDraw).catch(cvDraw);
+});
+cvDraw();
+</script>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  <div class="card" style="margin-bottom:22px">
+    <h2>➕ {{ t('create_group') }}</h2>
+    <div class="hint">{{ t('no_groups') if not groups else '' }}</div>
+    <form method="post" action="{{ url_for('group_create') }}">
+      <div class="grid2">
+        <div>
+          <label>{{ t('group_name') }}</label>
+          <input name="name" required maxlength="50">
+          <label>{{ t('group_desc') }}</label>
+          <input name="description" maxlength="150">
+        </div>
+        <div>
+          <div class="grid2">
+            <div>
+              <label>{{ t('frequency') }}</label>
+              <select name="frequency">
+                <option value="weekly">🗓 {{ t('weekly') }}</option>
+                <option value="biweekly">🗓 {{ t('biweekly') }}</option>
+                <option value="monthly">🗓 {{ t('monthly') }}</option>
+              </select>
+            </div>
+            <div>
+              <label>{{ t('first_meeting') }}</label>
+              <input type="date" name="first_meeting">
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <button class="primary" type="submit">{{ t('create_group') }}</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+<style>
+  .group-card { position: relative; cursor: pointer; overflow: hidden;
+    transition: transform .3s cubic-bezier(.22,.9,.36,1), box-shadow .3s, border-color .3s; }
+  .group-card::before { content:""; position:absolute; inset:0; height:5px;
+    background: linear-gradient(270deg, var(--accent), #e879f9, #5cc8ff, var(--accent));
+    background-size: 400% 400%; animation: gradientShift 8s ease infinite; }
+  .group-card:hover { transform: translateY(-6px) scale(1.015);
+    border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+    box-shadow: 0 18px 44px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .group-card:hover .go-arrow { transform: translateX({{ '-6px' if is_rtl else '6px' }}); opacity: 1; }
+  .go-arrow { transition: transform .3s, opacity .3s; opacity: .35; }
+</style>
+  <div class="grid2">
+    {% for g in groups %}
+    <a href="{{ url_for('group_page', group_id=g.id) }}" style="color:inherit">
+      <div class="card group-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
+          <h2 style="font-size:1.15rem">💬 {{ g.name }}
+            <span class="go-arrow" style="display:inline-block">{{ '←' if is_rtl else '→' }}</span></h2>
+          <span class="badge medium">{{ t(g.frequency) }}</span>
+        </div>
+        {% if g.description %}
+          <div style="color:var(--muted); font-size:.85rem; margin-top:4px">{{ g.description }}</div>
+        {% endif %}
+        <div class="plan-meta" style="margin-top:12px">
+          <span>👥 {{ g.member_count }} {{ t('members') }}</span>
+          <span>· {{ t('owner') }}: {{ g.owner_name }}</span>
+        </div>
+        {% if g.next_meeting %}
+        <div style="margin-top:12px; padding:10px 14px; border-radius:12px;
+             background: color-mix(in srgb, var(--accent) 14%, transparent);
+             font-size:.88rem">
+          {% if g.days_to_meeting == 0 %}
+            ⚡ <strong>{{ t('meeting_today') }}</strong>
+          {% else %}
+            📅 {{ t('next_meeting') }}: <strong>{{ g.next_meeting }}</strong>
+            (<strong>{{ g.days_to_meeting }}</strong> {{ t('days_short') }})
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+{% endblock %}

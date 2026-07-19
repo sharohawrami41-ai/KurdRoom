@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">🔖 {{ t('citations_t') }} (APA / MLA / Harvard)</h2>
+  <div class="grid2">
+    <div class="card">
+      <label>{{ t('c_type') }}</label>
+      <select id="ctype" onchange="cite()">
+        <option value="book">📕 {{ t('c_book') }}</option>
+        <option value="web">🌐 {{ t('c_web') }}</option>
+        <option value="journal">📑 {{ t('c_journal') }}</option>
+      </select>
+      <label>{{ t('c_author') }}</label>
+      <input id="c_a" placeholder="Ahmed, D." oninput="cite()">
+      <label>{{ t('c_year') }}</label>
+      <input id="c_y" placeholder="2026" oninput="cite()">
+      <label>{{ t('c_title2') }}</label>
+      <input id="c_t" oninput="cite()">
+      <div id="f_book"><label>{{ t('c_publisher') }}</label><input id="c_p" oninput="cite()"></div>
+      <div id="f_web" style="display:none">
+        <label>{{ t('c_site') }}</label><input id="c_s" oninput="cite()">
+        <label>{{ t('c_url') }}</label><input id="c_u" oninput="cite()" dir="ltr"></div>
+      <div id="f_journal" style="display:none">
+        <label>{{ t('c_journal_n') }}</label><input id="c_j" oninput="cite()">
+        <label>{{ t('c_pages') }}</label><input id="c_pg" placeholder="12–34" oninput="cite()"></div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <h2>APA 7</h2><div class="hint"></div>
+        <p id="apa" dir="ltr" style="font-size:.92rem; line-height:1.7; user-select:all"></p>
+        <button class="small" onclick="cp('apa', this)">📋 {{ t('c_copy') }}</button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <h2>MLA 9</h2><div class="hint"></div>
+        <p id="mla" dir="ltr" style="font-size:.92rem; line-height:1.7; user-select:all"></p>
+        <button class="small" onclick="cp('mla', this)">📋 {{ t('c_copy') }}</button>
+      </div>
+      <div class="card">
+        <h2>Harvard</h2><div class="hint"></div>
+        <p id="harv" dir="ltr" style="font-size:.92rem; line-height:1.7; user-select:all"></p>
+        <button class="small" onclick="cp('harv', this)">📋 {{ t('c_copy') }}</button>
+      </div>
+    </div>
+  </div>
+<script>
+const V = id => document.getElementById(id).value.trim();
+function cite() {
+  const ty = V("ctype");
+  ["book","web","journal"].forEach(k =>
+    document.getElementById("f_"+k).style.display = ty === k ? "block" : "none");
+  const a = V("c_a") || "Author, A.", y = V("c_y") || "n.d.", t = V("c_t") || "Title";
+  const today = new Date();
+  const accessed = today.getDate() + " " +
+    ["January","February","March","April","May","June","July","August",
+     "September","October","November","December"][today.getMonth()] + " " +
+    today.getFullYear();
+  let apa = "", mla = "", harv = "";
+  if (ty === "book") {
+    const p = V("c_p") || "Publisher";
+    apa = `${a} (${y}). <i>${t}</i>. ${p}.`;
+    mla = `${a} <i>${t}</i>. ${p}, ${y}.`;
+    harv = `${a} (${y}) <i>${t}</i>. ${p}.`;
+  } else if (ty === "web") {
+    const s = V("c_s") || "Website", u = V("c_u") || "https://…";
+    apa = `${a} (${y}). <i>${t}</i>. ${s}. ${u}`;
+    mla = `${a} “${t}.” <i>${s}</i>, ${y}, ${u}.`;
+    harv = `${a} (${y}) <i>${t}</i>. Available at: ${u} (Accessed: ${accessed}).`;
+  } else {
+    const j = V("c_j") || "Journal", pg = V("c_pg") || "1–10";
+    apa = `${a} (${y}). ${t}. <i>${j}</i>, ${pg}.`;
+    mla = `${a} “${t}.” <i>${j}</i>, ${y}, pp. ${pg}.`;
+    harv = `${a} (${y}) ‘${t}’, <i>${j}</i>, pp. ${pg}.`;
+  }
+  document.getElementById("apa").innerHTML = apa;
+  document.getElementById("mla").innerHTML = mla;
+  document.getElementById("harv").innerHTML = harv;
+}
+function cp(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+    btn.textContent = "✓ {{ t('c_copied') }}";
+    setTimeout(() => btn.textContent = "📋 {{ t('c_copy') }}", 1500);
+  });
+}
+cite();
+</script>
+{% endblock %}

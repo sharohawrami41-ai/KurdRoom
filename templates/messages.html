@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_widgets.html" import avi with context %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">✉️ {{ t('messages_t') }}</h2>
+  <div class="card">
+    <div class="hint">{{ t('no_convos') if not convos else '' }}</div>
+    {% for c in convos %}
+    <a href="{{ url_for('dm_thread', username=c.friend.username) }}" style="color:inherit">
+      <div class="plan {{ 'high' if c.unread else 'medium' }}" style="align-items:center">
+        {{ avi(c.friend.id, c.friend.username, 46, '1.15rem') }}
+        <div class="plan-body">
+          <strong>{{ c.friend.full_name or c.friend.username }}</strong>
+          <div style="font-size:.8rem; color:var(--muted); overflow:hidden;
+               text-overflow:ellipsis; white-space:nowrap; max-width:420px">
+            {% if c.last %}{{ c.last.content }}{% else %}{{ t('open_chat') }} →{% endif %}
+          </div>
+        </div>
+        {% if c.unread %}
+          <span style="background:var(--high); color:#fff; font-size:.7rem; font-weight:800;
+                min-width:22px; height:22px; border-radius:999px; display:inline-flex;
+                align-items:center; justify-content:center; padding:0 6px">{{ c.unread }}</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+{% endblock %}

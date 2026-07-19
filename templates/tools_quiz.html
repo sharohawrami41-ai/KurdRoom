@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">❓ {{ t('quiz_mode') }}</h2>
+
+  {% if cards|length < 4 %}
+  <div class="card" style="text-align:center; padding:40px">
+    <div style="font-size:2.5rem">🃏</div>
+    <p style="margin-top:10px; color:var(--muted)">{{ t('q_need') }}</p>
+    <a class="pill" href="{{ url_for('university') }}" style="margin-top:14px; display:inline-block">
+      🎓 {{ t('university') }} →</a>
+  </div>
+  {% else %}
+  <div class="card" id="setup" style="max-width:480px; margin:0 auto; text-align:center">
+    <label style="text-align:start">{{ t('fc_subject') }}</label>
+    <select id="qsub">
+      <option value="*">— {{ t('quiz_mode') }}: {{ cards|length }} 🃏 —</option>
+      {% for s in subjects %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <div style="margin-top:16px">
+      <button class="primary" onclick="qStart()" style="width:auto; padding:12px 34px">
+        ▶ {{ t('q_start') }}</button>
+    </div>
+  </div>
+
+  <div id="quiz" style="display:none; max-width:620px; margin:0 auto">
+    <div class="progress-wrap"><div class="progress"><div id="qbar" style="width:0%"></div></div>
+      <span class="progress-label" id="qpos"></span></div>
+    <div class="card">
+      <div id="qq" style="font-size:1.1rem; font-weight:700; margin-bottom:16px"></div>
+      <div id="qopts" style="display:flex; flex-direction:column; gap:10px"></div>
+      <div id="qfb" style="margin-top:14px; font-weight:700; display:none"></div>
+    </div>
+  </div>
+
+  <div id="done" style="display:none; max-width:480px; margin:0 auto">
+    <div class="card" style="text-align:center; padding:36px">
+      <div style="font-size:3rem">🏆</div>
+      <div style="font-size:.85rem; color:var(--muted); margin-top:10px">{{ t('q_score') }}</div>
+      <div id="qscore" style="font-size:2.6rem; font-weight:800; color:var(--accent)"></div>
+      <button class="primary" onclick="location.reload()"
+              style="width:auto; padding:12px 30px; margin-top:16px">↺ {{ t('q_restart') }}</button>
+    </div>
+  </div>
+
+<script>
+const CARDS = {{ cards|tojson }};
+let qs = [], qi = 0, score = 0;
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function qStart() {
+  const sub = document.getElementById("qsub").value;
+  let pool = sub === "*" ? CARDS.slice() : CARDS.filter(c => c.s === sub);
+  if (pool.length < 2) pool = CARDS.slice();
+  qs = shuffle(pool.slice()).slice(0, 10).map(c => {
+    const wrong = shuffle(CARDS.filter(o => o.a !== c.a).map(o => o.a)).slice(0, 3);
+    return { q: c.q, correct: c.a, opts: shuffle([c.a].concat(wrong)) };
+  });
+  qi = 0; score = 0;
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("quiz").style.display = "block";
+  qShow();
+}
+function qShow() {
+  const q = qs[qi];
+  document.getElementById("qbar").style.width = (qi / qs.length * 100) + "%";
+  document.getElementById("qpos").textContent = (qi + 1) + " {{ t('q_of') }} " + qs.length;
+  document.getElementById("qq").textContent = q.q;
+  document.getElementById("qfb").style.display = "none";
+  document.getElementById("qopts").innerHTML = q.opts.map((o, i) =>
+    '<button class="small" style="text-align:start; padding:13px 16px; font-size:.92rem" ' +
+    'onclick="qPick(this, ' + i + ')">' + esc(o) + "</button>").join("");
+}
+function qPick(btn, i) {
+  const q = qs[qi], fb = document.getElementById("qfb");
+  document.querySelectorAll("#qopts button").forEach(b => b.disabled = true);
+  if (q.opts[i] === q.correct) {
+    score++; btn.style.borderColor = "var(--ok)"; btn.style.color = "var(--ok)";
+    fb.textContent = "{{ t('q_correct') }}"; fb.style.color = "var(--ok)";
+  } else {
+    btn.style.borderColor = "var(--high)"; btn.style.color = "var(--high)";
+    fb.textContent = "{{ t('q_wrong') }} " + q.correct; fb.style.color = "var(--high)";
+  }
+  fb.style.display = "block";
+  setTimeout(() => {
+    qi++;
+    if (qi < qs.length) qShow();
+    else {
+      document.getElementById("quiz").style.display = "none";
+      document.getElementById("done").style.display = "block";
+      document.getElementById("qscore").textContent = score + " / " + qs.length;
+    }
+  }, 1400);
+}
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+</script>
+  {% endif %}
+{% endblock %}

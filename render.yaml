@@ -1,0 +1,18 @@
+# Render.com blueprint — deploy FocusPlan in a few clicks.
+# In Render: New + → Blueprint → connect your GitHub repo containing this folder.
+services:
+  - type: web
+    name: focusplan
+    runtime: python
+    plan: starter            # $7/mo, always-on + persistent disk (recommended)
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true   # Render creates a strong random secret for you
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: focusplan-data
+      mountPath: /var/data
+      sizeGB: 1               # database + photos + files live here, survive deploys

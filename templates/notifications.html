@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">🔔 {{ t('notifications') }}</h2>
+
+  {% if reminders %}
+  <div class="card" style="margin-bottom:20px; border-color: color-mix(in srgb, var(--high) 50%, transparent)">
+    <h2>⏰ {{ t('reminders') }}</h2>
+    <div class="hint"></div>
+    {% for r in reminders %}
+    <a href="{{ r.link }}" style="color:inherit">
+      <div class="plan high" style="align-items:center">
+        <span style="font-size:1.4rem">{{ '📚' if r.kind == 'exam' else '👥' }}</span>
+        <div class="plan-body">
+          <strong>{{ t('ntf_' + r.kind) }} {{ r.actor }}</strong>
+          <div style="font-size:.78rem; color:var(--muted)">
+            {% if r.left == 0 %}{{ t('today') }}!{% else %}{{ r.left }} {{ t('days_short') }}{% endif %}
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="hint">{{ t('no_notifications') if not stored and not reminders else '' }}</div>
+    {% for n in stored %}
+    <a href="{{ n.link or '#' }}" style="color:inherit">
+      <div class="plan {{ 'medium' if not n.is_read else 'low' }}" style="align-items:center">
+        <span style="font-size:1.3rem">
+          {{ {'friend_req':'👥','friend_acc':'🤝','group_msg':'💬','group_add':'➕',
+              'badge':'🏅','dm':'✉️'}.get(n.kind, '🔔') }}</span>
+        <div class="plan-body">
+          {% if n.kind == 'badge' %}
+            <strong>{{ t('ntf_badge') }} {{ BADGES.get(n.actor, '🏅') }}
+              {{ t('badge_' + n.actor + '_n') }}</strong>
+          {% elif n.kind in ('group_msg', 'group_add') %}
+            <strong>{{ t('ntf_' + n.kind) }} “{{ n.actor }}”</strong>
+          {% else %}
+            <strong>{{ n.actor }}</strong> {{ t('ntf_' + n.kind) }}
+          {% endif %}
+          <div style="font-size:.72rem; color:var(--muted)" dir="ltr">
+            {{ n.created_at[5:16].replace('T',' ') }}</div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+{% endblock %}

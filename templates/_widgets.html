@@ -1,0 +1,10 @@
+{% macro avi(user_id, username, size=34, fs='.95rem') -%}
+  {%- set url = av(user_id) -%}
+  {%- if url -%}
+    <img src="{{ url }}" alt="{{ username }}" class="avi" loading="lazy"
+         style="width:{{ size }}px; height:{{ size }}px">
+  {%- else -%}
+    <span class="avi avi-letter" style="width:{{ size }}px; height:{{ size }}px; font-size:{{ fs }}">
+      {{ username[0]|upper }}</span>
+  {%- endif -%}
+{%- endmacro %}

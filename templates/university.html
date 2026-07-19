@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  <!-- ============================ exams ============================ -->
+  <div class="card" style="margin-bottom:22px">
+    <h2>⏳ {{ t('exams') }}</h2>
+    <div class="hint">{{ t('empty_exams') if not exams else '' }}</div>
+
+    <div class="grid2" style="grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:12px; margin-bottom:16px">
+      {% for e in exams %}
+      <div class="plan {{ 'high' if e.left is not none and 0 <= e.left <= 7 else 'medium' }}"
+           style="flex-direction:column; align-items:stretch; gap:6px; margin-bottom:0">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px">
+          <strong style="font-size:1.02rem">{{ e.subject }}</strong>
+          <form method="post" action="{{ url_for('exam_delete', exam_id=e.id) }}">
+            <button class="small warn" type="submit">✕</button>
+          </form>
+        </div>
+        {% if e.left is none %}
+          <span>{{ e.exam_date }}</span>
+        {% elif e.left < 0 %}
+          <span class="badge low" style="align-self:flex-start">✓ {{ t('exam_passed') }}</span>
+        {% elif e.left == 0 %}
+          <div style="font-size:1.6rem; font-weight:800; color:var(--high)" dir="ltr">⚠ {{ t('exam_today') }}</div>
+        {% elif e.left == 1 %}
+          <div style="font-size:1.5rem; font-weight:800; color:var(--high)">{{ t('exam_tomorrow') }}</div>
+        {% else %}
+          <div><span style="font-size:2rem; font-weight:800;
+                color: {{ 'var(--high)' if e.left <= 7 else 'var(--accent)' }}">{{ e.left }}</span>
+            <span style="color:var(--muted); font-size:.85rem"> {{ t('days_left') }}</span></div>
+        {% endif %}
+        <div style="font-size:.76rem; color:var(--muted)">📅 {{ e.exam_date }}
+          {% if e.note %} · {{ e.note }}{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{{ url_for('exam_add') }}"
+          style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end">
+      <div style="flex:1; min-width:160px"><label>{{ t('exam_subject') }}</label>
+        <input name="subject" required maxlength="60"></div>
+      <div><label>{{ t('exam_date') }}</label><input type="date" name="exam_date" required></div>
+      <div style="flex:1; min-width:160px"><label>{{ t('exam_note') }}</label>
+        <input name="note" maxlength="100"></div>
+      <button class="primary" type="submit" style="width:auto; padding:11px 22px">➕ {{ t('add_exam') }}</button>
+    </form>
+  </div>
+
+  <!-- ============================ timetable ============================ -->
+  <div class="card" style="margin-bottom:22px; overflow-x:auto">
+    <h2>🗓 {{ t('timetable') }}</h2>
+    <div class="hint"></div>
+    <div style="display:grid; grid-template-columns: repeat({{ grid|length }}, minmax(150px, 1fr)); gap:10px">
+      {% for d, classes in grid.items() %}
+      <div>
+        <div style="text-align:center; font-weight:700; font-size:.85rem; padding:8px;
+             border-radius:10px; background: color-mix(in srgb, var(--accent) 16%, transparent);
+             margin-bottom:8px">{{ t(day_keys[d]) }}</div>
+        {% for c in classes %}
+        <div class="plan medium" style="flex-direction:column; align-items:stretch; gap:4px;
+             padding:10px 12px; margin-bottom:8px">
+          <div style="display:flex; justify-content:space-between; gap:6px">
+            <strong style="font-size:.88rem">{{ c.subject }}</strong>
+            <form method="post" action="{{ url_for('class_delete', class_id=c.id) }}">
+              <button class="small warn" type="submit" style="padding:2px 7px">✕</button>
+            </form>
+          </div>
+          <div style="font-size:.74rem; color:var(--muted)" dir="ltr">
+            🕐 {{ c.start_time }}{% if c.end_time %}–{{ c.end_time }}{% endif %}
+            {% if c.room %} · 🚪 {{ c.room }}{% endif %}</div>
+        </div>
+        {% else %}
+        <div style="text-align:center; color:var(--muted); font-size:.9rem; padding:12px 0">
+          {{ t('empty_day') }}</div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <form method="post" action="{{ url_for('class_add') }}"
+          style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-top:16px">
+      <div><label>{{ t('day') }}</label>
+        <select name="day">
+          {% for i in [1,2,3,4,5,6,0] %}
+            <option value="{{ i }}">{{ t(day_keys[i]) }}</option>
+          {% endfor %}
+        </select></div>
+      <div style="flex:1; min-width:150px"><label>{{ t('subject') if false else t('exam_subject') }}</label>
+        <input name="subject" required maxlength="60"></div>
+      <div><label>{{ t('start_t') }}</label><input type="time" name="start_time" required></div>
+      <div><label>{{ t('end_t') }}</label><input type="time" name="end_time"></div>
+      <div><label>{{ t('room') }}</label><input name="room" maxlength="30" style="width:110px"></div>
+      <button class="primary" type="submit" style="width:auto; padding:11px 22px">➕ {{ t('add_class') }}</button>
+    </form>
+  </div>
+
+  <div class="grid2">
+    <!-- ============================ flashcards ============================ -->
+    <div class="card">
+      <h2>🃏 {{ t('flashcards') }} ({{ cards|length }})</h2>
+      <div class="hint">{{ t('empty_cards') if not cards else '' }}</div>
+
+      {% if cards %}
+      <div style="margin-bottom:14px">
+        <label>{{ t('fc_subject') }}</label>
+        <select id="fcSubject" onchange="fcPick()">
+          {% for s in subjects %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div id="fcCard" onclick="fcFlip()" style="cursor:pointer; min-height:150px; border-radius:16px;
+           display:flex; align-items:center; justify-content:center; text-align:center; padding:22px;
+           background: color-mix(in srgb, var(--accent) 14%, transparent);
+           border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+           font-size:1.05rem; font-weight:600; user-select:none"></div>
+      <div style="display:flex; gap:8px; justify-content:center; margin-top:12px; align-items:center">
+        <button class="small" onclick="fcMove(-1)">‹ {{ t('prev_card') }}</button>
+        <button class="small" onclick="fcFlip()" style="border-color:var(--accent)">👁 {{ t('show_answer') }}</button>
+        <button class="small" onclick="fcMove(1)">{{ t('next_card') }} ›</button>
+      </div>
+      <div id="fcPos" style="text-align:center; color:var(--muted); font-size:.76rem; margin-top:8px"></div>
+
+      <details style="margin-top:14px">
+        <summary>{{ t('flashcards') }} — {{ t('delete') }}</summary>
+        {% for c in cards %}
+        <div style="display:flex; gap:8px; align-items:center; padding:6px 0;
+             border-bottom:1px solid var(--card-border); font-size:.82rem">
+          <span class="badge medium">{{ c.subject }}</span>
+          <span style="flex:1">{{ c.question }}</span>
+          <form method="post" action="{{ url_for('flashcard_delete', card_id=c.id) }}">
+            <button class="small warn" type="submit" style="padding:2px 8px">✕</button>
+          </form>
+        </div>
+        {% endfor %}
+      </details>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('flashcard_add') }}" style="margin-top:14px">
+        <label>{{ t('fc_subject') }}</label>
+        <input name="subject" required maxlength="40" list="fcSubjects">
+        <datalist id="fcSubjects">
+          {% for s in subjects %}<option value="{{ s }}">{% endfor %}
+        </datalist>
+        <label>{{ t('fc_question') }}</label>
+        <input name="question" required maxlength="300">
+        <label>{{ t('fc_answer') }}</label>
+        <input name="answer" required maxlength="300">
+        <div style="margin-top:12px">
+          <button class="primary" type="submit" style="width:auto; padding:10px 24px">➕ {{ t('add_card') }}</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ============================ GPA ============================ -->
+    <div class="card">
+      <h2>🎓 {{ t('gpa_calc') }}</h2>
+      <div class="hint">{{ t('gpa_hint') }}</div>
+      <div id="gpaRows"></div>
+      <button class="small" onclick="gpaAdd()" style="margin-top:6px">➕ {{ t('add_row') }}</button>
+      <div style="margin-top:18px; text-align:center; padding:16px; border-radius:14px;
+           background: color-mix(in srgb, var(--accent) 14%, transparent)">
+        <div style="font-size:.8rem; color:var(--muted)">{{ t('your_gpa') }}</div>
+        <div id="gpaOut" style="font-size:2.4rem; font-weight:800" dir="ltr">0.00</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------- flashcards ---------- */
+const FC = {{ fc_data|tojson }};
+let fcList = [], fcI = 0, fcShowA = false;
+function fcPick() {
+  const s = document.getElementById("fcSubject").value;
+  fcList = FC.filter(c => c.s === s); fcI = 0; fcShowA = false; fcShow();
+}
+function fcShow() {
+  if (!fcList.length) return;
+  const c = fcList[fcI], el = document.getElementById("fcCard");
+  el.textContent = fcShowA ? c.a : c.q;
+  el.style.background = fcShowA ? "color-mix(in srgb, var(--ok) 16%, transparent)"
+                                : "color-mix(in srgb, var(--accent) 14%, transparent)";
+  document.getElementById("fcPos").textContent =
+    "{{ t('card') }} " + (fcI + 1) + " / " + fcList.length;
+}
+function fcFlip() { fcShowA = !fcShowA; fcShow(); }
+function fcMove(d) {
+  if (!fcList.length) return;
+  fcI = (fcI + d + fcList.length) % fcList.length; fcShowA = false; fcShow();
+}
+if (FC.length) fcPick();
+
+/* ---------- GPA ---------- */
+const GRADES = [["A",4],["A-",3.7],["B+",3.3],["B",3],["B-",2.7],
+                ["C+",2.3],["C",2],["C-",1.7],["D+",1.3],["D",1],["F",0]];
+function gpaAdd() {
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex; gap:8px; margin-top:8px; align-items:center";
+  row.innerHTML =
+    '<input placeholder="{{ t('course') }}" style="flex:2">' +
+    '<input type="number" min="1" max="12" value="3" title="{{ t('credits') }}" ' +
+    '  style="flex:1; min-width:64px" oninput="gpaCalc()">' +
+    '<select style="flex:1; min-width:80px" onchange="gpaCalc()">' +
+      GRADES.map(g => '<option value="' + g[1] + '">' + g[0] + "</option>").join("") +
+    "</select>" +
+    '<button class="small warn" onclick="this.parentNode.remove(); gpaCalc()">✕</button>';
+  document.getElementById("gpaRows").appendChild(row);
+  gpaCalc();
+}
+function gpaCalc() {
+  let pts = 0, crd = 0;
+  document.querySelectorAll("#gpaRows > div").forEach(r => {
+    const c = parseFloat(r.children[1].value) || 0,
+          g = parseFloat(r.children[2].value);
+    pts += c * g; crd += c;
+  });
+  document.getElementById("gpaOut").textContent = crd ? (pts / crd).toFixed(2) : "0.00";
+}
+gpaAdd(); gpaAdd(); gpaAdd();
+</script>
+{% endblock %}

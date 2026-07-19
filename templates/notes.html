@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  <div class="card" style="margin-bottom:22px">
+    <h2>📝 {{ t('new_note') }}</h2>
+    <div class="hint">{{ t('empty_notes') if not notes else '' }}</div>
+    <form method="post" action="{{ url_for('note_add') }}">
+      <label>{{ t('note_title') }}</label>
+      <input name="title" maxlength="80">
+      <label>{{ t('notes') }}</label>
+      <textarea name="content" rows="4" maxlength="5000" placeholder="{{ t('note_content') }}"></textarea>
+      <div style="margin-top:14px">
+        <button class="primary" type="submit" style="width:auto; padding:11px 30px">
+          ➕ {{ t('add') }}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="grid2">
+    {% for n in notes %}
+    <div class="card">
+      <form method="post" action="{{ url_for('note_update', note_id=n.id) }}">
+        <input name="title" maxlength="80" value="{{ n.title }}"
+               style="font-weight:700; font-size:1.02rem"
+               placeholder="{{ t('note_title') }}">
+        <textarea name="content" rows="6" maxlength="5000"
+                  style="margin-top:10px" placeholder="{{ t('note_content') }}">{{ n.content }}</textarea>
+        <div style="display:flex; gap:8px; margin-top:12px; align-items:center">
+          <button class="small" type="submit">💾 {{ t('save') }}</button>
+          <button class="small warn" type="submit"
+                  formaction="{{ url_for('note_delete', note_id=n.id) }}"
+                  onclick="return confirm('{{ t('confirm_del_plan') }}')">✕ {{ t('delete') }}</button>
+          <span style="font-size:.72rem; color:var(--muted); margin-inline-start:auto">
+            {{ n.updated_at[:16].replace('T', ' ') }}</span>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-wrap">
+  {% if quote %}<div class="quote">{{ quote }}</div>{% endif %}
+  <div class="card">
+    <div class="auth-title">{{ t('welcome_back') }} 👋</div>
+    <div class="auth-sub">{{ t('login') }}</div>
+    <form method="post">
+      <label>{{ t('username') }}</label>
+      <input name="username" required autofocus autocomplete="username">
+      <label>{{ t('password') }}</label>
+      <input type="password" name="password" required autocomplete="current-password">
+      <div style="margin-top:18px">
+        <button class="primary" type="submit">{{ t('login') }}</button>
+      </div>
+    </form>
+    <p style="margin-top:16px; font-size:.85rem; color:var(--muted)">
+      {{ t('no_account') }} <a href="{{ url_for('register') }}">{{ t('register') }}</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

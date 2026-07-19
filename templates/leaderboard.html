@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_widgets.html" import avi with context %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 4px">🏆 {{ t('leaderboard') }} — {{ t('this_week') }}</h2>
+  <div class="hint" style="margin-bottom:18px">{{ t('lb_hint') }}</div>
+
+  <div class="card">
+    {% for r in rows %}
+    <div class="plan {{ 'high' if r.person.id == cu.id else 'medium' }}"
+         style="align-items:center; animation-delay: {{ loop.index0 * 0.06 }}s">
+      <span style="font-size:1.5rem; width:44px; text-align:center; font-weight:800">
+        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉
+        {% else %}{{ loop.index }}{% endif %}</span>
+      <a href="{{ url_for('user_profile', username=r.person.username) }}">
+        {{ avi(r.person.id, r.person.username, 44, '1.1rem') }}</a>
+      <div class="plan-body">
+        <strong style="font-size:1.02rem">{{ r.person.full_name or r.person.username }}
+          {% if r.person.id == cu.id %}<span class="badge today">{{ t('you') }}</span>{% endif %}</strong>
+        <div class="plan-meta">
+          <span>✓ {{ r.plans }} {{ t('f_plans') }}</span>
+          <span>🔁 {{ r.habits }} {{ t('f_habits') }}</span>
+          <span>🔥 {{ r.streak }}</span>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent)">{{ r.points }}</div>
+        <div style="font-size:.68rem; color:var(--muted)">{{ t('points') }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}

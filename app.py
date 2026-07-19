@@ -1,0 +1,2559 @@
+"""
+FocusPlan — Schedule planner with login system, admin panel and 3 languages.
+Run:  python app.py   →  http://127.0.0.1:5001
+"""
+import os
+import sqlite3
+from datetime import datetime, date
+from functools import wraps
+
+from flask import (Flask, g, render_template, request, redirect, url_for,
+                   session, flash, abort)
+from werkzeug.security import generate_password_hash, check_password_hash
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "planner.db")
+
+# ---- persistent data dir for cloud hosts (Render disks etc.) --------------
+# Set DATA_DIR=/var/data (a mounted persistent disk) and the database plus all
+# uploads survive every redeploy. Locally, leave DATA_DIR unset — nothing changes.
+DATA_DIR = os.environ.get("DATA_DIR")
+if DATA_DIR:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    DB_PATH = os.path.join(DATA_DIR, "planner.db")
+    for sub, target in (("avatars", os.path.join(BASE_DIR, "static", "avatars")),
+                        ("fonts", os.path.join(BASE_DIR, "static", "fonts")),
+                        ("groupfiles", os.path.join(BASE_DIR, "groupfiles"))):
+        real = os.path.join(DATA_DIR, sub)
+        os.makedirs(real, exist_ok=True)
+        if not os.path.islink(target):
+            if os.path.isdir(target) and not os.listdir(target):
+                os.rmdir(target)
+            if not os.path.exists(target):
+                os.symlink(real, target)
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB uploads (photos & group files)
+
+AVATAR_EXTS = ("png", "jpg", "jpeg", "webp", "gif")
+
+
+def avatar_url(user_id):
+    """Return the static URL of a user's profile photo, or None."""
+    folder = os.path.join(BASE_DIR, "static", "avatars")
+    for ext in AVATAR_EXTS:
+        p = os.path.join(folder, f"{user_id}.{ext}")
+        if os.path.exists(p):
+            return url_for("static", filename=f"avatars/{user_id}.{ext}",
+                           v=int(os.path.getmtime(p)))
+    return None
+
+
+# ---------------------------------------------------------------- database
+def get_db():
+    if "db" not in g:
+        g.db = sqlite3.connect(DB_PATH)
+        g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys = ON")
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exc):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
+def init_db():
+    db = sqlite3.connect(DB_PATH)
+    db.executescript("""
+    CREATE TABLE IF NOT EXISTS users (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        username      TEXT UNIQUE NOT NULL COLLATE NOCASE,
+        password_hash TEXT NOT NULL,
+        is_admin      INTEGER NOT NULL DEFAULT 0,
+        created_at    TEXT NOT NULL,
+        last_login    TEXT
+    );
+    CREATE TABLE IF NOT EXISTS plans (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title      TEXT NOT NULL,
+        details    TEXT DEFAULT '',
+        plan_type  TEXT NOT NULL CHECK(plan_type IN ('short','long')),
+        priority   TEXT NOT NULL CHECK(priority IN ('high','medium','low')),
+        due_date   TEXT,
+        done       INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS quotes (
+        id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        text_en TEXT NOT NULL,
+        text_ar TEXT DEFAULT '',
+        text_ku TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS activity (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        day     TEXT NOT NULL,
+        PRIMARY KEY (user_id, day)
+    );
+    CREATE TABLE IF NOT EXISTS habits (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS habit_checks (
+        habit_id INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+        day      TEXT NOT NULL,
+        PRIMARY KEY (habit_id, day)
+    );
+    CREATE TABLE IF NOT EXISTS notes (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title      TEXT DEFAULT '',
+        content    TEXT DEFAULT '',
+        updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS exams (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject   TEXT NOT NULL,
+        exam_date TEXT NOT NULL,
+        note      TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS timetable (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        day        INTEGER NOT NULL,           -- 0=Sat 1=Sun ... 6=Fri
+        subject    TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time   TEXT DEFAULT '',
+        room       TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS flashcards (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject  TEXT NOT NULL,
+        question TEXT NOT NULL,
+        answer   TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS friendships (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        to_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status     TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted')),
+        created_at TEXT NOT NULL,
+        UNIQUE(from_id, to_id)
+    );
+    CREATE TABLE IF NOT EXISTS groups (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        name          TEXT NOT NULL,
+        description   TEXT DEFAULT '',
+        owner_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        frequency     TEXT NOT NULL DEFAULT 'weekly'
+                      CHECK(frequency IN ('weekly','biweekly','monthly')),
+        first_meeting TEXT,
+        created_at    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS group_members (
+        group_id  INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        joined_at TEXT NOT NULL,
+        PRIMARY KEY (group_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS group_messages (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content    TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS group_plans (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id    INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title       TEXT NOT NULL,
+        details     TEXT DEFAULT '',
+        target_date TEXT,
+        pinned      INTEGER NOT NULL DEFAULT 0,
+        created_at  TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS notifications (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        kind       TEXT NOT NULL,
+        actor      TEXT DEFAULT '',
+        link       TEXT DEFAULT '',
+        is_read    INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS dms (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        to_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content    TEXT NOT NULL,
+        is_read    INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS badges (
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code      TEXT NOT NULL,
+        earned_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS group_files (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        stored     TEXT NOT NULL,
+        orig_name  TEXT NOT NULL,
+        size       INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS group_decks (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject    TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(group_id, user_id, subject)
+    );
+    CREATE TABLE IF NOT EXISTS fonts (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        stored     TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """)
+    # migrations for databases created by earlier versions
+    for stmt in ("ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'dark'",
+                 "ALTER TABLE users ADD COLUMN accent TEXT",
+                 "ALTER TABLE users ADD COLUMN full_name TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''",
+                 "ALTER TABLE plans ADD COLUMN done_at TEXT"):
+        try:
+            db.execute(stmt)
+        except sqlite3.OperationalError:
+            pass  # column already exists
+    os.makedirs(os.path.join(BASE_DIR, "static", "avatars"), exist_ok=True)
+    # group files live OUTSIDE static so downloads always pass the membership check
+    os.makedirs(os.path.join(BASE_DIR, "groupfiles"), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "static", "fonts"), exist_ok=True)
+    # default settings
+    defaults = {
+        "site_name": "FocusPlan",
+        "tagline_en": "Plan it. Do it. Own your time.",
+        "tagline_ar": "خطّط. نفّذ. امتلك وقتك.",
+        "tagline_ku": "پلان دابنێ. جێبەجێی بکە. کاتەکەت بەڕێوە ببە.",
+        "accent_color": "#7c5cff",
+        "allow_registration": "1",
+    }
+    for k, v in defaults.items():
+        db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
+    # default motivational quotes
+    if db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0] == 0:
+        seed_quotes = [
+            ("The secret of getting ahead is getting started.",
+             "سر التقدم هو أن تبدأ.",
+             "نهێنی پێشکەوتن دەستپێکردنە."),
+            ("A goal without a plan is just a wish.",
+             "الهدف بدون خطة مجرد أمنية.",
+             "ئامانج بەبێ پلان تەنها هیوایەکە."),
+            ("Small steps every day lead to big results.",
+             "خطوات صغيرة كل يوم تقود إلى نتائج كبيرة.",
+             "هەنگاوی بچووک هەموو ڕۆژێک دەگاتە ئەنجامی گەورە."),
+            ("Discipline is choosing what you want most over what you want now.",
+             "الانضباط هو اختيار ما تريده أكثر على ما تريده الآن.",
+             "دیسیپلین هەڵبژاردنی ئەوەیە کە زۆرترین دەتەوێت بەسەر ئەوەی ئێستا دەتەوێت."),
+            ("Your future is created by what you do today, not tomorrow.",
+             "مستقبلك يُصنع بما تفعله اليوم، لا غدًا.",
+             "داهاتووت بەو کارە دروست دەبێت کە ئەمڕۆ دەیکەیت، نەک سبەینێ."),
+            ("Focus on being productive instead of busy.",
+             "ركّز على أن تكون منتجًا بدلاً من أن تكون مشغولًا.",
+             "سەرنج بدە لەسەر بەرهەمدار بوون نەک سەرقاڵ بوون."),
+        ]
+        db.executemany("INSERT INTO quotes(text_en, text_ar, text_ku) VALUES(?,?,?)",
+                       seed_quotes)
+    # seed admin account
+    if not db.execute("SELECT 1 FROM users WHERE username = ?", ("sharo",)).fetchone():
+        db.execute(
+            "INSERT INTO users(username, password_hash, is_admin, created_at) VALUES(?,?,1,?)",
+            ("sharo", generate_password_hash("Sharo@2006"),
+             datetime.utcnow().isoformat(timespec="seconds")))
+    db.commit()
+    db.close()
+
+
+# ---------------------------------------------------------------- i18n
+LANGS = {"en": "English", "ar": "العربية", "ku": "کوردی"}
+RTL_LANGS = {"ar", "ku"}
+
+T = {
+    "en": {
+        "login": "Log in", "register": "Create account", "logout": "Log out",
+        "username": "Username", "password": "Password",
+        "confirm_password": "Confirm password",
+        "welcome_back": "Welcome back", "no_account": "No account yet?",
+        "have_account": "Already have an account?",
+        "dashboard": "My Schedule", "admin_panel": "Admin Panel",
+        "short_term": "Short-term plans", "long_term": "Long-term plans",
+        "short_hint": "Today · this week", "long_hint": "Months · big goals",
+        "new_plan": "Add a new plan", "title": "Title",
+        "details": "Details (optional)", "priority": "Priority",
+        "p_high": "Important", "p_medium": "Normal", "p_low": "Someday / minor",
+        "type": "Duration", "t_short": "Short-term", "t_long": "Long-term",
+        "due": "Due date", "add": "Add plan", "done": "Done", "undo": "Undo",
+        "delete": "Delete", "empty_short": "No short-term plans yet — start small, start now.",
+        "empty_long": "No long-term plans yet — where do you want to be in a year?",
+        "progress": "completed", "users": "Users", "settings": "Site settings",
+        "quotes": "Motivational quotes", "site_name": "Site name",
+        "tagline": "Tagline", "accent": "Accent color", "save": "Save",
+        "created": "Created", "last_login": "Last login", "plans_count": "Plans",
+        "role": "Role", "admin": "Admin", "user": "User", "actions": "Actions",
+        "make_admin": "Make admin", "remove_admin": "Remove admin",
+        "reset_pw": "Reset password", "new_password": "New password",
+        "delete_user": "Delete", "add_quote": "Add quote",
+        "quote_en": "Quote (English)", "quote_ar": "Quote (Arabic)",
+        "quote_ku": "Quote (Kurdish)", "never": "Never",
+        "allow_reg": "Allow new registrations",
+        "err_login": "Wrong username or password.",
+        "err_user_exists": "That username is already taken.",
+        "err_pw_match": "Passwords do not match.",
+        "err_pw_short": "Password must be at least 6 characters.",
+        "err_username": "Username must be 3–20 letters, numbers or _.",
+        "err_reg_closed": "Registration is currently closed.",
+        "ok_registered": "Account created — welcome!",
+        "ok_saved": "Saved.", "ok_deleted": "Deleted.",
+        "confirm_del_plan": "Delete this plan?",
+        "confirm_del_user": "Delete this user and all their plans?",
+        "overdue": "Overdue", "today": "Today",
+        "important_first": "Important things stand out. Small things stay small.",
+        "you": "you",
+    },
+    "ar": {
+        "login": "تسجيل الدخول", "register": "إنشاء حساب", "logout": "تسجيل الخروج",
+        "username": "اسم المستخدم", "password": "كلمة المرور",
+        "confirm_password": "تأكيد كلمة المرور",
+        "welcome_back": "أهلاً بعودتك", "no_account": "ليس لديك حساب؟",
+        "have_account": "لديك حساب بالفعل؟",
+        "dashboard": "جدولي", "admin_panel": "لوحة الإدارة",
+        "short_term": "خطط قصيرة المدى", "long_term": "خطط طويلة المدى",
+        "short_hint": "اليوم · هذا الأسبوع", "long_hint": "أشهر · أهداف كبيرة",
+        "new_plan": "أضف خطة جديدة", "title": "العنوان",
+        "details": "التفاصيل (اختياري)", "priority": "الأولوية",
+        "p_high": "مهم", "p_medium": "عادي", "p_low": "لاحقًا / ثانوي",
+        "type": "المدة", "t_short": "قصير المدى", "t_long": "طويل المدى",
+        "due": "تاريخ الاستحقاق", "add": "إضافة", "done": "تم", "undo": "تراجع",
+        "delete": "حذف", "empty_short": "لا توجد خطط قصيرة بعد — ابدأ صغيرًا، ابدأ الآن.",
+        "empty_long": "لا توجد خطط طويلة بعد — أين تريد أن تكون بعد سنة؟",
+        "progress": "مكتمل", "users": "المستخدمون", "settings": "إعدادات الموقع",
+        "quotes": "عبارات تحفيزية", "site_name": "اسم الموقع",
+        "tagline": "الشعار", "accent": "اللون الرئيسي", "save": "حفظ",
+        "created": "تاريخ الإنشاء", "last_login": "آخر دخول", "plans_count": "الخطط",
+        "role": "الدور", "admin": "مدير", "user": "مستخدم", "actions": "إجراءات",
+        "make_admin": "ترقية لمدير", "remove_admin": "إزالة الإدارة",
+        "reset_pw": "إعادة تعيين كلمة المرور", "new_password": "كلمة مرور جديدة",
+        "delete_user": "حذف", "add_quote": "إضافة عبارة",
+        "quote_en": "العبارة (إنجليزي)", "quote_ar": "العبارة (عربي)",
+        "quote_ku": "العبارة (كردي)", "never": "أبدًا",
+        "allow_reg": "السماح بالتسجيلات الجديدة",
+        "err_login": "اسم المستخدم أو كلمة المرور غير صحيحة.",
+        "err_user_exists": "اسم المستخدم مأخوذ بالفعل.",
+        "err_pw_match": "كلمتا المرور غير متطابقتين.",
+        "err_pw_short": "كلمة المرور يجب أن تكون 6 أحرف على الأقل.",
+        "err_username": "اسم المستخدم يجب أن يكون 3–20 حرفًا أو رقمًا أو _.",
+        "err_reg_closed": "التسجيل مغلق حاليًا.",
+        "ok_registered": "تم إنشاء الحساب — أهلاً بك!",
+        "ok_saved": "تم الحفظ.", "ok_deleted": "تم الحذف.",
+        "confirm_del_plan": "حذف هذه الخطة؟",
+        "confirm_del_user": "حذف هذا المستخدم وجميع خططه؟",
+        "overdue": "متأخر", "today": "اليوم",
+        "important_first": "الأشياء المهمة تبرز. والصغيرة تبقى صغيرة.",
+        "you": "أنت",
+    },
+    "ku": {
+        "login": "چوونەژوورەوە", "register": "دروستکردنی هەژمار", "logout": "دەرچوون",
+        "username": "ناوی بەکارهێنەر", "password": "وشەی نهێنی",
+        "confirm_password": "دووبارەکردنەوەی وشەی نهێنی",
+        "welcome_back": "بەخێربێیتەوە", "no_account": "هەژمارت نییە؟",
+        "have_account": "پێشتر هەژمارت هەیە؟",
+        "dashboard": "خشتەکەم", "admin_panel": "پانێڵی بەڕێوەبەر",
+        "short_term": "پلانی کورتخایەن", "long_term": "پلانی درێژخایەن",
+        "short_hint": "ئەمڕۆ · ئەم هەفتەیە", "long_hint": "مانگەکان · ئامانجە گەورەکان",
+        "new_plan": "پلانێکی نوێ زیاد بکە", "title": "ناونیشان",
+        "details": "وردەکاری (ئارەزوومەندانە)", "priority": "گرنگی",
+        "p_high": "گرنگ", "p_medium": "ئاسایی", "p_low": "دواتر / لاوەکی",
+        "type": "ماوە", "t_short": "کورتخایەن", "t_long": "درێژخایەن",
+        "due": "بەرواری کۆتایی", "add": "زیادکردن", "done": "تەواو", "undo": "گەڕاندنەوە",
+        "delete": "سڕینەوە", "empty_short": "هێشتا پلانی کورتخایەن نییە — بە بچووک دەست پێ بکە، ئێستا دەست پێ بکە.",
+        "empty_long": "هێشتا پلانی درێژخایەن نییە — دەتەوێت ساڵێکی تر لە کوێ بیت؟",
+        "progress": "تەواوبوو", "users": "بەکارهێنەران", "settings": "ڕێکخستنەکانی ماڵپەڕ",
+        "quotes": "وتە هاندەرەکان", "site_name": "ناوی ماڵپەڕ",
+        "tagline": "دروشم", "accent": "ڕەنگی سەرەکی", "save": "پاشەکەوتکردن",
+        "created": "دروستکراوە", "last_login": "دوایین چوونەژوورەوە", "plans_count": "پلانەکان",
+        "role": "ڕۆڵ", "admin": "بەڕێوەبەر", "user": "بەکارهێنەر", "actions": "کردارەکان",
+        "make_admin": "بکە بە بەڕێوەبەر", "remove_admin": "لابردنی بەڕێوەبەرایەتی",
+        "reset_pw": "ڕێکخستنەوەی وشەی نهێنی", "new_password": "وشەی نهێنی نوێ",
+        "delete_user": "سڕینەوە", "add_quote": "زیادکردنی وتە",
+        "quote_en": "وتە (ئینگلیزی)", "quote_ar": "وتە (عەرەبی)",
+        "quote_ku": "وتە (کوردی)", "never": "هەرگیز",
+        "allow_reg": "ڕێگەدان بە تۆمارکردنی نوێ",
+        "err_login": "ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە.",
+        "err_user_exists": "ئەم ناوە پێشتر گیراوە.",
+        "err_pw_match": "وشە نهێنییەکان وەک یەک نین.",
+        "err_pw_short": "وشەی نهێنی دەبێت لانیکەم ٦ پیت بێت.",
+        "err_username": "ناوی بەکارهێنەر دەبێت ٣–٢٠ پیت، ژمارە یان _ بێت.",
+        "err_reg_closed": "تۆمارکردن لە ئێستادا داخراوە.",
+        "ok_registered": "هەژمارەکە دروستکرا — بەخێربێیت!",
+        "ok_saved": "پاشەکەوتکرا.", "ok_deleted": "سڕایەوە.",
+        "confirm_del_plan": "ئەم پلانە بسڕدرێتەوە؟",
+        "confirm_del_user": "ئەم بەکارهێنەرە و هەموو پلانەکانی بسڕدرێنەوە؟",
+        "overdue": "دواکەوتوو", "today": "ئەمڕۆ",
+        "important_first": "شتە گرنگەکان دەردەکەون. بچووکەکان بچووک دەمێننەوە.",
+        "you": "تۆ",
+    },
+}
+
+
+# --- v2 feature strings ---
+EXTRA = {
+    "en": {
+        "focus": "Focus", "habits": "Habits", "notes": "Notes",
+        "university": "University",
+        "streak": "day streak", "streak_msg": "Keep it going — don't break the chain!",
+        "focus_time": "Focus", "break_time": "Break", "long_break": "Long break",
+        "start": "Start", "pause": "Pause", "reset": "Reset",
+        "sessions_done": "sessions completed today",
+        "pomodoro_hint": "25 minutes of deep focus, then a 5-minute break. After 4 rounds, take a long break.",
+        "new_habit": "New habit", "add_habit": "Add habit",
+        "empty_habits": "No habits yet — add something small like “Read 10 minutes”.",
+        "done_today": "Done today ✓", "mark_today": "Mark today",
+        "last_7": "Last 7 days",
+        "new_note": "New note", "note_title": "Title", "note_content": "Write here…",
+        "empty_notes": "No notes yet — your private space for thoughts and ideas.",
+        "exams": "Exam countdown", "exam_subject": "Subject", "exam_date": "Exam date",
+        "exam_note": "Note (room, chapters…)", "add_exam": "Add exam",
+        "days_left": "days left", "exam_today": "TODAY!", "exam_tomorrow": "Tomorrow!",
+        "exam_passed": "finished",
+        "empty_exams": "No exams added — add one and watch the countdown.",
+        "timetable": "Class timetable", "day": "Day", "start_t": "Starts",
+        "end_t": "Ends", "room": "Room", "add_class": "Add class",
+        "empty_day": "—",
+        "day_sat": "Saturday", "day_sun": "Sunday", "day_mon": "Monday",
+        "day_tue": "Tuesday", "day_wed": "Wednesday", "day_thu": "Thursday",
+        "day_fri": "Friday",
+        "flashcards": "Flashcards", "fc_subject": "Subject",
+        "fc_question": "Question (front)", "fc_answer": "Answer (back)",
+        "add_card": "Add card", "study": "Study", "show_answer": "Show answer",
+        "next_card": "Next", "prev_card": "Previous", "card": "Card",
+        "empty_cards": "No flashcards yet — great for memorizing definitions and formulas.",
+        "gpa_calc": "GPA calculator", "course": "Course", "credits": "Credits",
+        "grade": "Grade", "add_row": "Add course", "your_gpa": "Your GPA",
+        "gpa_hint": "4.0 scale · nothing is saved, it's a quick calculator",
+        "theme_toggle": "Light / dark", "my_color": "My color",
+        "celebrate_high": "Excellent! You finished something important! 🎉",
+        "celebrate_normal": "Nice work! One step closer. ✨",
+    },
+    "ar": {
+        "focus": "تركيز", "habits": "العادات", "notes": "ملاحظات",
+        "university": "الجامعة",
+        "streak": "يوم متواصل", "streak_msg": "استمر — لا تكسر السلسلة!",
+        "focus_time": "تركيز", "break_time": "استراحة", "long_break": "استراحة طويلة",
+        "start": "ابدأ", "pause": "إيقاف", "reset": "إعادة",
+        "sessions_done": "جلسات اليوم",
+        "pomodoro_hint": "٢٥ دقيقة تركيز عميق ثم ٥ دقائق استراحة. بعد ٤ جولات خذ استراحة طويلة.",
+        "new_habit": "عادة جديدة", "add_habit": "إضافة عادة",
+        "empty_habits": "لا عادات بعد — أضف شيئًا صغيرًا مثل «اقرأ ١٠ دقائق».",
+        "done_today": "تم اليوم ✓", "mark_today": "سجّل اليوم",
+        "last_7": "آخر ٧ أيام",
+        "new_note": "ملاحظة جديدة", "note_title": "العنوان", "note_content": "اكتب هنا…",
+        "empty_notes": "لا ملاحظات بعد — مساحتك الخاصة للأفكار.",
+        "exams": "عدّاد الامتحانات", "exam_subject": "المادة", "exam_date": "تاريخ الامتحان",
+        "exam_note": "ملاحظة (القاعة، الفصول…)", "add_exam": "إضافة امتحان",
+        "days_left": "يوم متبقٍ", "exam_today": "اليوم!", "exam_tomorrow": "غدًا!",
+        "exam_passed": "انتهى",
+        "empty_exams": "لا امتحانات — أضف امتحانًا وراقب العدّاد.",
+        "timetable": "جدول المحاضرات", "day": "اليوم", "start_t": "يبدأ",
+        "end_t": "ينتهي", "room": "القاعة", "add_class": "إضافة محاضرة",
+        "empty_day": "—",
+        "day_sat": "السبت", "day_sun": "الأحد", "day_mon": "الاثنين",
+        "day_tue": "الثلاثاء", "day_wed": "الأربعاء", "day_thu": "الخميس",
+        "day_fri": "الجمعة",
+        "flashcards": "بطاقات المراجعة", "fc_subject": "المادة",
+        "fc_question": "السؤال (الوجه)", "fc_answer": "الجواب (الظهر)",
+        "add_card": "إضافة بطاقة", "study": "مراجعة", "show_answer": "أظهر الجواب",
+        "next_card": "التالي", "prev_card": "السابق", "card": "بطاقة",
+        "empty_cards": "لا بطاقات بعد — ممتازة لحفظ التعاريف والقوانين.",
+        "gpa_calc": "حاسبة المعدل", "course": "المادة", "credits": "الوحدات",
+        "grade": "الدرجة", "add_row": "إضافة مادة", "your_gpa": "معدلك",
+        "gpa_hint": "مقياس ٤٫٠ · لا يُحفظ شيء، حاسبة سريعة فقط",
+        "theme_toggle": "فاتح / داكن", "my_color": "لوني",
+        "celebrate_high": "ممتاز! أنجزت شيئًا مهمًا! 🎉",
+        "celebrate_normal": "أحسنت! خطوة أقرب. ✨",
+    },
+    "ku": {
+        "focus": "سەرنج", "habits": "خووەکان", "notes": "تێبینییەکان",
+        "university": "زانکۆ",
+        "streak": "ڕۆژی بەردەوام", "streak_msg": "بەردەوام بە — زنجیرەکە مەپچڕێنە!",
+        "focus_time": "سەرنج", "break_time": "پشوو", "long_break": "پشووی درێژ",
+        "start": "دەستپێکردن", "pause": "وەستان", "reset": "ڕێکخستنەوە",
+        "sessions_done": "دانیشتنی ئەمڕۆ",
+        "pomodoro_hint": "٢٥ خولەک سەرنجی قووڵ، پاشان ٥ خولەک پشوو. دوای ٤ جار پشووی درێژ وەربگرە.",
+        "new_habit": "خووی نوێ", "add_habit": "زیادکردنی خوو",
+        "empty_habits": "هێشتا خوو نییە — شتێکی بچووک زیاد بکە وەک «١٠ خولەک خوێندنەوە».",
+        "done_today": "ئەمڕۆ تەواو ✓", "mark_today": "ئەمڕۆ تۆمار بکە",
+        "last_7": "دوایین ٧ ڕۆژ",
+        "new_note": "تێبینی نوێ", "note_title": "ناونیشان", "note_content": "لێرە بنووسە…",
+        "empty_notes": "هێشتا تێبینی نییە — شوێنی تایبەتی خۆت بۆ بیرۆکەکان.",
+        "exams": "ژمێرەری تاقیکردنەوەکان", "exam_subject": "بابەت",
+        "exam_date": "بەرواری تاقیکردنەوە",
+        "exam_note": "تێبینی (هۆڵ، بەشەکان…)", "add_exam": "زیادکردنی تاقیکردنەوە",
+        "days_left": "ڕۆژ ماوە", "exam_today": "ئەمڕۆیە!", "exam_tomorrow": "سبەینێیە!",
+        "exam_passed": "تەواو بوو",
+        "empty_exams": "تاقیکردنەوە نییە — یەکێک زیاد بکە و ژمێرەرەکە ببینە.",
+        "timetable": "خشتەی وانەکان", "day": "ڕۆژ", "start_t": "دەست پێدەکات",
+        "end_t": "تەواو دەبێت", "room": "هۆڵ", "add_class": "زیادکردنی وانە",
+        "empty_day": "—",
+        "day_sat": "شەممە", "day_sun": "یەکشەممە", "day_mon": "دووشەممە",
+        "day_tue": "سێشەممە", "day_wed": "چوارشەممە", "day_thu": "پێنجشەممە",
+        "day_fri": "هەینی",
+        "flashcards": "کارتی بیرهێنانەوە", "fc_subject": "بابەت",
+        "fc_question": "پرسیار (ڕوو)", "fc_answer": "وەڵام (پشت)",
+        "add_card": "زیادکردنی کارت", "study": "خوێندن", "show_answer": "وەڵام پیشان بدە",
+        "next_card": "دواتر", "prev_card": "پێشتر", "card": "کارت",
+        "empty_cards": "هێشتا کارت نییە — زۆر باشە بۆ لەبەرکردنی پێناسە و یاساکان.",
+        "gpa_calc": "ژمێرەری تێکڕا (GPA)", "course": "بابەت", "credits": "یەکەکان",
+        "grade": "نمرە", "add_row": "زیادکردنی بابەت", "your_gpa": "تێکڕاکەت",
+        "gpa_hint": "پێوانەی ٤٫٠ · هیچ پاشەکەوت ناکرێت، تەنها ژمێرەرێکی خێرایە",
+        "theme_toggle": "ڕووناک / تاریک", "my_color": "ڕەنگەکەم",
+        "celebrate_high": "نایاب! شتێکی گرنگت تەواو کرد! 🎉",
+        "celebrate_normal": "ئافەرین! هەنگاوێک نزیکتر. ✨",
+    },
+}
+for _l, _d in EXTRA.items():
+    T[_l].update(_d)
+
+# --- v3 social strings ---
+SOCIAL = {
+    "en": {
+        "friends": "Friends", "groups": "Groups",
+        "add_friend": "Add a friend", "friend_hint": "Type their exact username",
+        "send_request": "Send request", "incoming_requests": "Friend requests",
+        "sent_requests": "Sent requests", "accept": "Accept", "decline": "Decline",
+        "cancel": "Cancel", "remove_friend": "Remove",
+        "no_friends": "No friends yet — ask them for their username and add them!",
+        "err_user_not_found": "No user with that username.",
+        "err_self_friend": "That's you! Add someone else.",
+        "err_already_friends": "You are already friends.",
+        "err_request_pending": "A request already exists between you two.",
+        "ok_request_sent": "Request sent!",
+        "my_groups": "My groups", "create_group": "Create a group",
+        "group_name": "Group name", "group_desc": "What is this group about? (optional)",
+        "frequency": "Meets", "weekly": "Every week", "biweekly": "Every 2 weeks",
+        "monthly": "Every month", "first_meeting": "First meeting date",
+        "next_meeting": "Next meeting", "members": "Members", "owner": "Owner",
+        "add_member": "Add a friend to the group", "add_to_group": "Add",
+        "only_friends_hint": "You can only add your own friends",
+        "no_addable": "All your friends are already here (or add friends first).",
+        "ok_member_added": "Added to the group!",
+        "discussion": "Discussion", "write_message": "Write a message…", "send": "Send",
+        "no_messages": "No messages yet — say hello! 👋",
+        "group_plans": "Group plans", "gplan_title": "What is the plan?",
+        "gplan_date": "For which date?", "add_gplan": "Add group plan",
+        "pin": "Pin", "unpin": "Unpin", "pinned": "PINNED",
+        "no_gplans": "No group plans yet — pin what your group should do next.",
+        "by": "by", "leave_group": "Leave group", "delete_group": "Delete group",
+        "confirm_leave": "Leave this group?",
+        "confirm_del_group": "Delete this group with all its messages and plans?",
+        "group_settings": "Group settings", "no_groups": "No groups yet — create one with your friends!",
+        "days_short": "days", "meeting_today": "Meeting is TODAY!",
+    },
+    "ar": {
+        "friends": "الأصدقاء", "groups": "المجموعات",
+        "add_friend": "أضف صديقًا", "friend_hint": "اكتب اسم المستخدم بدقة",
+        "send_request": "إرسال طلب", "incoming_requests": "طلبات الصداقة",
+        "sent_requests": "الطلبات المرسلة", "accept": "قبول", "decline": "رفض",
+        "cancel": "إلغاء", "remove_friend": "إزالة",
+        "no_friends": "لا أصدقاء بعد — اطلب اسم المستخدم منهم وأضفهم!",
+        "err_user_not_found": "لا يوجد مستخدم بهذا الاسم.",
+        "err_self_friend": "هذا أنت! أضف شخصًا آخر.",
+        "err_already_friends": "أنتما صديقان بالفعل.",
+        "err_request_pending": "يوجد طلب بينكما بالفعل.",
+        "ok_request_sent": "تم إرسال الطلب!",
+        "my_groups": "مجموعاتي", "create_group": "إنشاء مجموعة",
+        "group_name": "اسم المجموعة", "group_desc": "ما موضوع هذه المجموعة؟ (اختياري)",
+        "frequency": "الاجتماع", "weekly": "كل أسبوع", "biweekly": "كل أسبوعين",
+        "monthly": "كل شهر", "first_meeting": "تاريخ أول اجتماع",
+        "next_meeting": "الاجتماع القادم", "members": "الأعضاء", "owner": "المالك",
+        "add_member": "أضف صديقًا إلى المجموعة", "add_to_group": "إضافة",
+        "only_friends_hint": "يمكنك إضافة أصدقائك فقط",
+        "no_addable": "كل أصدقائك هنا بالفعل (أو أضف أصدقاء أولًا).",
+        "ok_member_added": "تمت الإضافة إلى المجموعة!",
+        "discussion": "النقاش", "write_message": "اكتب رسالة…", "send": "إرسال",
+        "no_messages": "لا رسائل بعد — قل مرحبًا! 👋",
+        "group_plans": "خطط المجموعة", "gplan_title": "ما الخطة؟",
+        "gplan_date": "لأي تاريخ؟", "add_gplan": "إضافة خطة للمجموعة",
+        "pin": "تثبيت", "unpin": "إلغاء التثبيت", "pinned": "مثبّت",
+        "no_gplans": "لا خطط بعد — ثبّت ما يجب أن تفعله مجموعتك.",
+        "by": "بواسطة", "leave_group": "مغادرة المجموعة", "delete_group": "حذف المجموعة",
+        "confirm_leave": "مغادرة هذه المجموعة؟",
+        "confirm_del_group": "حذف هذه المجموعة مع كل رسائلها وخططها؟",
+        "group_settings": "إعدادات المجموعة", "no_groups": "لا مجموعات بعد — أنشئ واحدة مع أصدقائك!",
+        "days_short": "يوم", "meeting_today": "الاجتماع اليوم!",
+    },
+    "ku": {
+        "friends": "هاوڕێکان", "groups": "گروپەکان",
+        "add_friend": "هاوڕێیەک زیاد بکە", "friend_hint": "ناوی بەکارهێنەرەکەی بە وردی بنووسە",
+        "send_request": "ناردنی داواکاری", "incoming_requests": "داواکارییەکانی هاوڕێیەتی",
+        "sent_requests": "داواکارییە نێردراوەکان", "accept": "وەرگرتن", "decline": "ڕەتکردنەوە",
+        "cancel": "هەڵوەشاندنەوە", "remove_friend": "لابردن",
+        "no_friends": "هێشتا هاوڕێت نییە — ناوی بەکارهێنەرەکەیان لێ بپرسە و زیادیان بکە!",
+        "err_user_not_found": "هیچ بەکارهێنەرێک بەم ناوە نییە.",
+        "err_self_friend": "ئەوە تۆیت! کەسێکی تر زیاد بکە.",
+        "err_already_friends": "ئێوە پێشتر هاوڕێن.",
+        "err_request_pending": "پێشتر داواکارییەک لە نێوانتاندا هەیە.",
+        "ok_request_sent": "داواکارییەکە نێردرا!",
+        "my_groups": "گروپەکانم", "create_group": "دروستکردنی گروپ",
+        "group_name": "ناوی گروپ", "group_desc": "ئەم گروپە دەربارەی چییە؟ (ئارەزوومەندانە)",
+        "frequency": "کۆبوونەوە", "weekly": "هەموو هەفتەیەک", "biweekly": "هەر دوو هەفتە",
+        "monthly": "هەموو مانگێک", "first_meeting": "بەرواری یەکەم کۆبوونەوە",
+        "next_meeting": "کۆبوونەوەی داهاتوو", "members": "ئەندامان", "owner": "خاوەن",
+        "add_member": "هاوڕێیەک بۆ گروپەکە زیاد بکە", "add_to_group": "زیادکردن",
+        "only_friends_hint": "تەنها دەتوانیت هاوڕێکانی خۆت زیاد بکەیت",
+        "no_addable": "هەموو هاوڕێکانت لێرەن (یان سەرەتا هاوڕێ زیاد بکە).",
+        "ok_member_added": "بۆ گروپەکە زیادکرا!",
+        "discussion": "گفتوگۆ", "write_message": "نامەیەک بنووسە…", "send": "ناردن",
+        "no_messages": "هێشتا نامە نییە — سڵاو بکە! 👋",
+        "group_plans": "پلانەکانی گروپ", "gplan_title": "پلانەکە چییە؟",
+        "gplan_date": "بۆ چ بەروارێک؟", "add_gplan": "زیادکردنی پلانی گروپ",
+        "pin": "چەسپاندن", "unpin": "لابردنی چەسپاندن", "pinned": "چەسپێنراو",
+        "no_gplans": "هێشتا پلانی گروپ نییە — ئەوە بچەسپێنە کە گروپەکەت دەبێت بیکات.",
+        "by": "لەلایەن", "leave_group": "جێهێشتنی گروپ", "delete_group": "سڕینەوەی گروپ",
+        "confirm_leave": "ئەم گروپە جێبهێڵیت؟",
+        "confirm_del_group": "ئەم گروپە بسڕدرێتەوە لەگەڵ هەموو نامە و پلانەکانی؟",
+        "group_settings": "ڕێکخستنەکانی گروپ", "no_groups": "هێشتا گروپ نییە — لەگەڵ هاوڕێکانت یەکێک دروست بکە!",
+        "days_short": "ڕۆژ", "meeting_today": "کۆبوونەوەکە ئەمڕۆیە!",
+    },
+}
+for _l, _d in SOCIAL.items():
+    T[_l].update(_d)
+
+# --- v4 profile strings ---
+PROFILE = {
+    "en": {
+        "profile": "My profile", "edit_profile": "Edit profile",
+        "full_name": "Full name", "email_addr": "Email", "bio": "About me",
+        "photo": "Profile photo", "upload_hint": "PNG, JPG, WEBP or GIF — up to 3 MB",
+        "search_people": "Find people", "search": "Search",
+        "search_hint": "Search by username or full name",
+        "no_results": "No one found with that name.",
+        "joined": "Joined", "view_profile": "View profile",
+        "pw_keep": "New password (leave empty to keep your current one)",
+        "friends_ok": "Friends ✓", "pending_dots": "Request pending…",
+        "completed_plans": "plans completed",
+        "ok_profile": "Profile updated!",
+        "err_photo_type": "Photo must be PNG, JPG, WEBP or GIF.",
+        "optional": "optional",
+    },
+    "ar": {
+        "profile": "ملفي الشخصي", "edit_profile": "تعديل الملف الشخصي",
+        "full_name": "الاسم الكامل", "email_addr": "البريد الإلكتروني", "bio": "نبذة عني",
+        "photo": "الصورة الشخصية", "upload_hint": "PNG أو JPG أو WEBP أو GIF — حتى ٣ م.ب",
+        "search_people": "ابحث عن أشخاص", "search": "بحث",
+        "search_hint": "ابحث باسم المستخدم أو الاسم الكامل",
+        "no_results": "لم يُعثر على أحد بهذا الاسم.",
+        "joined": "انضم في", "view_profile": "عرض الملف",
+        "pw_keep": "كلمة مرور جديدة (اتركها فارغة للاحتفاظ بالحالية)",
+        "friends_ok": "أصدقاء ✓", "pending_dots": "الطلب قيد الانتظار…",
+        "completed_plans": "خطة منجزة",
+        "ok_profile": "تم تحديث الملف!",
+        "err_photo_type": "الصورة يجب أن تكون PNG أو JPG أو WEBP أو GIF.",
+        "optional": "اختياري",
+    },
+    "ku": {
+        "profile": "پرۆفایلەکەم", "edit_profile": "دەستکاری پرۆفایل",
+        "full_name": "ناوی تەواو", "email_addr": "ئیمەیڵ", "bio": "دەربارەم",
+        "photo": "وێنەی پرۆفایل", "upload_hint": "PNG یان JPG یان WEBP یان GIF — تا ٣ م.ب",
+        "search_people": "گەڕان بۆ کەسان", "search": "گەڕان",
+        "search_hint": "بە ناوی بەکارهێنەر یان ناوی تەواو بگەڕێ",
+        "no_results": "کەس بەم ناوە نەدۆزرایەوە.",
+        "joined": "بەشداربوو لە", "view_profile": "بینینی پرۆفایل",
+        "pw_keep": "وشەی نهێنی نوێ (بەتاڵی بهێڵەوە بۆ هێشتنەوەی ئێستا)",
+        "friends_ok": "هاوڕێن ✓", "pending_dots": "داواکاری چاوەڕوانە…",
+        "completed_plans": "پلانی تەواوکراو",
+        "ok_profile": "پرۆفایل نوێکرایەوە!",
+        "err_photo_type": "وێنەکە دەبێت PNG یان JPG یان WEBP یان GIF بێت.",
+        "optional": "ئارەزوومەندانە",
+    },
+}
+for _l, _d in PROFILE.items():
+    T[_l].update(_d)
+
+# --- v5 strings: notifications, DMs, leaderboard, badges, files, decks ---
+V5 = {
+    "en": {
+        "notifications": "Notifications", "no_notifications": "You're all caught up! 🎉",
+        "reminders": "Reminders",
+        "ntf_friend_req": "sent you a friend request",
+        "ntf_friend_acc": "accepted your friend request",
+        "ntf_group_msg": "New messages in", "ntf_group_add": "You were added to",
+        "ntf_badge": "You earned a badge:", "ntf_dm": "New message from",
+        "ntf_exam": "Exam coming up:", "ntf_meeting": "Group meeting soon:",
+        "messages_t": "Messages", "no_convos": "No conversations yet — message a friend!",
+        "open_chat": "Open chat", "leaderboard": "Leaderboard",
+        "this_week": "This week", "points": "points",
+        "lb_hint": "10 pts per completed plan · 5 pts per habit check · 3 pts per streak day · resets every Monday",
+        "badges_t": "Badges",
+        "badge_first_plan_n": "First Step", "badge_first_plan_d": "Complete your first plan",
+        "badge_plans_10_n": "Doer", "badge_plans_10_d": "Complete 10 plans",
+        "badge_plans_50_n": "Champion", "badge_plans_50_d": "Complete 50 plans",
+        "badge_streak_7_n": "On Fire", "badge_streak_7_d": "7-day streak",
+        "badge_streak_30_n": "Unstoppable", "badge_streak_30_d": "30-day streak",
+        "badge_first_group_n": "Team Builder", "badge_first_group_d": "Create a group",
+        "badge_friends_5_n": "Social Butterfly", "badge_friends_5_d": "Make 5 friends",
+        "badge_habit_7_n": "Consistent", "badge_habit_7_d": "7-day habit streak",
+        "group_files": "Shared files", "upload_file": "Upload",
+        "file_hint": "PDF, images, documents, zip — up to 10 MB",
+        "download": "Download", "err_file_type": "That file type is not allowed.",
+        "shared_decks": "Shared flashcard decks", "share_deck": "Share one of my decks",
+        "share": "Share", "unshare": "Unshare", "no_decks_own": "Create flashcards in University first.",
+        "no_shared_decks": "No shared decks yet — share yours so the group can study together.",
+        "cards_n": "cards", "activity_today": "Friends' activity today",
+        "no_activity": "No friend activity yet today — be the first! 💪",
+        "f_plans": "plans", "f_habits": "habits",
+    },
+    "ar": {
+        "notifications": "الإشعارات", "no_notifications": "لا جديد لديك! 🎉",
+        "reminders": "تذكيرات",
+        "ntf_friend_req": "أرسل لك طلب صداقة",
+        "ntf_friend_acc": "قبل طلب صداقتك",
+        "ntf_group_msg": "رسائل جديدة في", "ntf_group_add": "تمت إضافتك إلى",
+        "ntf_badge": "حصلت على وسام:", "ntf_dm": "رسالة جديدة من",
+        "ntf_exam": "امتحان قريب:", "ntf_meeting": "اجتماع المجموعة قريبًا:",
+        "messages_t": "الرسائل", "no_convos": "لا محادثات بعد — راسل صديقًا!",
+        "open_chat": "افتح المحادثة", "leaderboard": "لوحة الصدارة",
+        "this_week": "هذا الأسبوع", "points": "نقطة",
+        "lb_hint": "١٠ نقاط لكل خطة منجزة · ٥ لكل عادة · ٣ لكل يوم متواصل · تُصفَّر كل اثنين",
+        "badges_t": "الأوسمة",
+        "badge_first_plan_n": "الخطوة الأولى", "badge_first_plan_d": "أنجز أول خطة",
+        "badge_plans_10_n": "منجز", "badge_plans_10_d": "أنجز ١٠ خطط",
+        "badge_plans_50_n": "بطل", "badge_plans_50_d": "أنجز ٥٠ خطة",
+        "badge_streak_7_n": "مشتعل", "badge_streak_7_d": "٧ أيام متواصلة",
+        "badge_streak_30_n": "لا يُوقف", "badge_streak_30_d": "٣٠ يومًا متواصلًا",
+        "badge_first_group_n": "باني الفريق", "badge_first_group_d": "أنشئ مجموعة",
+        "badge_friends_5_n": "اجتماعي", "badge_friends_5_d": "كوّن ٥ صداقات",
+        "badge_habit_7_n": "منضبط", "badge_habit_7_d": "عادة لمدة ٧ أيام",
+        "group_files": "الملفات المشتركة", "upload_file": "رفع",
+        "file_hint": "PDF وصور ومستندات وzip — حتى ١٠ م.ب",
+        "download": "تنزيل", "err_file_type": "نوع الملف غير مسموح.",
+        "shared_decks": "بطاقات مشتركة", "share_deck": "شارك إحدى مجموعاتي",
+        "share": "مشاركة", "unshare": "إلغاء المشاركة", "no_decks_own": "أنشئ بطاقات في صفحة الجامعة أولًا.",
+        "no_shared_decks": "لا بطاقات مشتركة بعد — شارك بطاقاتك ليدرس الجميع معًا.",
+        "cards_n": "بطاقة", "activity_today": "نشاط الأصدقاء اليوم",
+        "no_activity": "لا نشاط للأصدقاء اليوم — كن الأول! 💪",
+        "f_plans": "خطط", "f_habits": "عادات",
+    },
+    "ku": {
+        "notifications": "ئاگادارکردنەوەکان", "no_notifications": "هیچ نوێ نییە! 🎉",
+        "reminders": "بیرخستنەوەکان",
+        "ntf_friend_req": "داواکاری هاوڕێیەتی بۆ ناردیت",
+        "ntf_friend_acc": "داواکاری هاوڕێیەتیەکەتی وەرگرت",
+        "ntf_group_msg": "نامەی نوێ لە", "ntf_group_add": "زیادکرایت بۆ",
+        "ntf_badge": "خەڵاتێکت بەدەست هێنا:", "ntf_dm": "نامەی نوێ لە",
+        "ntf_exam": "تاقیکردنەوە نزیکە:", "ntf_meeting": "کۆبوونەوەی گروپ نزیکە:",
+        "messages_t": "نامەکان", "no_convos": "هێشتا گفتوگۆ نییە — نامە بۆ هاوڕێیەک بنێرە!",
+        "open_chat": "کردنەوەی گفتوگۆ", "leaderboard": "خشتەی پێشەنگەکان",
+        "this_week": "ئەم هەفتەیە", "points": "خاڵ",
+        "lb_hint": "١٠ خاڵ بۆ هەر پلانێکی تەواو · ٥ بۆ هەر خووێک · ٣ بۆ هەر ڕۆژی بەردەوام · هەموو دووشەممەیەک سفر دەبێتەوە",
+        "badges_t": "خەڵاتەکان",
+        "badge_first_plan_n": "یەکەم هەنگاو", "badge_first_plan_d": "یەکەم پلانت تەواو بکە",
+        "badge_plans_10_n": "کارامە", "badge_plans_10_d": "١٠ پلان تەواو بکە",
+        "badge_plans_50_n": "پاڵەوان", "badge_plans_50_d": "٥٠ پلان تەواو بکە",
+        "badge_streak_7_n": "گڕگرتوو", "badge_streak_7_d": "٧ ڕۆژی بەردەوام",
+        "badge_streak_30_n": "ڕاناوەستێت", "badge_streak_30_d": "٣٠ ڕۆژی بەردەوام",
+        "badge_first_group_n": "دروستکەری تیم", "badge_first_group_d": "گروپێک دروست بکە",
+        "badge_friends_5_n": "کۆمەڵایەتی", "badge_friends_5_d": "٥ هاوڕێ پەیدا بکە",
+        "badge_habit_7_n": "بەردەوام", "badge_habit_7_d": "خووێک بۆ ٧ ڕۆژ",
+        "group_files": "فایلە هاوبەشەکان", "upload_file": "بارکردن",
+        "file_hint": "PDF و وێنە و بەڵگەنامە و zip — تا ١٠ م.ب",
+        "download": "داگرتن", "err_file_type": "ئەم جۆرە فایلە ڕێگەپێدراو نییە.",
+        "shared_decks": "کارتە هاوبەشەکان", "share_deck": "یەکێک لە کۆمەڵەکانم هاوبەش بکە",
+        "share": "هاوبەشکردن", "unshare": "لابردنی هاوبەشی", "no_decks_own": "سەرەتا لە پەڕەی زانکۆ کارت دروست بکە.",
+        "no_shared_decks": "هێشتا کۆمەڵەی هاوبەش نییە — کۆمەڵەکانت هاوبەش بکە بۆ ئەوەی گروپەکە پێکەوە بخوێنن.",
+        "cards_n": "کارت", "activity_today": "چالاکی هاوڕێکان ئەمڕۆ",
+        "no_activity": "هێشتا چالاکی هاوڕێ نییە ئەمڕۆ — تۆ یەکەم بە! 💪",
+        "f_plans": "پلان", "f_habits": "خوو",
+    },
+}
+for _l, _d in V5.items():
+    T[_l].update(_d)
+
+# --- v6 navigation strings ---
+NAV = {
+    "en": {"home": "Home", "planning": "Planning", "social": "Social",
+           "menu": "Menu", "account": "Account", "language": "Language"},
+    "ar": {"home": "الرئيسية", "planning": "التخطيط", "social": "اجتماعي",
+           "menu": "القائمة", "account": "الحساب", "language": "اللغة"},
+    "ku": {"home": "سەرەکی", "planning": "پلاندانان", "social": "کۆمەڵایەتی",
+           "menu": "لیستە", "account": "هەژمار", "language": "زمان"},
+}
+for _l, _d in NAV.items():
+    T[_l].update(_d)
+
+# --- v7 tools strings ---
+TOOLS = {
+    "en": {
+        "tools": "Tools", "poster_maker": "Poster maker", "cv_builder": "CV builder",
+        "essay_checker": "Essay checker", "citations_t": "Citations", "quiz_mode": "Quiz",
+        "ai_assistant": "AI Assistant",
+        "p_title": "Title", "p_subtitle": "Subtitle", "p_body": "Text (one line per row)",
+        "p_emoji": "Big emoji", "p_template": "Style", "p_download": "Download PNG",
+        "cv_title": "Field / job title", "cv_contact": "Contact (email · city)",
+        "cv_summary": "Short summary about you",
+        "cv_education": "Education (one per line: years — degree, place)",
+        "cv_experience": "Experience / activities (one per line)",
+        "cv_skills": "Skills (comma separated)", "cv_langs": "Languages (comma separated)",
+        "cv_print": "Print / Save as PDF",
+        "e_paste": "Paste your essay here…", "e_analyze": "Analyze",
+        "e_words": "words", "e_sentences": "sentences", "e_paragraphs": "paragraphs",
+        "e_avg": "avg words / sentence", "e_long": "Very long sentences (split them)",
+        "e_rep": "Most repeated words", "e_tips": "Tips",
+        "tip_long": "Some sentences are very long — split them for clarity.",
+        "tip_para": "Very few paragraphs — break your essay into more paragraphs.",
+        "tip_rep": "You repeat some words a lot — try synonyms.",
+        "tip_short": "The essay is quite short — develop your ideas further.",
+        "tip_good": "Structure looks good — nice balance! ✓",
+        "c_type": "Source type", "c_book": "Book", "c_web": "Website", "c_journal": "Journal article",
+        "c_author": "Author(s) (Family, F.)", "c_year": "Year", "c_title2": "Title",
+        "c_publisher": "Publisher", "c_url": "URL", "c_site": "Website name",
+        "c_journal_n": "Journal name", "c_pages": "Pages", "c_generate": "Generate",
+        "c_copy": "Copy", "c_copied": "Copied!",
+        "q_start": "Start quiz", "q_need": "You need at least 4 flashcards to build a quiz — create some in University → Flashcards.",
+        "q_score": "Your score", "q_restart": "Try again", "q_correct": "Correct! 🎉",
+        "q_wrong": "Wrong — the answer was:", "q_of": "of",
+        "ai_task": "What should the AI do?", "ai_rate": "Rate my essay (score + feedback)",
+        "ai_sum": "Summarize this text", "ai_explain": "Explain this simply",
+        "ai_improve": "Improve my writing", "ai_input": "Paste your text or question…",
+        "ai_run": "Ask AI", "ai_result": "Result",
+        "ai_not_conf": "AI is not configured yet. The site admin must add an API key in the Admin Panel → Site settings.",
+        "ai_key": "AI API key (Anthropic)", "ai_model": "AI model",
+        "ai_key_hint": "Get a key at console.anthropic.com — paid per use",
+        "ai_err": "AI error:",
+    },
+    "ar": {
+        "tools": "الأدوات", "poster_maker": "صانع الملصقات", "cv_builder": "منشئ السيرة الذاتية",
+        "essay_checker": "مدقق المقالات", "citations_t": "المراجع", "quiz_mode": "اختبار",
+        "ai_assistant": "المساعد الذكي",
+        "p_title": "العنوان", "p_subtitle": "العنوان الفرعي", "p_body": "النص (سطر لكل فقرة)",
+        "p_emoji": "إيموجي كبير", "p_template": "النمط", "p_download": "تنزيل PNG",
+        "cv_title": "المجال / المسمى الوظيفي", "cv_contact": "التواصل (بريد · مدينة)",
+        "cv_summary": "نبذة قصيرة عنك",
+        "cv_education": "التعليم (سطر لكل شهادة: السنوات — الشهادة، المكان)",
+        "cv_experience": "الخبرات / الأنشطة (سطر لكل واحدة)",
+        "cv_skills": "المهارات (مفصولة بفواصل)", "cv_langs": "اللغات (مفصولة بفواصل)",
+        "cv_print": "طباعة / حفظ PDF",
+        "e_paste": "الصق مقالك هنا…", "e_analyze": "تحليل",
+        "e_words": "كلمة", "e_sentences": "جملة", "e_paragraphs": "فقرة",
+        "e_avg": "متوسط الكلمات / جملة", "e_long": "جمل طويلة جدًا (قسّمها)",
+        "e_rep": "أكثر الكلمات تكرارًا", "e_tips": "نصائح",
+        "tip_long": "بعض الجمل طويلة جدًا — قسّمها للوضوح.",
+        "tip_para": "فقرات قليلة جدًا — قسّم مقالك إلى فقرات أكثر.",
+        "tip_rep": "تكرر بعض الكلمات كثيرًا — جرّب المرادفات.",
+        "tip_short": "المقال قصير — طوّر أفكارك أكثر.",
+        "tip_good": "البنية تبدو جيدة — توازن ممتاز! ✓",
+        "c_type": "نوع المصدر", "c_book": "كتاب", "c_web": "موقع إلكتروني", "c_journal": "مقالة علمية",
+        "c_author": "المؤلف(ون) (العائلة، الأول.)", "c_year": "السنة", "c_title2": "العنوان",
+        "c_publisher": "الناشر", "c_url": "الرابط", "c_site": "اسم الموقع",
+        "c_journal_n": "اسم المجلة", "c_pages": "الصفحات", "c_generate": "إنشاء",
+        "c_copy": "نسخ", "c_copied": "تم النسخ!",
+        "q_start": "ابدأ الاختبار", "q_need": "تحتاج ٤ بطاقات على الأقل لإنشاء اختبار — أنشئها في الجامعة ← البطاقات.",
+        "q_score": "نتيجتك", "q_restart": "حاول مجددًا", "q_correct": "صحيح! 🎉",
+        "q_wrong": "خطأ — الجواب كان:", "q_of": "من",
+        "ai_task": "ماذا يفعل الذكاء الاصطناعي؟", "ai_rate": "قيّم مقالي (درجة + ملاحظات)",
+        "ai_sum": "لخّص هذا النص", "ai_explain": "اشرح هذا ببساطة",
+        "ai_improve": "حسّن كتابتي", "ai_input": "الصق نصك أو سؤالك…",
+        "ai_run": "اسأل الذكاء الاصطناعي", "ai_result": "النتيجة",
+        "ai_not_conf": "الذكاء الاصطناعي غير مفعّل بعد. على مدير الموقع إضافة مفتاح API في لوحة الإدارة ← إعدادات الموقع.",
+        "ai_key": "مفتاح API للذكاء الاصطناعي (Anthropic)", "ai_model": "نموذج الذكاء الاصطناعي",
+        "ai_key_hint": "احصل على مفتاح من console.anthropic.com — مدفوع حسب الاستخدام",
+        "ai_err": "خطأ الذكاء الاصطناعي:",
+    },
+    "ku": {
+        "tools": "ئامرازەکان", "poster_maker": "دروستکەری پۆستەر", "cv_builder": "دروستکەری سیڤی",
+        "essay_checker": "پشکنەری وتار", "citations_t": "سەرچاوەکان", "quiz_mode": "تاقیکردنەوە",
+        "ai_assistant": "یاریدەدەری زیرەک",
+        "p_title": "ناونیشان", "p_subtitle": "ژێرناونیشان", "p_body": "دەق (هێڵێک بۆ هەر دێڕێک)",
+        "p_emoji": "ئیمۆجی گەورە", "p_template": "شێواز", "p_download": "داگرتنی PNG",
+        "cv_title": "بوار / ناونیشانی کار", "cv_contact": "پەیوەندی (ئیمەیڵ · شار)",
+        "cv_summary": "پوختەیەکی کورت دەربارەت",
+        "cv_education": "خوێندن (هێڵێک بۆ هەر بڕوانامەیەک: ساڵەکان — بڕوانامە، شوێن)",
+        "cv_experience": "ئەزموون / چالاکییەکان (هێڵێک بۆ هەر یەکێک)",
+        "cv_skills": "لێهاتووییەکان (بە کۆما جیاکراوە)", "cv_langs": "زمانەکان (بە کۆما جیاکراوە)",
+        "cv_print": "چاپکردن / پاشەکەوت وەک PDF",
+        "e_paste": "وتارەکەت لێرە دابنێ…", "e_analyze": "شیکردنەوە",
+        "e_words": "وشە", "e_sentences": "ڕستە", "e_paragraphs": "بڕگە",
+        "e_avg": "تێکڕای وشە / ڕستە", "e_long": "ڕستە زۆر درێژەکان (دابەشیان بکە)",
+        "e_rep": "زۆرترین وشەی دووبارەکراوە", "e_tips": "ئامۆژگارییەکان",
+        "tip_long": "هەندێک ڕستە زۆر درێژن — بۆ ڕوونی دابەشیان بکە.",
+        "tip_para": "بڕگە زۆر کەمن — وتارەکەت بکە بە بڕگەی زیاتر.",
+        "tip_rep": "هەندێک وشە زۆر دووبارە دەکەیتەوە — هاوواتا تاقی بکەرەوە.",
+        "tip_short": "وتارەکە کورتە — بیرۆکەکانت زیاتر گەشە پێ بدە.",
+        "tip_good": "پێکهاتەکە باش دیارە — هاوسەنگییەکی جوان! ✓",
+        "c_type": "جۆری سەرچاوە", "c_book": "کتێب", "c_web": "ماڵپەڕ", "c_journal": "وتاری زانستی",
+        "c_author": "نووسەر(ان) (خێزان، یەکەم.)", "c_year": "ساڵ", "c_title2": "ناونیشان",
+        "c_publisher": "بڵاوکەرەوە", "c_url": "بەستەر", "c_site": "ناوی ماڵپەڕ",
+        "c_journal_n": "ناوی گۆڤار", "c_pages": "پەڕەکان", "c_generate": "دروستکردن",
+        "c_copy": "کۆپی", "c_copied": "کۆپی کرا!",
+        "q_start": "دەستپێکردنی تاقیکردنەوە", "q_need": "لانیکەم ٤ کارتت پێویستە بۆ تاقیکردنەوە — لە زانکۆ ← کارتەکان دروستیان بکە.",
+        "q_score": "نمرەکەت", "q_restart": "دووبارە هەوڵ بدەرەوە", "q_correct": "ڕاستە! 🎉",
+        "q_wrong": "هەڵەیە — وەڵامەکە ئەمە بوو:", "q_of": "لە",
+        "ai_task": "زیرەکی دەستکرد چی بکات؟", "ai_rate": "وتارەکەم هەڵبسەنگێنە (نمرە + تێبینی)",
+        "ai_sum": "ئەم دەقە پوخت بکەرەوە", "ai_explain": "ئەمە بە سادەیی ڕوون بکەرەوە",
+        "ai_improve": "نووسینەکەم باشتر بکە", "ai_input": "دەق یان پرسیارەکەت لێرە دابنێ…",
+        "ai_run": "پرسیار لە AI بکە", "ai_result": "ئەنجام",
+        "ai_not_conf": "زیرەکی دەستکرد هێشتا ڕێکنەخراوە. بەڕێوەبەری ماڵپەڕ دەبێت کلیلی API زیاد بکات لە پانێڵی بەڕێوەبەر ← ڕێکخستنەکان.",
+        "ai_key": "کلیلی API ی زیرەکی دەستکرد (Anthropic)", "ai_model": "مۆدێلی AI",
+        "ai_key_hint": "کلیل لە console.anthropic.com وەربگرە — بەپێی بەکارهێنان پارەی دەوێت",
+        "ai_err": "هەڵەی AI:",
+    },
+}
+for _l, _d in TOOLS.items():
+    T[_l].update(_d)
+
+# --- v8 strings: coming soon, fonts, pro tools ---
+V8 = {
+    "en": {
+        "coming_soon": "Coming soon 🔜",
+        "coming_soon_sub": "This feature will be available very soon. Stay tuned!",
+        "font": "Font", "my_fonts": "My fonts",
+        "add_font": "Add your own font (TTF / OTF / WOFF)", "upload_font": "Add font",
+        "err_font_type": "Font must be a TTF, OTF, WOFF or WOFF2 file.",
+        "size": "Size", "s_a4": "A4 Poster", "s_sq": "Square (post)", "s_story": "Story (9:16)",
+        "pattern": "Decoration", "pt_circles": "Circles", "pt_grid": "Grid",
+        "pt_waves": "Waves", "pt_none": "Clean",
+        "custom_colors": "Colors", "text_color": "Text color", "title_size": "Title size",
+        "cv_template": "Template", "cvt_classic": "Classic", "cvt_modern": "Modern",
+        "cvt_minimal": "Minimal",
+        "e_score": "Writing score",
+    },
+    "ar": {
+        "coming_soon": "قريبًا 🔜",
+        "coming_soon_sub": "هذه الميزة ستتوفر قريبًا جدًا. ترقبوا!",
+        "font": "الخط", "my_fonts": "خطوطي",
+        "add_font": "أضف خطك الخاص (TTF / OTF / WOFF)", "upload_font": "إضافة خط",
+        "err_font_type": "الخط يجب أن يكون ملف TTF أو OTF أو WOFF أو WOFF2.",
+        "size": "الحجم", "s_a4": "ملصق A4", "s_sq": "مربع (منشور)", "s_story": "ستوري (9:16)",
+        "pattern": "الزخرفة", "pt_circles": "دوائر", "pt_grid": "شبكة",
+        "pt_waves": "أمواج", "pt_none": "بسيط",
+        "custom_colors": "الألوان", "text_color": "لون النص", "title_size": "حجم العنوان",
+        "cv_template": "القالب", "cvt_classic": "كلاسيكي", "cvt_modern": "عصري",
+        "cvt_minimal": "بسيط",
+        "e_score": "درجة الكتابة",
+    },
+    "ku": {
+        "coming_soon": "بەم زووانە 🔜",
+        "coming_soon_sub": "ئەم تایبەتمەندییە بەم زووانە بەردەست دەبێت. چاوەڕوان بن!",
+        "font": "فۆنت", "my_fonts": "فۆنتەکانم",
+        "add_font": "فۆنتی خۆت زیاد بکە (TTF / OTF / WOFF)", "upload_font": "زیادکردنی فۆنت",
+        "err_font_type": "فۆنتەکە دەبێت فایلی TTF یان OTF یان WOFF یان WOFF2 بێت.",
+        "size": "قەبارە", "s_a4": "پۆستەری A4", "s_sq": "چوارگۆشە (پۆست)", "s_story": "ستۆری (9:16)",
+        "pattern": "ڕازاندنەوە", "pt_circles": "بازنەکان", "pt_grid": "تۆڕ",
+        "pt_waves": "شەپۆلەکان", "pt_none": "سادە",
+        "custom_colors": "ڕەنگەکان", "text_color": "ڕەنگی دەق", "title_size": "قەبارەی ناونیشان",
+        "cv_template": "قاڵب", "cvt_classic": "کلاسیک", "cvt_modern": "مۆدێرن",
+        "cvt_minimal": "سادە",
+        "e_score": "نمرەی نووسین",
+    },
+}
+for _l, _d in V8.items():
+    T[_l].update(_d)
+
+
+def tr(key):
+    lang = session.get("lang", "en")
+    return T.get(lang, T["en"]).get(key, T["en"].get(key, key))
+
+
+def get_settings():
+    rows = get_db().execute("SELECT key, value FROM settings").fetchall()
+    return {r["key"]: r["value"] for r in rows}
+
+
+@app.context_processor
+def inject_globals():
+    lang = session.get("lang", "en")
+    s = get_settings()
+    tagline = s.get(f"tagline_{lang}") or s.get("tagline_en", "")
+    cu = current_user()
+    theme = (cu["theme"] if cu and cu["theme"] else "dark")
+    accent = (cu["accent"] if cu and cu["accent"] else s.get("accent_color", "#7c5cff"))
+    pending = unread_n = unread_d = 0
+    if cu:
+        db = get_db()
+        pending = db.execute(
+            "SELECT COUNT(*) FROM friendships WHERE to_id = ? AND status='pending'",
+            (cu["id"],)).fetchone()[0]
+        unread_n = db.execute(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0",
+            (cu["id"],)).fetchone()[0]
+        unread_d = db.execute(
+            "SELECT COUNT(*) FROM dms WHERE to_id = ? AND is_read = 0",
+            (cu["id"],)).fetchone()[0]
+    logo = None
+    logo_path = os.path.join(BASE_DIR, "static", "aikurd-logo.png")
+    if os.path.exists(logo_path):
+        logo = url_for("static", filename="aikurd-logo.png",
+                       v=int(os.path.getmtime(logo_path)))
+    return dict(t=tr, lang=lang, is_rtl=lang in RTL_LANGS, langs=LANGS,
+                settings=s, tagline=tagline, today=date.today().isoformat(),
+                cu=cu, theme=theme, accent=accent, pending_requests=pending,
+                unread_notifs=unread_n, unread_dms=unread_d,
+                av=avatar_url, BADGES=BADGES, site_logo=logo)
+
+
+# ---------------------------------------------------------------- helpers
+def current_user():
+    uid = session.get("user_id")
+    if uid is None:
+        return None
+    return get_db().execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+
+
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if session.get("user_id") is None:
+            return redirect(url_for("login"))
+        if current_user() is None:
+            # stale login cookie pointing at an account that no longer exists
+            # (e.g. the database was replaced) — log out cleanly instead of crashing
+            session.clear()
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def admin_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        user = current_user()
+        if user is None:
+            return redirect(url_for("login"))
+        if not user["is_admin"]:
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def notify(uid, kind, actor="", link=""):
+    """Queue a notification (caller commits). Chat kinds collapse into one unread row."""
+    db = get_db()
+    if kind in ("group_msg", "dm"):
+        db.execute("DELETE FROM notifications WHERE user_id = ? AND kind = ? "
+                   "AND link = ? AND is_read = 0", (uid, kind, link))
+    db.execute("INSERT INTO notifications(user_id, kind, actor, link, created_at) "
+               "VALUES(?,?,?,?,?)",
+               (uid, kind, actor, link, datetime.utcnow().isoformat(timespec="seconds")))
+
+
+BADGES = {
+    "first_plan": "🌱", "plans_10": "⚡", "plans_50": "🏆",
+    "streak_7": "🔥", "streak_30": "🚀", "first_group": "🤝",
+    "friends_5": "🦋", "habit_7": "💎",
+}
+
+
+def award_badges(uid):
+    """Check thresholds and hand out any newly earned badges."""
+    db = get_db()
+    have = {r["code"] for r in
+            db.execute("SELECT code FROM badges WHERE user_id = ?", (uid,))}
+    earned = []
+    done = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1",
+                      (uid,)).fetchone()[0]
+    if done >= 1:
+        earned.append("first_plan")
+    if done >= 10:
+        earned.append("plans_10")
+    if done >= 50:
+        earned.append("plans_50")
+    s = user_streak(uid)
+    if s >= 7:
+        earned.append("streak_7")
+    if s >= 30:
+        earned.append("streak_30")
+    if db.execute("SELECT 1 FROM groups WHERE owner_id = ?", (uid,)).fetchone():
+        earned.append("first_group")
+    if len(get_friend_ids(uid)) >= 5:
+        earned.append("friends_5")
+    if any(habit_streak(h["id"]) >= 7 for h in
+           db.execute("SELECT id FROM habits WHERE user_id = ?", (uid,)).fetchall()):
+        earned.append("habit_7")
+    for code in earned:
+        if code not in have:
+            db.execute("INSERT OR IGNORE INTO badges(user_id, code, earned_at) "
+                       "VALUES(?,?,?)",
+                       (uid, code, datetime.utcnow().isoformat(timespec="seconds")))
+            notify(uid, "badge", actor=code)
+    db.commit()
+
+
+def user_badges(uid):
+    return get_db().execute("SELECT * FROM badges WHERE user_id = ? ORDER BY earned_at",
+                            (uid,)).fetchall()
+
+
+def record_activity(uid):
+    db = get_db()
+    db.execute("INSERT OR IGNORE INTO activity(user_id, day) VALUES(?,?)",
+               (uid, date.today().isoformat()))
+    db.commit()
+
+
+def _streak_from_days(days):
+    """Consecutive-day streak ending today (or yesterday, so it isn't lost at midnight)."""
+    from datetime import timedelta
+    d = date.today()
+    if d.isoformat() not in days:
+        d -= timedelta(days=1)
+    n = 0
+    while d.isoformat() in days:
+        n += 1
+        d -= timedelta(days=1)
+    return n
+
+
+def user_streak(uid):
+    rows = get_db().execute("SELECT day FROM activity WHERE user_id = ?", (uid,)).fetchall()
+    return _streak_from_days({r["day"] for r in rows})
+
+
+def habit_streak(habit_id):
+    rows = get_db().execute("SELECT day FROM habit_checks WHERE habit_id = ?",
+                            (habit_id,)).fetchall()
+    return _streak_from_days({r["day"] for r in rows})
+
+
+def get_friend_ids(uid):
+    rows = get_db().execute(
+        "SELECT from_id, to_id FROM friendships WHERE status='accepted' "
+        "AND (from_id = ? OR to_id = ?)", (uid, uid)).fetchall()
+    return {r["from_id"] if r["to_id"] == uid else r["to_id"] for r in rows}
+
+
+def are_friends(a, b):
+    return b in get_friend_ids(a)
+
+
+def is_group_member(group_id, uid):
+    return get_db().execute(
+        "SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?",
+        (group_id, uid)).fetchone() is not None
+
+
+def member_group_or_403(group_id):
+    g_row = get_db().execute("SELECT * FROM groups WHERE id = ?", (group_id,)).fetchone()
+    if g_row is None:
+        abort(404)
+    if not is_group_member(group_id, session["user_id"]):
+        abort(403)
+    return g_row
+
+
+def upcoming_meeting(first_meeting, frequency):
+    """Next meeting date >= today, stepping by the group's frequency."""
+    from datetime import timedelta
+    if not first_meeting:
+        return None
+    try:
+        d = date.fromisoformat(first_meeting)
+    except ValueError:
+        return None
+    step = {"weekly": 7, "biweekly": 14, "monthly": 30}.get(frequency, 7)
+    while d < date.today():
+        d += timedelta(days=step)
+    return d
+
+
+def random_quote():
+    lang = session.get("lang", "en")
+    row = get_db().execute("SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1").fetchone()
+    if row is None:
+        return ""
+    return row[f"text_{lang}"] or row["text_en"]
+
+
+# ---------------------------------------------------------------- routes
+@app.route("/lang/<code>")
+def set_lang(code):
+    if code in LANGS:
+        session["lang"] = code
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/")
+def index():
+    if session.get("user_id"):
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = get_db().execute("SELECT * FROM users WHERE username = ?",
+                                (username,)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_id"] = user["id"]
+            db = get_db()
+            db.execute("UPDATE users SET last_login = ? WHERE id = ?",
+                       (datetime.utcnow().isoformat(timespec="seconds"), user["id"]))
+            db.commit()
+            return redirect(url_for("dashboard"))
+        flash(tr("err_login"), "error")
+    return render_template("login.html", quote=random_quote())
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if get_settings().get("allow_registration") != "1":
+        flash(tr("err_reg_closed"), "error")
+        return render_template("register.html", quote=random_quote(), closed=True)
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm", "")
+        import re
+        if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", username):
+            flash(tr("err_username"), "error")
+        elif len(password) < 6:
+            flash(tr("err_pw_short"), "error")
+        elif password != confirm:
+            flash(tr("err_pw_match"), "error")
+        else:
+            db = get_db()
+            try:
+                cur = db.execute(
+                    "INSERT INTO users(username, password_hash, created_at, full_name, "
+                    "email) VALUES(?,?,?,?,?)",
+                    (username, generate_password_hash(password),
+                     datetime.utcnow().isoformat(timespec="seconds"),
+                     request.form.get("full_name", "").strip()[:60],
+                     request.form.get("email", "").strip()[:80]))
+                db.commit()
+                session["user_id"] = cur.lastrowid
+                flash(tr("ok_registered"), "ok")
+                return redirect(url_for("dashboard"))
+            except sqlite3.IntegrityError:
+                flash(tr("err_user_exists"), "error")
+    return render_template("register.html", quote=random_quote(), closed=False)
+
+
+@app.route("/logout")
+def logout():
+    session.pop("user_id", None)
+    return redirect(url_for("login"))
+
+
+PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    user = current_user()
+    rows = get_db().execute(
+        "SELECT * FROM plans WHERE user_id = ? ORDER BY done ASC, "
+        "CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, "
+        "COALESCE(due_date,'9999') ASC, created_at DESC", (user["id"],)).fetchall()
+    short_plans = [r for r in rows if r["plan_type"] == "short"]
+    long_plans = [r for r in rows if r["plan_type"] == "long"]
+    total = len(rows)
+    done = sum(1 for r in rows if r["done"])
+    pct = int(done * 100 / total) if total else 0
+    # friends' activity today
+    feed = []
+    db = get_db()
+    today_s = date.today().isoformat()
+    for fid in sorted(get_friend_ids(user["id"])):
+        fr = db.execute("SELECT id, username FROM users WHERE id = ?", (fid,)).fetchone()
+        if fr is None:
+            continue
+        p_n = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1 "
+                         "AND substr(done_at,1,10) = ?", (fid, today_s)).fetchone()[0]
+        h_n = db.execute("SELECT COUNT(*) FROM habit_checks hc JOIN habits h "
+                         "ON h.id = hc.habit_id WHERE h.user_id = ? AND hc.day = ?",
+                         (fid, today_s)).fetchone()[0]
+        b_new = [r["code"] for r in db.execute(
+            "SELECT code FROM badges WHERE user_id = ? AND substr(earned_at,1,10) = ?",
+            (fid, today_s))]
+        if p_n or h_n or b_new:
+            feed.append(dict(user=fr, plans=p_n, habits=h_n, badges=b_new))
+    feed.sort(key=lambda x: x["plans"] + x["habits"], reverse=True)
+    return render_template("dashboard.html", user=user, short_plans=short_plans,
+                           long_plans=long_plans, quote=random_quote(),
+                           total=total, done_count=done, pct=pct,
+                           streak=user_streak(user["id"]), feed=feed)
+
+
+@app.route("/plan/add", methods=["POST"])
+@login_required
+def plan_add():
+    title = request.form.get("title", "").strip()
+    if not title:
+        return redirect(url_for("dashboard"))
+    details = request.form.get("details", "").strip()
+    plan_type = request.form.get("plan_type", "short")
+    if plan_type not in ("short", "long"):
+        plan_type = "short"
+    priority = request.form.get("priority", "medium")
+    if priority not in ("high", "medium", "low"):
+        priority = "medium"
+    due = request.form.get("due_date") or None
+    db = get_db()
+    db.execute("INSERT INTO plans(user_id, title, details, plan_type, priority, "
+               "due_date, created_at) VALUES(?,?,?,?,?,?,?)",
+               (session["user_id"], title, details, plan_type, priority, due,
+                datetime.utcnow().isoformat(timespec="seconds")))
+    db.commit()
+    return redirect(url_for("dashboard"))
+
+
+def own_plan_or_404(plan_id):
+    row = get_db().execute("SELECT * FROM plans WHERE id = ? AND user_id = ?",
+                           (plan_id, session["user_id"])).fetchone()
+    if row is None:
+        abort(404)
+    return row
+
+
+@app.route("/plan/<int:plan_id>/toggle", methods=["POST"])
+@login_required
+def plan_toggle(plan_id):
+    row = own_plan_or_404(plan_id)
+    db = get_db()
+    now_done = 0 if row["done"] else 1
+    db.execute("UPDATE plans SET done = ?, done_at = ? WHERE id = ?",
+               (now_done,
+                datetime.utcnow().isoformat(timespec="seconds") if now_done else None,
+                plan_id))
+    db.commit()
+    if now_done:
+        record_activity(session["user_id"])
+        award_badges(session["user_id"])
+        big = "1" if row["priority"] == "high" else "0"
+        return redirect(url_for("dashboard", celebrate=1, big=big))
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/plan/<int:plan_id>/delete", methods=["POST"])
+@login_required
+def plan_delete(plan_id):
+    own_plan_or_404(plan_id)
+    db = get_db()
+    db.execute("DELETE FROM plans WHERE id = ?", (plan_id,))
+    db.commit()
+    return redirect(url_for("dashboard"))
+
+
+# ---------------------------------------------------------------- personalization
+@app.route("/prefs/theme", methods=["POST"])
+@login_required
+def prefs_theme():
+    db = get_db()
+    cur = db.execute("SELECT theme FROM users WHERE id = ?",
+                     (session["user_id"],)).fetchone()
+    new = "light" if (cur["theme"] or "dark") == "dark" else "dark"
+    db.execute("UPDATE users SET theme = ? WHERE id = ?", (new, session["user_id"]))
+    db.commit()
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/prefs/accent", methods=["POST"])
+@login_required
+def prefs_accent():
+    accent = request.form.get("accent", "").strip()
+    import re
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent):
+        accent = None
+    db = get_db()
+    db.execute("UPDATE users SET accent = ? WHERE id = ?", (accent, session["user_id"]))
+    db.commit()
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+# ---------------------------------------------------------------- focus timer
+@app.route("/focus")
+@login_required
+def focus():
+    return render_template("focus.html", user=current_user(), quote=random_quote())
+
+
+# ---------------------------------------------------------------- habits
+@app.route("/habits")
+@login_required
+def habits():
+    from datetime import timedelta
+    db = get_db()
+    uid = session["user_id"]
+    rows = db.execute("SELECT * FROM habits WHERE user_id = ? ORDER BY id",
+                      (uid,)).fetchall()
+    week = [(date.today() - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
+    items = []
+    for h in rows:
+        checks = {r["day"] for r in db.execute(
+            "SELECT day FROM habit_checks WHERE habit_id = ?", (h["id"],))}
+        items.append(dict(id=h["id"], name=h["name"],
+                          streak=_streak_from_days(checks),
+                          week=[(d, d in checks) for d in week],
+                          done_today=date.today().isoformat() in checks))
+    return render_template("habits.html", user=current_user(), habits=items,
+                           quote=random_quote())
+
+
+@app.route("/habit/add", methods=["POST"])
+@login_required
+def habit_add():
+    name = request.form.get("name", "").strip()
+    if name:
+        db = get_db()
+        db.execute("INSERT INTO habits(user_id, name, created_at) VALUES(?,?,?)",
+                   (session["user_id"], name,
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(url_for("habits"))
+
+
+def own_habit_or_404(habit_id):
+    row = get_db().execute("SELECT * FROM habits WHERE id = ? AND user_id = ?",
+                           (habit_id, session["user_id"])).fetchone()
+    if row is None:
+        abort(404)
+    return row
+
+
+@app.route("/habit/<int:habit_id>/toggle", methods=["POST"])
+@login_required
+def habit_toggle(habit_id):
+    own_habit_or_404(habit_id)
+    db = get_db()
+    today = date.today().isoformat()
+    hit = db.execute("SELECT 1 FROM habit_checks WHERE habit_id = ? AND day = ?",
+                     (habit_id, today)).fetchone()
+    if hit:
+        db.execute("DELETE FROM habit_checks WHERE habit_id = ? AND day = ?",
+                   (habit_id, today))
+    else:
+        db.execute("INSERT INTO habit_checks(habit_id, day) VALUES(?,?)",
+                   (habit_id, today))
+        record_activity(session["user_id"])
+    db.commit()
+    if not hit:
+        award_badges(session["user_id"])
+    return redirect(url_for("habits"))
+
+
+@app.route("/habit/<int:habit_id>/delete", methods=["POST"])
+@login_required
+def habit_delete(habit_id):
+    own_habit_or_404(habit_id)
+    db = get_db()
+    db.execute("DELETE FROM habits WHERE id = ?", (habit_id,))
+    db.commit()
+    return redirect(url_for("habits"))
+
+
+# ---------------------------------------------------------------- notes
+@app.route("/notes")
+@login_required
+def notes():
+    rows = get_db().execute(
+        "SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC",
+        (session["user_id"],)).fetchall()
+    return render_template("notes.html", user=current_user(), notes=rows,
+                           quote=random_quote())
+
+
+@app.route("/note/add", methods=["POST"])
+@login_required
+def note_add():
+    db = get_db()
+    db.execute("INSERT INTO notes(user_id, title, content, updated_at) VALUES(?,?,?,?)",
+               (session["user_id"], request.form.get("title", "").strip(),
+                request.form.get("content", "").strip(),
+                datetime.utcnow().isoformat(timespec="seconds")))
+    db.commit()
+    return redirect(url_for("notes"))
+
+
+def own_note_or_404(note_id):
+    row = get_db().execute("SELECT * FROM notes WHERE id = ? AND user_id = ?",
+                           (note_id, session["user_id"])).fetchone()
+    if row is None:
+        abort(404)
+    return row
+
+
+@app.route("/note/<int:note_id>/update", methods=["POST"])
+@login_required
+def note_update(note_id):
+    own_note_or_404(note_id)
+    db = get_db()
+    db.execute("UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ?",
+               (request.form.get("title", "").strip(),
+                request.form.get("content", "").strip(),
+                datetime.utcnow().isoformat(timespec="seconds"), note_id))
+    db.commit()
+    flash(tr("ok_saved"), "ok")
+    return redirect(url_for("notes"))
+
+
+@app.route("/note/<int:note_id>/delete", methods=["POST"])
+@login_required
+def note_delete(note_id):
+    own_note_or_404(note_id)
+    db = get_db()
+    db.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+    db.commit()
+    return redirect(url_for("notes"))
+
+
+# ---------------------------------------------------------------- university
+DAY_KEYS = ["day_sat", "day_sun", "day_mon", "day_tue", "day_wed", "day_thu", "day_fri"]
+
+
+@app.route("/university")
+@login_required
+def university():
+    db = get_db()
+    uid = session["user_id"]
+    exams = db.execute("SELECT * FROM exams WHERE user_id = ? ORDER BY exam_date",
+                       (uid,)).fetchall()
+    today_d = date.today()
+    exam_items = []
+    for e in exams:
+        try:
+            left = (date.fromisoformat(e["exam_date"]) - today_d).days
+        except ValueError:
+            left = None
+        exam_items.append(dict(id=e["id"], subject=e["subject"], note=e["note"],
+                               exam_date=e["exam_date"], left=left))
+    classes = db.execute("SELECT * FROM timetable WHERE user_id = ? "
+                         "ORDER BY day, start_time", (uid,)).fetchall()
+    days_used = sorted({c["day"] for c in classes} | {1, 2, 3, 4, 5})  # Sun–Thu always
+    grid = {d: [c for c in classes if c["day"] == d] for d in days_used}
+    cards = db.execute("SELECT * FROM flashcards WHERE user_id = ? ORDER BY subject, id",
+                       (uid,)).fetchall()
+    subjects = sorted({c["subject"] for c in cards})
+    fc_data = [dict(s=c["subject"], q=c["question"], a=c["answer"]) for c in cards]
+    return render_template("university.html", user=current_user(), exams=exam_items,
+                           grid=grid, day_keys=DAY_KEYS, cards=cards,
+                           subjects=subjects, fc_data=fc_data, quote=random_quote())
+
+
+def group_extras(group_id):
+    """Files and shared decks for a group page."""
+    db = get_db()
+    files = db.execute(
+        "SELECT f.*, u.username FROM group_files f JOIN users u ON u.id = f.user_id "
+        "WHERE f.group_id = ? ORDER BY f.id DESC", (group_id,)).fetchall()
+    decks = []
+    for d in db.execute(
+            "SELECT d.*, u.username FROM group_decks d JOIN users u ON u.id = d.user_id "
+            "WHERE d.group_id = ? ORDER BY d.id", (group_id,)).fetchall():
+        cards = db.execute(
+            "SELECT question, answer FROM flashcards WHERE user_id = ? AND subject = ? "
+            "ORDER BY id", (d["user_id"], d["subject"])).fetchall()
+        decks.append(dict(id=d["id"], subject=d["subject"], username=d["username"],
+                          user_id=d["user_id"],
+                          cards=[dict(q=c["question"], a=c["answer"]) for c in cards]))
+    return files, decks
+
+
+@app.route("/exam/add", methods=["POST"])
+@login_required
+def exam_add():
+    subject = request.form.get("subject", "").strip()
+    exam_date = request.form.get("exam_date", "")
+    if subject and exam_date:
+        db = get_db()
+        db.execute("INSERT INTO exams(user_id, subject, exam_date, note) VALUES(?,?,?,?)",
+                   (session["user_id"], subject, exam_date,
+                    request.form.get("note", "").strip()))
+        db.commit()
+    return redirect(url_for("university"))
+
+
+@app.route("/exam/<int:exam_id>/delete", methods=["POST"])
+@login_required
+def exam_delete(exam_id):
+    db = get_db()
+    db.execute("DELETE FROM exams WHERE id = ? AND user_id = ?",
+               (exam_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("university"))
+
+
+@app.route("/class/add", methods=["POST"])
+@login_required
+def class_add():
+    subject = request.form.get("subject", "").strip()
+    try:
+        day = int(request.form.get("day", "1"))
+    except ValueError:
+        day = 1
+    start = request.form.get("start_time", "")
+    if subject and start and 0 <= day <= 6:
+        db = get_db()
+        db.execute("INSERT INTO timetable(user_id, day, subject, start_time, end_time, room)"
+                   " VALUES(?,?,?,?,?,?)",
+                   (session["user_id"], day, subject, start,
+                    request.form.get("end_time", ""), request.form.get("room", "").strip()))
+        db.commit()
+    return redirect(url_for("university"))
+
+
+@app.route("/class/<int:class_id>/delete", methods=["POST"])
+@login_required
+def class_delete(class_id):
+    db = get_db()
+    db.execute("DELETE FROM timetable WHERE id = ? AND user_id = ?",
+               (class_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("university"))
+
+
+@app.route("/flashcard/add", methods=["POST"])
+@login_required
+def flashcard_add():
+    subject = request.form.get("subject", "").strip()
+    q = request.form.get("question", "").strip()
+    a = request.form.get("answer", "").strip()
+    if subject and q and a:
+        db = get_db()
+        db.execute("INSERT INTO flashcards(user_id, subject, question, answer) "
+                   "VALUES(?,?,?,?)", (session["user_id"], subject, q, a))
+        db.commit()
+    return redirect(url_for("university"))
+
+
+@app.route("/flashcard/<int:card_id>/delete", methods=["POST"])
+@login_required
+def flashcard_delete(card_id):
+    db = get_db()
+    db.execute("DELETE FROM flashcards WHERE id = ? AND user_id = ?",
+               (card_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("university"))
+
+
+# ---------------------------------------------------------------- profiles
+def friendship_status(me, other_id):
+    """'self' | 'friends' | 'pending_out' | 'pending_in' | 'none' (+ row id)."""
+    if me == other_id:
+        return "self", None
+    row = get_db().execute(
+        "SELECT * FROM friendships WHERE (from_id = ? AND to_id = ?) "
+        "OR (from_id = ? AND to_id = ?)",
+        (me, other_id, other_id, me)).fetchone()
+    if row is None:
+        return "none", None
+    if row["status"] == "accepted":
+        return "friends", row["id"]
+    return ("pending_out" if row["from_id"] == me else "pending_in"), row["id"]
+
+
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    db = get_db()
+    uid = session["user_id"]
+    if request.method == "POST":
+        db.execute("UPDATE users SET full_name = ?, email = ?, bio = ? WHERE id = ?",
+                   (request.form.get("full_name", "").strip()[:60],
+                    request.form.get("email", "").strip()[:80],
+                    request.form.get("bio", "").strip()[:300], uid))
+        new_pw = request.form.get("new_password", "")
+        if new_pw:
+            if len(new_pw) < 6:
+                flash(tr("err_pw_short"), "error")
+            else:
+                db.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                           (generate_password_hash(new_pw), uid))
+        photo = request.files.get("photo")
+        if photo and photo.filename:
+            ext = photo.filename.rsplit(".", 1)[-1].lower()
+            if ext in AVATAR_EXTS:
+                folder = os.path.join(BASE_DIR, "static", "avatars")
+                for old in AVATAR_EXTS:  # remove any previous photo
+                    old_p = os.path.join(folder, f"{uid}.{old}")
+                    if os.path.exists(old_p):
+                        os.remove(old_p)
+                photo.save(os.path.join(folder, f"{uid}.{ext}"))
+            else:
+                flash(tr("err_photo_type"), "error")
+        db.commit()
+        flash(tr("ok_profile"), "ok")
+        return redirect(url_for("profile"))
+    done_count = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1",
+                            (uid,)).fetchone()[0]
+    return render_template("profile.html", user=current_user(),
+                           streak=user_streak(uid), done_count=done_count,
+                           earned=user_badges(uid))
+
+
+@app.route("/u/<username>")
+@login_required
+def user_profile(username):
+    db = get_db()
+    person = db.execute("SELECT * FROM users WHERE username = ?",
+                        (username,)).fetchone()
+    if person is None:
+        abort(404)
+    status, fid = friendship_status(session["user_id"], person["id"])
+    done_count = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1",
+                            (person["id"],)).fetchone()[0]
+    return render_template("user_profile.html", user=current_user(), person=person,
+                           status=status, fid=fid, streak=user_streak(person["id"]),
+                           done_count=done_count, earned=user_badges(person["id"]))
+
+
+# ---------------------------------------------------------------- friends
+@app.route("/friends")
+@login_required
+def friends():
+    db = get_db()
+    uid = session["user_id"]
+    q = request.args.get("q", "").strip()
+    results = []
+    if q:
+        like = f"%{q}%"
+        rows = db.execute(
+            "SELECT * FROM users WHERE (username LIKE ? OR full_name LIKE ?) "
+            "AND id != ? ORDER BY username LIMIT 12", (like, like, uid)).fetchall()
+        for r in rows:
+            status, fid = friendship_status(uid, r["id"])
+            results.append(dict(r, status=status, fid=fid))
+    incoming = db.execute(
+        "SELECT f.id, u.id AS from_id, u.username FROM friendships f "
+        "JOIN users u ON u.id = f.from_id "
+        "WHERE f.to_id = ? AND f.status='pending' ORDER BY f.created_at DESC",
+        (uid,)).fetchall()
+    outgoing = db.execute(
+        "SELECT f.id, u.username FROM friendships f JOIN users u ON u.id = f.to_id "
+        "WHERE f.from_id = ? AND f.status='pending' ORDER BY f.created_at DESC",
+        (uid,)).fetchall()
+    my_friends = db.execute("""
+        SELECT f.id AS fid, u.id AS uid, u.username, u.last_login
+        FROM friendships f
+        JOIN users u ON u.id = CASE WHEN f.from_id = ? THEN f.to_id ELSE f.from_id END
+        WHERE f.status='accepted' AND (f.from_id = ? OR f.to_id = ?)
+        ORDER BY u.username""", (uid, uid, uid)).fetchall()
+    return render_template("friends.html", user=current_user(), incoming=incoming,
+                           outgoing=outgoing, my_friends=my_friends,
+                           q=q, results=results, quote=random_quote())
+
+
+@app.route("/friend/request", methods=["POST"])
+@login_required
+def friend_request():
+    uid = session["user_id"]
+    username = request.form.get("username", "").strip()
+    db = get_db()
+    target = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    if target is None:
+        flash(tr("err_user_not_found"), "error")
+    elif target["id"] == uid:
+        flash(tr("err_self_friend"), "error")
+    else:
+        existing = db.execute(
+            "SELECT * FROM friendships WHERE (from_id = ? AND to_id = ?) "
+            "OR (from_id = ? AND to_id = ?)",
+            (uid, target["id"], target["id"], uid)).fetchone()
+        if existing:
+            flash(tr("err_already_friends" if existing["status"] == "accepted"
+                     else "err_request_pending"), "error")
+        else:
+            db.execute("INSERT INTO friendships(from_id, to_id, created_at) VALUES(?,?,?)",
+                       (uid, target["id"],
+                        datetime.utcnow().isoformat(timespec="seconds")))
+            notify(target["id"], "friend_req", actor=current_user()["username"],
+                   link=url_for("friends"))
+            db.commit()
+            flash(tr("ok_request_sent"), "ok")
+    return redirect(url_for("friends"))
+
+
+@app.route("/friend/<int:fid>/accept", methods=["POST"])
+@login_required
+def friend_accept(fid):
+    db = get_db()
+    row = db.execute("SELECT * FROM friendships WHERE id = ? AND to_id = ? "
+                     "AND status='pending'", (fid, session["user_id"])).fetchone()
+    if row:
+        db.execute("UPDATE friendships SET status='accepted' WHERE id = ?", (fid,))
+        notify(row["from_id"], "friend_acc", actor=current_user()["username"],
+               link=url_for("user_profile", username=current_user()["username"]))
+        db.commit()
+        award_badges(session["user_id"])
+        award_badges(row["from_id"])
+    return redirect(url_for("friends"))
+
+
+@app.route("/friend/<int:fid>/decline", methods=["POST"])
+@login_required
+def friend_decline(fid):
+    """Decline an incoming request, cancel an outgoing one, or remove a friend."""
+    db = get_db()
+    db.execute("DELETE FROM friendships WHERE id = ? AND (to_id = ? OR from_id = ?)",
+               (fid, session["user_id"], session["user_id"]))
+    db.commit()
+    return redirect(url_for("friends"))
+
+
+# ---------------------------------------------------------------- groups
+@app.route("/groups")
+@login_required
+def groups():
+    uid = session["user_id"]
+    rows = get_db().execute("""
+        SELECT g.*, u.username AS owner_name,
+               (SELECT COUNT(*) FROM group_members m WHERE m.group_id = g.id) AS member_count
+        FROM groups g
+        JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+        JOIN users u ON u.id = g.owner_id
+        ORDER BY g.created_at DESC""", (uid,)).fetchall()
+    items = []
+    for g_row in rows:
+        nm = upcoming_meeting(g_row["first_meeting"], g_row["frequency"])
+        items.append(dict(g_row, next_meeting=nm.isoformat() if nm else None,
+                          days_to_meeting=(nm - date.today()).days if nm else None))
+    return render_template("groups.html", user=current_user(), groups=items,
+                           quote=random_quote())
+
+
+@app.route("/group/create", methods=["POST"])
+@login_required
+def group_create():
+    name = request.form.get("name", "").strip()
+    if not name:
+        return redirect(url_for("groups"))
+    freq = request.form.get("frequency", "weekly")
+    if freq not in ("weekly", "biweekly", "monthly"):
+        freq = "weekly"
+    db = get_db()
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    cur = db.execute(
+        "INSERT INTO groups(name, description, owner_id, frequency, first_meeting, "
+        "created_at) VALUES(?,?,?,?,?,?)",
+        (name, request.form.get("description", "").strip(), session["user_id"],
+         freq, request.form.get("first_meeting") or None, now))
+    db.execute("INSERT INTO group_members(group_id, user_id, joined_at) VALUES(?,?,?)",
+               (cur.lastrowid, session["user_id"], now))
+    db.commit()
+    award_badges(session["user_id"])
+    return redirect(url_for("group_page", group_id=cur.lastrowid))
+
+
+@app.route("/group/<int:group_id>")
+@login_required
+def group_page(group_id):
+    g_row = member_group_or_403(group_id)
+    db = get_db()
+    members = db.execute(
+        "SELECT u.id, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id "
+        "WHERE gm.group_id = ? ORDER BY u.username", (group_id,)).fetchall()
+    messages = db.execute(
+        "SELECT m.*, u.username FROM group_messages m JOIN users u ON u.id = m.user_id "
+        "WHERE m.group_id = ? ORDER BY m.id DESC LIMIT 100", (group_id,)).fetchall()
+    gplans = db.execute(
+        "SELECT p.*, u.username FROM group_plans p JOIN users u ON u.id = p.user_id "
+        "WHERE p.group_id = ? ORDER BY p.pinned DESC, "
+        "COALESCE(p.target_date,'9999') ASC, p.id DESC", (group_id,)).fetchall()
+    nm = upcoming_meeting(g_row["first_meeting"], g_row["frequency"])
+    # friends of mine who are not yet members (for the add-member dropdown)
+    friend_ids = get_friend_ids(session["user_id"])
+    member_ids = {m["id"] for m in members}
+    addable = [db.execute("SELECT id, username FROM users WHERE id = ?", (fid,)).fetchone()
+               for fid in sorted(friend_ids - member_ids)]
+    files, decks = group_extras(group_id)
+    my_subjects = sorted({r["subject"] for r in db.execute(
+        "SELECT DISTINCT subject FROM flashcards WHERE user_id = ?",
+        (session["user_id"],))})
+    return render_template("group.html", user=current_user(), g=g_row, members=members,
+                           messages=list(reversed(messages)), gplans=gplans,
+                           addable=[a for a in addable if a],
+                           next_meeting=nm.isoformat() if nm else None,
+                           days_to_meeting=(nm - date.today()).days if nm else None,
+                           is_owner=g_row["owner_id"] == session["user_id"],
+                           files=files, decks=decks, my_subjects=my_subjects)
+
+
+@app.route("/group/<int:group_id>/message", methods=["POST"])
+@login_required
+def group_message(group_id):
+    member_group_or_403(group_id)
+    content = request.form.get("content", "").strip()
+    if content:
+        db = get_db()
+        db.execute("INSERT INTO group_messages(group_id, user_id, content, created_at) "
+                   "VALUES(?,?,?,?)", (group_id, session["user_id"], content[:500],
+                                       datetime.utcnow().isoformat(timespec="seconds")))
+        g_row = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
+        link = url_for("group_page", group_id=group_id)
+        for m in db.execute("SELECT user_id FROM group_members WHERE group_id = ? "
+                            "AND user_id != ?", (group_id, session["user_id"])):
+            notify(m["user_id"], "group_msg", actor=g_row["name"], link=link)
+        db.commit()
+    return redirect(url_for("group_page", group_id=group_id) + "#chat")
+
+
+@app.route("/group/<int:group_id>/add_member", methods=["POST"])
+@login_required
+def group_add_member(group_id):
+    member_group_or_403(group_id)
+    try:
+        new_id = int(request.form.get("user_id", "0"))
+    except ValueError:
+        new_id = 0
+    # you may only add YOUR OWN friends
+    if new_id and are_friends(session["user_id"], new_id) \
+            and not is_group_member(group_id, new_id):
+        db = get_db()
+        db.execute("INSERT INTO group_members(group_id, user_id, joined_at) VALUES(?,?,?)",
+                   (group_id, new_id, datetime.utcnow().isoformat(timespec="seconds")))
+        g_row = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
+        notify(new_id, "group_add", actor=g_row["name"],
+               link=url_for("group_page", group_id=group_id))
+        db.commit()
+        flash(tr("ok_member_added"), "ok")
+    return redirect(url_for("group_page", group_id=group_id))
+
+
+@app.route("/group/<int:group_id>/remove_member/<int:member_id>", methods=["POST"])
+@login_required
+def group_remove_member(group_id, member_id):
+    g_row = member_group_or_403(group_id)
+    if g_row["owner_id"] != session["user_id"] or member_id == g_row["owner_id"]:
+        abort(403)
+    db = get_db()
+    db.execute("DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
+               (group_id, member_id))
+    db.commit()
+    return redirect(url_for("group_page", group_id=group_id))
+
+
+@app.route("/group/<int:group_id>/leave", methods=["POST"])
+@login_required
+def group_leave(group_id):
+    g_row = member_group_or_403(group_id)
+    if g_row["owner_id"] == session["user_id"]:
+        return redirect(url_for("group_page", group_id=group_id))  # owner deletes instead
+    db = get_db()
+    db.execute("DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
+               (group_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("groups"))
+
+
+@app.route("/group/<int:group_id>/delete", methods=["POST"])
+@login_required
+def group_delete(group_id):
+    g_row = member_group_or_403(group_id)
+    if g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    db = get_db()
+    db.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    db.commit()
+    return redirect(url_for("groups"))
+
+
+@app.route("/group/<int:group_id>/settings", methods=["POST"])
+@login_required
+def group_settings(group_id):
+    g_row = member_group_or_403(group_id)
+    if g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    freq = request.form.get("frequency", g_row["frequency"])
+    if freq not in ("weekly", "biweekly", "monthly"):
+        freq = g_row["frequency"]
+    db = get_db()
+    db.execute("UPDATE groups SET frequency = ?, first_meeting = ? WHERE id = ?",
+               (freq, request.form.get("first_meeting") or None, group_id))
+    db.commit()
+    flash(tr("ok_saved"), "ok")
+    return redirect(url_for("group_page", group_id=group_id))
+
+
+# ---------------------------------------------------------------- group plans
+@app.route("/group/<int:group_id>/plan/add", methods=["POST"])
+@login_required
+def gplan_add(group_id):
+    member_group_or_403(group_id)
+    title = request.form.get("title", "").strip()
+    if title:
+        db = get_db()
+        db.execute("INSERT INTO group_plans(group_id, user_id, title, details, "
+                   "target_date, created_at) VALUES(?,?,?,?,?,?)",
+                   (group_id, session["user_id"], title,
+                    request.form.get("details", "").strip(),
+                    request.form.get("target_date") or None,
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(url_for("group_page", group_id=group_id) + "#plans")
+
+
+@app.route("/gplan/<int:plan_id>/pin", methods=["POST"])
+@login_required
+def gplan_pin(plan_id):
+    db = get_db()
+    p = db.execute("SELECT * FROM group_plans WHERE id = ?", (plan_id,)).fetchone()
+    if p is None or not is_group_member(p["group_id"], session["user_id"]):
+        abort(403)
+    db.execute("UPDATE group_plans SET pinned = ? WHERE id = ?",
+               (0 if p["pinned"] else 1, plan_id))
+    db.commit()
+    return redirect(url_for("group_page", group_id=p["group_id"]) + "#plans")
+
+
+@app.route("/gplan/<int:plan_id>/delete", methods=["POST"])
+@login_required
+def gplan_delete(plan_id):
+    db = get_db()
+    p = db.execute("SELECT * FROM group_plans WHERE id = ?", (plan_id,)).fetchone()
+    if p is None:
+        abort(404)
+    g_row = db.execute("SELECT owner_id FROM groups WHERE id = ?",
+                       (p["group_id"],)).fetchone()
+    # author or group owner may delete
+    if p["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    db.execute("DELETE FROM group_plans WHERE id = ?", (plan_id,))
+    db.commit()
+    return redirect(url_for("group_page", group_id=p["group_id"]) + "#plans")
+
+
+# ---------------------------------------------------------------- notifications
+@app.route("/notifications")
+@login_required
+def notifications():
+    from datetime import timedelta
+    db = get_db()
+    uid = session["user_id"]
+    stored = db.execute("SELECT * FROM notifications WHERE user_id = ? "
+                        "ORDER BY id DESC LIMIT 50", (uid,)).fetchall()
+    # dynamic reminders: exams within 3 days, meetings within 1 day
+    reminders = []
+    for e in db.execute("SELECT * FROM exams WHERE user_id = ?", (uid,)):
+        try:
+            left = (date.fromisoformat(e["exam_date"]) - date.today()).days
+        except ValueError:
+            continue
+        if 0 <= left <= 3:
+            reminders.append(dict(kind="exam", actor=e["subject"], left=left,
+                                  link=url_for("university")))
+    for g_row in db.execute(
+            "SELECT g.* FROM groups g JOIN group_members m ON m.group_id = g.id "
+            "AND m.user_id = ?", (uid,)):
+        nm = upcoming_meeting(g_row["first_meeting"], g_row["frequency"])
+        if nm and (nm - date.today()).days <= 1:
+            reminders.append(dict(kind="meeting", actor=g_row["name"],
+                                  left=(nm - date.today()).days,
+                                  link=url_for("group_page", group_id=g_row["id"])))
+    db.execute("UPDATE notifications SET is_read = 1 WHERE user_id = ?", (uid,))
+    db.commit()
+    return render_template("notifications.html", user=current_user(),
+                           stored=stored, reminders=reminders)
+
+
+# ---------------------------------------------------------------- direct messages
+@app.route("/messages")
+@login_required
+def messages():
+    db = get_db()
+    uid = session["user_id"]
+    convos = []
+    for fid in sorted(get_friend_ids(uid)):
+        friend = db.execute("SELECT id, username, full_name FROM users WHERE id = ?",
+                            (fid,)).fetchone()
+        if friend is None:
+            continue
+        last = db.execute(
+            "SELECT * FROM dms WHERE (from_id = ? AND to_id = ?) "
+            "OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 1",
+            (uid, fid, fid, uid)).fetchone()
+        unread = db.execute("SELECT COUNT(*) FROM dms WHERE from_id = ? AND to_id = ? "
+                            "AND is_read = 0", (fid, uid)).fetchone()[0]
+        convos.append(dict(friend=friend, last=last, unread=unread))
+    convos.sort(key=lambda c: c["last"]["id"] if c["last"] else 0, reverse=True)
+    return render_template("messages.html", user=current_user(), convos=convos)
+
+
+@app.route("/messages/<username>", methods=["GET", "POST"])
+@login_required
+def dm_thread(username):
+    db = get_db()
+    uid = session["user_id"]
+    friend = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    if friend is None:
+        abort(404)
+    if not are_friends(uid, friend["id"]):
+        abort(403)
+    if request.method == "POST":
+        content = request.form.get("content", "").strip()
+        if content:
+            db.execute("INSERT INTO dms(from_id, to_id, content, created_at) "
+                       "VALUES(?,?,?,?)", (uid, friend["id"], content[:500],
+                                           datetime.utcnow().isoformat(timespec="seconds")))
+            notify(friend["id"], "dm", actor=current_user()["username"],
+                   link=url_for("dm_thread", username=current_user()["username"]))
+            db.commit()
+        return redirect(url_for("dm_thread", username=username))
+    db.execute("UPDATE dms SET is_read = 1 WHERE from_id = ? AND to_id = ?",
+               (friend["id"], uid))
+    db.commit()
+    thread = db.execute(
+        "SELECT * FROM dms WHERE (from_id = ? AND to_id = ?) "
+        "OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 200",
+        (uid, friend["id"], friend["id"], uid)).fetchall()
+    return render_template("dm.html", user=current_user(), friend=friend,
+                           thread=list(reversed(thread)))
+
+
+# ---------------------------------------------------------------- leaderboard
+@app.route("/leaderboard")
+@login_required
+def leaderboard():
+    from datetime import timedelta
+    db = get_db()
+    uid = session["user_id"]
+    week_start = (date.today() - timedelta(days=date.today().weekday())).isoformat()
+    rows = []
+    for pid in sorted(get_friend_ids(uid) | {uid}):
+        person = db.execute("SELECT id, username, full_name FROM users WHERE id = ?",
+                            (pid,)).fetchone()
+        if person is None:
+            continue
+        plans_done = db.execute(
+            "SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1 "
+            "AND substr(done_at,1,10) >= ?", (pid, week_start)).fetchone()[0]
+        habit_hits = db.execute(
+            "SELECT COUNT(*) FROM habit_checks hc JOIN habits h ON h.id = hc.habit_id "
+            "WHERE h.user_id = ? AND hc.day >= ?", (pid, week_start)).fetchone()[0]
+        streak = user_streak(pid)
+        points = plans_done * 10 + habit_hits * 5 + streak * 3
+        rows.append(dict(person=person, plans=plans_done, habits=habit_hits,
+                         streak=streak, points=points))
+    rows.sort(key=lambda r: r["points"], reverse=True)
+    return render_template("leaderboard.html", user=current_user(), rows=rows,
+                           week_start=week_start)
+
+
+# ---------------------------------------------------------------- group files
+FILE_EXTS = ("pdf", "png", "jpg", "jpeg", "webp", "gif", "txt", "md",
+             "docx", "xlsx", "pptx", "zip")
+
+
+@app.route("/group/<int:group_id>/file/upload", methods=["POST"])
+@login_required
+def gfile_upload(group_id):
+    member_group_or_403(group_id)
+    f = request.files.get("file")
+    if f and f.filename:
+        from werkzeug.utils import secure_filename
+        ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+        if ext in FILE_EXTS:
+            db = get_db()
+            safe = secure_filename(f.filename) or f"file.{ext}"
+            cur = db.execute(
+                "INSERT INTO group_files(group_id, user_id, stored, orig_name, "
+                "created_at) VALUES(?,?,?,?,?)",
+                (group_id, session["user_id"], "", f.filename[:120],
+                 datetime.utcnow().isoformat(timespec="seconds")))
+            stored = f"{group_id}_{cur.lastrowid}_{safe}"
+            path = os.path.join(BASE_DIR, "groupfiles", stored)
+            f.save(path)
+            db.execute("UPDATE group_files SET stored = ?, size = ? WHERE id = ?",
+                       (stored, os.path.getsize(path), cur.lastrowid))
+            db.commit()
+            flash(tr("ok_saved"), "ok")
+        else:
+            flash(tr("err_file_type"), "error")
+    return redirect(url_for("group_page", group_id=group_id) + "#files")
+
+
+@app.route("/gfile/<int:file_id>")
+@login_required
+def gfile_download(file_id):
+    from flask import send_from_directory
+    db = get_db()
+    f = db.execute("SELECT * FROM group_files WHERE id = ?", (file_id,)).fetchone()
+    if f is None:
+        abort(404)
+    if not is_group_member(f["group_id"], session["user_id"]):
+        abort(403)
+    return send_from_directory(os.path.join(BASE_DIR, "groupfiles"), f["stored"],
+                               as_attachment=True, download_name=f["orig_name"])
+
+
+@app.route("/gfile/<int:file_id>/delete", methods=["POST"])
+@login_required
+def gfile_delete(file_id):
+    db = get_db()
+    f = db.execute("SELECT * FROM group_files WHERE id = ?", (file_id,)).fetchone()
+    if f is None:
+        abort(404)
+    g_row = db.execute("SELECT owner_id FROM groups WHERE id = ?",
+                       (f["group_id"],)).fetchone()
+    if f["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    path = os.path.join(BASE_DIR, "groupfiles", f["stored"])
+    if os.path.exists(path):
+        os.remove(path)
+    db.execute("DELETE FROM group_files WHERE id = ?", (file_id,))
+    db.commit()
+    return redirect(url_for("group_page", group_id=f["group_id"]) + "#files")
+
+
+# ---------------------------------------------------------------- shared decks
+@app.route("/group/<int:group_id>/deck/share", methods=["POST"])
+@login_required
+def gdeck_share(group_id):
+    member_group_or_403(group_id)
+    subject = request.form.get("subject", "").strip()
+    if subject:
+        db = get_db()
+        owns = db.execute("SELECT 1 FROM flashcards WHERE user_id = ? AND subject = ?",
+                          (session["user_id"], subject)).fetchone()
+        if owns:
+            try:
+                db.execute("INSERT INTO group_decks(group_id, user_id, subject, "
+                           "created_at) VALUES(?,?,?,?)",
+                           (group_id, session["user_id"], subject,
+                            datetime.utcnow().isoformat(timespec="seconds")))
+                db.commit()
+                flash(tr("ok_saved"), "ok")
+            except sqlite3.IntegrityError:
+                pass  # already shared
+    return redirect(url_for("group_page", group_id=group_id) + "#decks")
+
+
+@app.route("/gdeck/<int:deck_id>/unshare", methods=["POST"])
+@login_required
+def gdeck_unshare(deck_id):
+    db = get_db()
+    d = db.execute("SELECT * FROM group_decks WHERE id = ?", (deck_id,)).fetchone()
+    if d is None:
+        abort(404)
+    g_row = db.execute("SELECT owner_id FROM groups WHERE id = ?",
+                       (d["group_id"],)).fetchone()
+    if d["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    db.execute("DELETE FROM group_decks WHERE id = ?", (deck_id,))
+    db.commit()
+    return redirect(url_for("group_page", group_id=d["group_id"]) + "#decks")
+
+
+# ---------------------------------------------------------------- fonts
+BUILTIN_FONTS = ["Carlito", "Aria", "Bebas Neue", "Poppins", "Montserrat", "Oswald",
+                 "Playfair Display", "Lobster", "Pacifico", "Roboto Slab",
+                 "Cairo", "Amiri", "Tajawal"]
+GOOGLE_FONTS_URL = ("https://fonts.googleapis.com/css2?family=Bebas+Neue"
+                    "&family=Poppins:wght@400;700&family=Montserrat:wght@400;800"
+                    "&family=Oswald:wght@500&family=Playfair+Display:wght@700"
+                    "&family=Lobster&family=Pacifico&family=Roboto+Slab:wght@700"
+                    "&family=Cairo:wght@400;700&family=Amiri:wght@700"
+                    "&family=Tajawal:wght@700&display=swap")
+FONT_EXTS = ("ttf", "otf", "woff", "woff2")
+
+
+def my_fonts():
+    return get_db().execute("SELECT * FROM fonts WHERE user_id = ? ORDER BY id",
+                            (session["user_id"],)).fetchall()
+
+
+@app.route("/font/upload", methods=["POST"])
+@login_required
+def font_upload():
+    f = request.files.get("font")
+    if f and f.filename and "." in f.filename:
+        from werkzeug.utils import secure_filename
+        ext = f.filename.rsplit(".", 1)[-1].lower()
+        if ext in FONT_EXTS:
+            db = get_db()
+            name = os.path.splitext(f.filename)[0][:40] or "MyFont"
+            cur = db.execute("INSERT INTO fonts(user_id, name, stored, created_at) "
+                             "VALUES(?,?,?,?)",
+                             (session["user_id"], name, "",
+                              datetime.utcnow().isoformat(timespec="seconds")))
+            stored = f"{session['user_id']}_{cur.lastrowid}_{secure_filename(f.filename)}"
+            f.save(os.path.join(BASE_DIR, "static", "fonts", stored))
+            db.execute("UPDATE fonts SET stored = ? WHERE id = ?", (stored, cur.lastrowid))
+            db.commit()
+            flash(tr("ok_saved"), "ok")
+        else:
+            flash(tr("err_font_type"), "error")
+    return redirect(request.referrer or url_for("tool_poster"))
+
+
+@app.route("/font/<int:font_id>/delete", methods=["POST"])
+@login_required
+def font_delete(font_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM fonts WHERE id = ? AND user_id = ?",
+                     (font_id, session["user_id"])).fetchone()
+    if row:
+        p = os.path.join(BASE_DIR, "static", "fonts", row["stored"])
+        if os.path.exists(p):
+            os.remove(p)
+        db.execute("DELETE FROM fonts WHERE id = ?", (font_id,))
+        db.commit()
+    return redirect(request.referrer or url_for("tool_poster"))
+
+
+# ---------------------------------------------------------------- student tools
+@app.route("/tools/poster")
+@login_required
+def tool_poster():
+    return render_template("tools_poster.html", user=current_user(),
+                           fonts=BUILTIN_FONTS, user_fonts=my_fonts(),
+                           gfonts=GOOGLE_FONTS_URL)
+
+
+@app.route("/tools/cv")
+@login_required
+def tool_cv():
+    return render_template("tools_cv.html", user=current_user(),
+                           fonts=BUILTIN_FONTS, user_fonts=my_fonts(),
+                           gfonts=GOOGLE_FONTS_URL)
+
+
+@app.route("/tools/essay")
+@login_required
+def tool_essay():
+    return render_template("tools_essay.html", user=current_user())
+
+
+@app.route("/tools/citations")
+@login_required
+def tool_citations():
+    return render_template("tools_cite.html", user=current_user())
+
+
+@app.route("/tools/quiz")
+@login_required
+def tool_quiz():
+    cards = get_db().execute(
+        "SELECT subject, question, answer FROM flashcards WHERE user_id = ? ORDER BY id",
+        (session["user_id"],)).fetchall()
+    data = [dict(s=c["subject"], q=c["question"], a=c["answer"]) for c in cards]
+    return render_template("tools_quiz.html", user=current_user(), cards=data,
+                           subjects=sorted({c["subject"] for c in cards}))
+
+
+# ---------------------------------------------------------------- AI assistant
+def call_ai(task, text, lang):
+    import json as _json
+    import urllib.request
+    import urllib.error
+    s = get_settings()
+    key = (s.get("ai_api_key") or "").strip()
+    if not key:
+        return None, "not_configured"
+    model = (s.get("ai_model") or "").strip() or "claude-3-5-haiku-latest"
+    lang_name = {"en": "English", "ar": "Arabic", "ku": "Kurdish (Sorani)"}.get(lang, "English")
+    tasks = {
+        "rate": "You are a fair, encouraging university writing tutor. Rate the essay "
+                "out of 100, then give strengths, weaknesses, and 3 concrete improvements.",
+        "sum": "Summarize the text clearly in short bullet-like lines a student can revise from.",
+        "explain": "Explain the text or topic simply, like teaching a first-year student, "
+                   "with a small example.",
+        "improve": "Rewrite the text with better clarity, grammar, and flow. Keep the "
+                   "author's voice and meaning. Then list the main changes you made.",
+    }
+    system = (tasks.get(task, tasks["explain"])
+              + f" Respond in {lang_name}. Be concise and practical.")
+    body = _json.dumps({"model": model, "max_tokens": 1500, "system": system,
+                        "messages": [{"role": "user", "content": text[:12000]}]}).encode()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages", data=body,
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01",
+                 "content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r:
+            data = _json.load(r)
+        return "".join(b.get("text", "") for b in data.get("content", [])), None
+    except urllib.error.HTTPError as e:
+        try:
+            msg = _json.load(e).get("error", {}).get("message", str(e))
+        except Exception:
+            msg = str(e)
+        return None, msg
+    except Exception as e:
+        return None, str(e)
+
+
+@app.route("/tools/ai", methods=["GET", "POST"])
+@login_required
+def tool_ai():
+    configured = bool((get_settings().get("ai_api_key") or "").strip())
+    result = error = None
+    text = request.form.get("text", "")
+    task = request.form.get("task", "rate")
+    if request.method == "POST" and configured and text.strip():
+        result, error = call_ai(task, text.strip(), session.get("lang", "en"))
+        if error == "not_configured":
+            configured, error = False, None
+    return render_template("tools_ai.html", user=current_user(), configured=configured,
+                           result=result, error=error, text=text, task=task)
+
+
+# ---------------------------------------------------------------- PWA
+@app.route("/sw.js")
+def service_worker():
+    resp = app.send_static_file("sw.js")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+# ---------------------------------------------------------------- admin
+@app.route("/admin")
+@admin_required
+def admin():
+    db = get_db()
+    users = db.execute("""
+        SELECT u.*, COUNT(p.id) AS plan_count
+        FROM users u LEFT JOIN plans p ON p.user_id = u.id
+        GROUP BY u.id ORDER BY u.created_at ASC""").fetchall()
+    quotes = db.execute("SELECT * FROM quotes ORDER BY id").fetchall()
+    return render_template("admin.html", user=current_user(), users=users,
+                           quotes=quotes)
+
+
+@app.route("/admin/settings", methods=["POST"])
+@admin_required
+def admin_settings():
+    db = get_db()
+    fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
+              "ai_api_key", "ai_model"]
+    for f in fields:
+        if f in request.form:
+            db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
+                       "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                       (f, request.form[f].strip()))
+    db.execute("INSERT INTO settings(key,value) VALUES('allow_registration',?) "
+               "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+               ("1" if request.form.get("allow_registration") else "0",))
+    db.commit()
+    flash(tr("ok_saved"), "ok")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/user/<int:user_id>/toggle_admin", methods=["POST"])
+@admin_required
+def admin_toggle_admin(user_id):
+    if user_id == session["user_id"]:
+        return redirect(url_for("admin"))  # can't demote yourself
+    db = get_db()
+    row = db.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row:
+        db.execute("UPDATE users SET is_admin = ? WHERE id = ?",
+                   (0 if row["is_admin"] else 1, user_id))
+        db.commit()
+        flash(tr("ok_saved"), "ok")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_user(user_id):
+    if user_id == session["user_id"]:
+        return redirect(url_for("admin"))  # can't delete yourself
+    db = get_db()
+    db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    db.commit()
+    flash(tr("ok_deleted"), "ok")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/user/<int:user_id>/reset_password", methods=["POST"])
+@admin_required
+def admin_reset_password(user_id):
+    new_pw = request.form.get("new_password", "")
+    if len(new_pw) < 6:
+        flash(tr("err_pw_short"), "error")
+        return redirect(url_for("admin"))
+    db = get_db()
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+               (generate_password_hash(new_pw), user_id))
+    db.commit()
+    flash(tr("ok_saved"), "ok")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/quote/add", methods=["POST"])
+@admin_required
+def admin_quote_add():
+    en = request.form.get("text_en", "").strip()
+    if not en:
+        return redirect(url_for("admin"))
+    db = get_db()
+    db.execute("INSERT INTO quotes(text_en, text_ar, text_ku) VALUES(?,?,?)",
+               (en, request.form.get("text_ar", "").strip(),
+                request.form.get("text_ku", "").strip()))
+    db.commit()
+    flash(tr("ok_saved"), "ok")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/quote/<int:quote_id>/delete", methods=["POST"])
+@admin_required
+def admin_quote_delete(quote_id):
+    db = get_db()
+    db.execute("DELETE FROM quotes WHERE id = ?", (quote_id,))
+    db.commit()
+    flash(tr("ok_deleted"), "ok")
+    return redirect(url_for("admin"))
+
+
+# ---------------------------------------------------------------- error reporting
+@app.errorhandler(Exception)
+def handle_error(e):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e                      # keep normal 403/404 behaviour
+    import traceback
+    tb = traceback.format_exc()
+    try:
+        with open(os.path.join(BASE_DIR, "error.log"), "a", encoding="utf-8") as f:
+            f.write("\n==== " + datetime.utcnow().isoformat(timespec="seconds")
+                    + " " + request.path + " ====\n" + tb)
+    except Exception:
+        pass
+    # show the technical details only on localhost (i.e. to the developer)
+    show = request.remote_addr in ("127.0.0.1", "::1")
+    try:
+        return render_template("error.html", tb=tb if show else None), 500
+    except Exception:
+        return "<h2>Error</h2><pre>" + (tb if show else "See error.log") + "</pre>", 500
+
+
+# ---------------------------------------------------------------- main
+init_db()
+
+if __name__ == "__main__":
+    # Port 5001 by default (macOS AirPlay already occupies 5000).
+    # Change it any time with:  PORT=8000 python app.py
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)

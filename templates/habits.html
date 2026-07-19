@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  <div class="card" style="margin-bottom:22px">
+    <h2>🔁 {{ t('new_habit') }}</h2>
+    <div class="hint">{{ t('empty_habits') if not habits else '' }}</div>
+    <form method="post" action="{{ url_for('habit_add') }}"
+          style="display:flex; gap:10px; flex-wrap:wrap">
+      <input name="name" required maxlength="60" style="flex:1; min-width:220px">
+      <button class="primary" type="submit" style="width:auto; padding:11px 26px">
+        ➕ {{ t('add_habit') }}</button>
+    </form>
+  </div>
+
+  {% for h in habits %}
+  <div class="plan {{ 'high' if h.done_today else 'medium' }}" style="align-items:center">
+    <div class="plan-body">
+      <div class="plan-title" style="font-size:1.02rem; font-weight:700">{{ h.name }}</div>
+      <div class="plan-meta" style="margin-top:10px">
+        {% if h.streak > 0 %}
+          <span class="badge high" style="font-size:.72rem">🔥 {{ h.streak }} {{ t('streak') }}</span>
+        {% endif %}
+        <span style="display:inline-flex; gap:5px; align-items:center" title="{{ t('last_7') }}">
+          {% for d, ok in h.week %}
+            <span style="width:14px; height:14px; border-radius:50%; display:inline-block;
+                  background: {{ 'var(--ok)' if ok else 'rgba(128,128,160,.25)' }};
+                  {{ 'outline:2px solid var(--accent); outline-offset:1px;' if loop.last }}"></span>
+          {% endfor %}
+        </span>
+      </div>
+    </div>
+    <div class="plan-actions" style="flex-direction:row; align-items:center">
+      <form method="post" action="{{ url_for('habit_toggle', habit_id=h.id) }}">
+        <button class="small" type="submit"
+                style="{{ 'border-color:var(--ok); color:var(--ok);' if h.done_today }}">
+          {{ t('done_today') if h.done_today else '○ ' + t('mark_today') }}</button>
+      </form>
+      <form method="post" action="{{ url_for('habit_delete', habit_id=h.id) }}"
+            onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+        <button class="small warn" type="submit">✕</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% endblock %}

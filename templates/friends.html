@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_widgets.html" import avi with context %}
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  <!-- ==================== search people ==================== -->
+  <div class="card" style="margin-bottom:22px">
+    <h2>🔎 {{ t('search_people') }}</h2>
+    <div class="hint">{{ t('search_hint') }}</div>
+    <form method="get" action="{{ url_for('friends') }}"
+          style="display:flex; gap:10px; flex-wrap:wrap">
+      <input name="q" value="{{ q }}" maxlength="60" style="flex:1; min-width:200px"
+             placeholder="{{ t('username') }} / {{ t('full_name') }}" autocomplete="off">
+      <button class="primary" type="submit" style="width:auto; padding:11px 28px">
+        {{ t('search') }}</button>
+    </form>
+
+    {% if q %}
+    <div style="margin-top:16px; display:grid; grid-template-columns:repeat(auto-fill, minmax(250px,1fr)); gap:12px">
+      {% for r in results %}
+      <div class="plan medium" style="flex-direction:column; align-items:center; text-align:center;
+           gap:8px; margin-bottom:0; padding:18px">
+        <a href="{{ url_for('user_profile', username=r.username) }}">
+          {{ avi(r.id, r.username, 64, '1.6rem') }}
+        </a>
+        <div>
+          <div style="font-weight:800">{{ r.full_name or r.username }}</div>
+          <div style="color:var(--accent); font-size:.82rem; font-weight:600">@{{ r.username }}</div>
+          {% if r.bio %}<div style="color:var(--muted); font-size:.74rem; margin-top:4px;
+               max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.bio }}</div>{% endif %}
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center">
+          <a class="pill" style="font-size:.76rem; padding:6px 12px"
+             href="{{ url_for('user_profile', username=r.username) }}">👤 {{ t('view_profile') }}</a>
+          {% if r.status == 'none' %}
+          <form method="post" action="{{ url_for('friend_request') }}">
+            <input type="hidden" name="username" value="{{ r.username }}">
+            <button class="small" type="submit" style="border-color:var(--accent); color:var(--accent)">
+              ➕ {{ t('add_friend') }}</button>
+          </form>
+          {% elif r.status == 'friends' %}
+            <span class="badge today">{{ t('friends_ok') }}</span>
+          {% elif r.status == 'pending_out' %}
+            <span class="badge medium">{{ t('pending_dots') }}</span>
+          {% elif r.status == 'pending_in' %}
+          <form method="post" action="{{ url_for('friend_accept', fid=r.fid) }}">
+            <button class="small" type="submit" style="border-color:var(--ok); color:var(--ok)">
+              ✓ {{ t('accept') }}</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p style="color:var(--muted); font-size:.88rem">{{ t('no_results') }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if incoming %}
+  <div class="card" style="margin-bottom:22px; border-color: color-mix(in srgb, var(--accent) 55%, transparent)">
+    <h2>📨 {{ t('incoming_requests') }} ({{ incoming|length }})</h2>
+    <div class="hint"></div>
+    {% for r in incoming %}
+    <div class="plan high" style="align-items:center">
+      <a href="{{ url_for('user_profile', username=r.username) }}">{{ avi(r.from_id, r.username, 42, '1.1rem') }}</a>
+      <div class="plan-body"><strong>{{ r.username }}</strong></div>
+      <div class="plan-actions" style="flex-direction:row">
+        <form method="post" action="{{ url_for('friend_accept', fid=r.id) }}">
+          <button class="small" style="border-color:var(--ok); color:var(--ok)"
+                  type="submit">✓ {{ t('accept') }}</button>
+        </form>
+        <form method="post" action="{{ url_for('friend_decline', fid=r.id) }}">
+          <button class="small warn" type="submit">✕ {{ t('decline') }}</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="grid2">
+    <div class="card">
+      <h2>👥 {{ t('friends') }} ({{ my_friends|length }})</h2>
+      <div class="hint">{{ t('no_friends') if not my_friends else '' }}</div>
+      {% for f in my_friends %}
+      <div class="plan medium" style="align-items:center">
+        <a href="{{ url_for('user_profile', username=f.username) }}">{{ avi(f.uid, f.username, 42, '1.1rem') }}</a>
+        <div class="plan-body">
+          <a href="{{ url_for('user_profile', username=f.username) }}" style="color:inherit">
+            <strong>{{ f.username }}</strong></a>
+          <div style="font-size:.72rem; color:var(--muted)">
+            {{ t('last_login') }}: {{ (f.last_login or t('never'))[:16].replace('T',' ') }}</div>
+        </div>
+        <form method="post" action="{{ url_for('friend_decline', fid=f.fid) }}"
+              onsubmit="return confirm('{{ t('remove_friend') }}?')">
+          <button class="small warn" type="submit">✕ {{ t('remove_friend') }}</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h2>📤 {{ t('sent_requests') }} ({{ outgoing|length }})</h2>
+      <div class="hint"></div>
+      {% for r in outgoing %}
+      <div class="plan low" style="align-items:center; opacity:.8">
+        <div class="plan-body">{{ r.username }} <span style="color:var(--muted)">…</span></div>
+        <form method="post" action="{{ url_for('friend_decline', fid=r.id) }}">
+          <button class="small warn" type="submit">✕ {{ t('cancel') }}</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

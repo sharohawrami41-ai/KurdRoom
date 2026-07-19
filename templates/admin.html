@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">🛠 {{ t('admin_panel') }}</h2>
+
+  <!-- ===================== users ===================== -->
+  <div class="card" style="margin-bottom:22px; overflow-x:auto">
+    <h2>👥 {{ t('users') }} ({{ users|length }})</h2>
+    <div class="hint"></div>
+    <table>
+      <tr>
+        <th>#</th><th>{{ t('username') }}</th><th>{{ t('full_name') }}</th>
+        <th>{{ t('email_addr') }}</th><th>{{ t('role') }}</th>
+        <th>{{ t('plans_count') }}</th><th>{{ t('created') }}</th>
+        <th>{{ t('last_login') }}</th><th>{{ t('actions') }}</th>
+      </tr>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td><strong>{{ u.username }}</strong>
+            {% if u.id == user.id %} <span class="badge today">{{ t('you') }}</span>{% endif %}</td>
+        <td style="font-size:.82rem">{{ u.full_name or '—' }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">{{ u.email or '—' }}</td>
+        <td>{% if u.is_admin %}<span class="badge high">{{ t('admin') }}</span>
+            {% else %}<span class="badge low">{{ t('user') }}</span>{% endif %}</td>
+        <td>{{ u.plan_count }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">{{ (u.created_at or '')[:10] }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">{{ (u.last_login or t('never'))[:16].replace('T',' ') }}</td>
+        <td>
+          {% if u.id != user.id %}
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <form method="post" action="{{ url_for('admin_toggle_admin', user_id=u.id) }}">
+              <button class="small" type="submit">
+                {{ t('remove_admin') if u.is_admin else t('make_admin') }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
+                  onsubmit="return confirm('{{ t('confirm_del_user') }}')">
+              <button class="small warn" type="submit">✕ {{ t('delete_user') }}</button>
+            </form>
+          </div>
+          {% endif %}
+          <details>
+            <summary>{{ t('reset_pw') }}</summary>
+            <form class="inline-form" method="post" style="margin-top:6px"
+                  action="{{ url_for('admin_reset_password', user_id=u.id) }}">
+              <input type="password" name="new_password" minlength="6"
+                     placeholder="{{ t('new_password') }}" required>
+              <button class="small" type="submit">{{ t('save') }}</button>
+            </form>
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="grid2">
+    <!-- ===================== settings ===================== -->
+    <div class="card">
+      <h2>⚙️ {{ t('settings') }}</h2>
+      <div class="hint"></div>
+      <form method="post" action="{{ url_for('admin_settings') }}">
+        <label>{{ t('site_name') }}</label>
+        <input name="site_name" value="{{ settings.site_name }}" required maxlength="40">
+        <label>{{ t('tagline') }} (English)</label>
+        <input name="tagline_en" value="{{ settings.tagline_en }}" maxlength="90">
+        <label>{{ t('tagline') }} (العربية)</label>
+        <input name="tagline_ar" value="{{ settings.tagline_ar }}" maxlength="90" dir="rtl">
+        <label>{{ t('tagline') }} (کوردی)</label>
+        <input name="tagline_ku" value="{{ settings.tagline_ku }}" maxlength="90" dir="rtl">
+        <label>{{ t('accent') }}</label>
+        <input type="color" name="accent_color" value="{{ settings.accent_color }}"
+               style="height:46px; padding:4px">
+        <label>🤖 {{ t('ai_key') }}</label>
+        <input type="password" name="ai_api_key" value="{{ settings.ai_api_key or '' }}"
+               autocomplete="off" placeholder="sk-ant-…">
+        <div style="font-size:.72rem; color:var(--muted); margin-top:4px">{{ t('ai_key_hint') }}</div>
+        <label>{{ t('ai_model') }}</label>
+        <input name="ai_model" value="{{ settings.ai_model or 'claude-3-5-haiku-latest' }}">
+        <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:.9rem; color:var(--text)">
+          <input type="checkbox" name="allow_registration" style="width:auto"
+                 {{ 'checked' if settings.allow_registration == '1' }}>
+          {{ t('allow_reg') }}
+        </label>
+        <div style="margin-top:16px">
+          <button class="primary" type="submit">{{ t('save') }}</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ===================== quotes ===================== -->
+    <div class="card">
+      <h2>✦ {{ t('quotes') }} ({{ quotes|length }})</h2>
+      <div class="hint"></div>
+      {% for q in quotes %}
+      <div class="plan medium" style="align-items:center">
+        <div class="plan-body">
+          <div style="font-size:.88rem">{{ q.text_en }}</div>
+          {% if q.text_ar %}<div class="plan-details" dir="rtl">{{ q.text_ar }}</div>{% endif %}
+          {% if q.text_ku %}<div class="plan-details" dir="rtl">{{ q.text_ku }}</div>{% endif %}
+        </div>
+        <form method="post" action="{{ url_for('admin_quote_delete', quote_id=q.id) }}">
+          <button class="small warn" type="submit">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+      <form method="post" action="{{ url_for('admin_quote_add') }}" style="margin-top:14px">
+        <label>{{ t('quote_en') }}</label>
+        <input name="text_en" required maxlength="200">
+        <label>{{ t('quote_ar') }}</label>
+        <input name="text_ar" maxlength="200" dir="rtl">
+        <label>{{ t('quote_ku') }}</label>
+        <input name="text_ku" maxlength="200" dir="rtl">
+        <div style="margin-top:14px">
+          <button class="primary" type="submit">{{ t('add_quote') }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

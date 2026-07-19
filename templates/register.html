@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-wrap">
+  {% if quote %}<div class="quote">{{ quote }}</div>{% endif %}
+  <div class="card">
+    <div class="auth-title">{{ t('register') }} ✨</div>
+    <div class="auth-sub">{{ tagline }}</div>
+    {% if not closed %}
+    <form method="post">
+      <label>{{ t('username') }}</label>
+      <input name="username" required autofocus minlength="3" maxlength="20"
+             pattern="[A-Za-z0-9_]+" autocomplete="username">
+      <label>{{ t('full_name') }} ({{ t('optional') }})</label>
+      <input name="full_name" maxlength="60" autocomplete="name">
+      <label>{{ t('email_addr') }} ({{ t('optional') }})</label>
+      <input type="email" name="email" maxlength="80" autocomplete="email">
+      <label>{{ t('password') }}</label>
+      <input type="password" name="password" required minlength="6" autocomplete="new-password">
+      <label>{{ t('confirm_password') }}</label>
+      <input type="password" name="confirm" required minlength="6" autocomplete="new-password">
+      <div style="margin-top:18px">
+        <button class="primary" type="submit">{{ t('register') }}</button>
+      </div>
+    </form>
+    {% endif %}
+    <p style="margin-top:16px; font-size:.85rem; color:var(--muted)">
+      {{ t('have_account') }} <a href="{{ url_for('login') }}">{{ t('login') }}</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="quote">{{ quote }}</div>
+
+  <div class="card" style="max-width:520px; margin:0 auto; text-align:center; padding:34px">
+    <h2 style="font-size:1.3rem">⏱ {{ t('focus') }} — Pomodoro</h2>
+    <div class="hint" style="margin-top:4px">{{ t('pomodoro_hint') }}</div>
+
+    <div style="display:flex; gap:8px; justify-content:center; margin:18px 0">
+      <button class="small mode-btn" data-min="25" id="mode25">🎯 {{ t('focus_time') }} 25</button>
+      <button class="small mode-btn" data-min="5" id="mode5">☕ {{ t('break_time') }} 5</button>
+      <button class="small mode-btn" data-min="15" id="mode15">🌿 {{ t('long_break') }} 15</button>
+    </div>
+
+    <div style="position:relative; width:260px; height:260px; margin:10px auto">
+      <svg width="260" height="260" style="transform:rotate(-90deg)">
+        <circle cx="130" cy="130" r="116" stroke="rgba(128,128,160,.18)" stroke-width="14" fill="none"/>
+        <circle id="ring" cx="130" cy="130" r="116" stroke="var(--accent)" stroke-width="14"
+                fill="none" stroke-linecap="round"
+                stroke-dasharray="728.8" stroke-dashoffset="0"
+                style="transition:stroke-dashoffset .5s linear"/>
+      </svg>
+      <div id="clock" style="position:absolute; inset:0; display:flex; align-items:center;
+           justify-content:center; font-size:3.2rem; font-weight:800; letter-spacing:2px;
+           font-variant-numeric:tabular-nums" dir="ltr">25:00</div>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:center; margin-top:16px">
+      <button class="primary" id="startBtn" style="width:auto; padding:12px 34px">▶ {{ t('start') }}</button>
+      <button class="small" id="resetBtn" style="padding:12px 20px">↺ {{ t('reset') }}</button>
+    </div>
+
+    <div style="margin-top:18px; color:var(--muted); font-size:.86rem">
+      🍅 <span id="count">0</span> {{ t('sessions_done') }}
+    </div>
+  </div>
+
+<script>
+(function () {
+  const FULL = 728.8;
+  let total = 25 * 60, left = total, timer = null, sessions = 0, isFocus = true;
+  const clock = document.getElementById("clock"), ring = document.getElementById("ring"),
+        startBtn = document.getElementById("startBtn"),
+        startLabel = "▶ {{ t('start') }}", pauseLabel = "⏸ {{ t('pause') }}";
+
+  function show() {
+    const m = String(Math.floor(left / 60)).padStart(2, "0"),
+          s = String(left % 60).padStart(2, "0");
+    clock.textContent = m + ":" + s;
+    ring.style.strokeDashoffset = FULL * (1 - left / total);
+    document.title = m + ":" + s + " — {{ settings.site_name }}";
+  }
+  function beep() {
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      [0, .25, .5].forEach(t => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.connect(g); g.connect(ac.destination);
+        o.frequency.value = 880; g.gain.setValueAtTime(.25, ac.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + t + .2);
+        o.start(ac.currentTime + t); o.stop(ac.currentTime + t + .22);
+      });
+    } catch (e) {}
+  }
+  function tick() {
+    if (--left <= 0) {
+      clearInterval(timer); timer = null; left = 0; show(); beep();
+      if (isFocus) { sessions++; document.getElementById("count").textContent = sessions; }
+      startBtn.textContent = startLabel;
+      return;
+    }
+    show();
+  }
+  startBtn.onclick = () => {
+    if (timer) { clearInterval(timer); timer = null; startBtn.textContent = startLabel; }
+    else { if (left <= 0) left = total; timer = setInterval(tick, 1000); startBtn.textContent = pauseLabel; }
+  };
+  document.getElementById("resetBtn").onclick = () => {
+    clearInterval(timer); timer = null; left = total; startBtn.textContent = startLabel; show();
+  };
+  document.querySelectorAll(".mode-btn").forEach(b => b.onclick = () => {
+    clearInterval(timer); timer = null;
+    total = left = (+b.dataset.min) * 60;
+    isFocus = b.dataset.min === "25";
+    startBtn.textContent = startLabel;
+    document.querySelectorAll(".mode-btn").forEach(x => x.style.borderColor = "");
+    b.style.borderColor = "var(--accent)";
+    show();
+  });
+  document.getElementById("mode25").style.borderColor = "var(--accent)";
+  show();
+})();
+</script>
+{% endblock %}
