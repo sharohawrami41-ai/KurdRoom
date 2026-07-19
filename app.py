@@ -34,7 +34,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "1.3"   # shown in the footer — bump this with each release
+APP_VERSION = "1.4"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -243,6 +243,12 @@ def init_db():
         emoji      TEXT NOT NULL,
         PRIMARY KEY (message_id, user_id, emoji)
     );
+    CREATE TABLE IF NOT EXISTS dm_reactions (
+        msg_id     INTEGER NOT NULL REFERENCES dms(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        emoji      TEXT NOT NULL,
+        PRIMARY KEY (msg_id, user_id, emoji)
+    );
     CREATE TABLE IF NOT EXISTS polls (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -355,7 +361,8 @@ def init_db():
                  "ALTER TABLE plans ADD COLUMN repeat TEXT DEFAULT ''",
                  "ALTER TABLE dms ADD COLUMN kind TEXT DEFAULT 'text'",
                  "ALTER TABLE dms ADD COLUMN stored TEXT DEFAULT ''",
-                 "ALTER TABLE dms ADD COLUMN orig_name TEXT DEFAULT ''"):
+                 "ALTER TABLE dms ADD COLUMN orig_name TEXT DEFAULT ''",
+                 "ALTER TABLE dms ADD COLUMN reply_to INTEGER"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -3025,6 +3032,13 @@ def dm_thread(username):
     if request.method == "POST":
         content = request.form.get("content", "").strip()
         f = request.files.get("file")
+        reply_to = request.form.get("reply_to", type=int)
+        if reply_to:
+            ok = db.execute("SELECT 1 FROM dms WHERE id = ? AND ((from_id = ? AND "
+                            "to_id = ?) OR (from_id = ? AND to_id = ?))",
+                            (reply_to, uid, friend["id"], friend["id"], uid)).fetchone()
+            if not ok:
+                reply_to = None
         sent = False
         now = datetime.utcnow().isoformat(timespec="seconds")
         if f and f.filename:
@@ -3037,9 +3051,9 @@ def dm_thread(username):
                 else:
                     kind = "file"
                 cur = db.execute("INSERT INTO dms(from_id, to_id, content, created_at, "
-                                 "kind, orig_name) VALUES(?,?,?,?,?,?)",
+                                 "kind, orig_name, reply_to) VALUES(?,?,?,?,?,?,?)",
                                  (uid, friend["id"], content[:500], now, kind,
-                                  f.filename[:100]))
+                                  f.filename[:100], reply_to))
                 stored = f"{cur.lastrowid}_{secure_filename(f.filename) or 'file.' + ext}"
                 f.save(os.path.join(BASE_DIR, "dmfiles", stored))
                 db.execute("UPDATE dms SET stored = ? WHERE id = ?",
@@ -3048,8 +3062,9 @@ def dm_thread(username):
             else:
                 flash(tr("err_file_type"), "error")
         elif content:
-            db.execute("INSERT INTO dms(from_id, to_id, content, created_at) "
-                       "VALUES(?,?,?,?)", (uid, friend["id"], content[:500], now))
+            db.execute("INSERT INTO dms(from_id, to_id, content, created_at, reply_to) "
+                       "VALUES(?,?,?,?,?)", (uid, friend["id"], content[:500], now,
+                                             reply_to))
             sent = True
         if sent:
             notify(friend["id"], "dm", actor=current_user()["username"],
@@ -3060,11 +3075,24 @@ def dm_thread(username):
                (friend["id"], uid))
     db.commit()
     thread = db.execute(
-        "SELECT * FROM dms WHERE (from_id = ? AND to_id = ?) "
-        "OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 200",
+        "SELECT m.*, r.content AS r_content, r.kind AS r_kind, r.from_id AS r_from, "
+        "r.orig_name AS r_orig FROM dms m LEFT JOIN dms r ON r.id = m.reply_to "
+        "WHERE (m.from_id = ? AND m.to_id = ?) "
+        "OR (m.from_id = ? AND m.to_id = ?) ORDER BY m.id DESC LIMIT 200",
         (uid, friend["id"], friend["id"], uid)).fetchall()
+    thread = list(reversed(thread))
+    reacts = {}
+    if thread:
+        ph = ",".join("?" * len(thread))
+        for row in db.execute(
+                f"SELECT msg_id, emoji, COUNT(*) AS n, MAX(user_id = ?) AS me "
+                f"FROM dm_reactions WHERE msg_id IN ({ph}) GROUP BY msg_id, emoji",
+                [uid] + [m["id"] for m in thread]):
+            reacts.setdefault(row["msg_id"], []).append(
+                {"e": row["emoji"], "n": row["n"], "me": bool(row["me"])})
     return render_template("dm.html", user=current_user(), friend=friend,
-                           thread=list(reversed(thread)))
+                           thread=thread, reacts=reacts,
+                           REACTIONS=REACTION_EMOJIS)
 
 
 @app.route("/messages/<username>/poll")
@@ -3084,18 +3112,68 @@ def dm_poll(username):
                "AND is_read = 0", (friend["id"], uid))
     db.commit()
     rows = db.execute(
-        "SELECT * FROM dms WHERE ((from_id = ? AND to_id = ?) "
-        "OR (from_id = ? AND to_id = ?)) AND id > ? ORDER BY id ASC LIMIT 100",
+        "SELECT m.*, r.content AS r_content, r.kind AS r_kind, r.from_id AS r_from, "
+        "r.orig_name AS r_orig FROM dms m LEFT JOIN dms r ON r.id = m.reply_to "
+        "WHERE ((m.from_id = ? AND m.to_id = ?) "
+        "OR (m.from_id = ? AND m.to_id = ?)) AND m.id > ? "
+        "ORDER BY m.id ASC LIMIT 100",
         (uid, friend["id"], friend["id"], uid, after)).fetchall()
     read_max = db.execute(
         "SELECT COALESCE(MAX(id), 0) FROM dms WHERE from_id = ? AND to_id = ? "
         "AND is_read = 1", (uid, friend["id"])).fetchone()[0]
+    # reactions for the whole visible window (they can change on old messages)
+    reacts = {}
+    for row in db.execute(
+            "SELECT r.msg_id, r.emoji, COUNT(*) AS n, MAX(r.user_id = ?) AS me "
+            "FROM dm_reactions r JOIN dms m ON m.id = r.msg_id "
+            "WHERE (m.from_id = ? AND m.to_id = ?) OR (m.from_id = ? AND m.to_id = ?) "
+            "GROUP BY r.msg_id, r.emoji",
+            (uid, uid, friend["id"], friend["id"], uid)):
+        reacts.setdefault(str(row["msg_id"]), []).append(
+            {"e": row["emoji"], "n": row["n"], "me": bool(row["me"])})
+
+    def snip(m):
+        if m["reply_to"] is None:
+            return None
+        txt = (m["r_content"] or "").strip()
+        if not txt:
+            txt = {"image": "📷", "voice": "🎤 🎵",
+                   "file": "📄 " + (m["r_orig"] or "")}.get(m["r_kind"] or "", "")
+        return {"id": m["reply_to"], "me": m["r_from"] == uid, "text": txt[:90]}
     return {"msgs": [{"id": m["id"], "me": m["from_id"] == uid,
                       "kind": m["kind"] or "text", "content": m["content"] or "",
                       "orig": m["orig_name"] or "", "stored": bool(m["stored"]),
                       "at": (m["created_at"] or "")[5:16].replace("T", " "),
-                      "read": bool(m["is_read"])} for m in rows],
-            "read_max": read_max}
+                      "read": bool(m["is_read"]), "reply": snip(m)} for m in rows],
+            "read_max": read_max, "reacts": reacts}
+
+
+@app.route("/messages/<username>/react", methods=["POST"])
+@login_required
+def dm_react(username):
+    db = get_db()
+    uid = session["user_id"]
+    friend = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    if friend is None:
+        abort(404)
+    if not are_friends(uid, friend["id"]):
+        abort(403)
+    msg_id = request.form.get("msg_id", type=int)
+    emoji = request.form.get("emoji", "")
+    m = db.execute("SELECT 1 FROM dms WHERE id = ? AND ((from_id = ? AND to_id = ?) "
+                   "OR (from_id = ? AND to_id = ?))",
+                   (msg_id, uid, friend["id"], friend["id"], uid)).fetchone()
+    if m and emoji in REACTION_EMOJIS:
+        hit = db.execute("SELECT 1 FROM dm_reactions WHERE msg_id = ? AND user_id = ? "
+                         "AND emoji = ?", (msg_id, uid, emoji)).fetchone()
+        if hit:
+            db.execute("DELETE FROM dm_reactions WHERE msg_id = ? AND user_id = ? "
+                       "AND emoji = ?", (msg_id, uid, emoji))
+        else:
+            db.execute("INSERT INTO dm_reactions(msg_id, user_id, emoji) "
+                       "VALUES(?,?,?)", (msg_id, uid, emoji))
+        db.commit()
+    return {"ok": 1}
 
 
 @app.route("/dmfile/<int:msg_id>")

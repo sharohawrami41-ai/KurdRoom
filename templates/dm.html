@@ -24,7 +24,8 @@
   .cbtn.send { background: linear-gradient(135deg, var(--accent), #a855f7); color:#fff; }
   .cbtn.recing { background: var(--high); color:#fff; animation: softPulse 1s infinite; }
   .bub { max-width:78%; padding:9px 13px; font-size:.9rem; position:relative;
-    border:1px solid var(--card-border); animation: popIn .3s ease both; }
+    border:1px solid var(--card-border); animation: popIn .3s ease both;
+    cursor:pointer; }
   .bub.me { align-self:flex-end; border-radius:16px 16px 4px 16px;
     background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent),
                 color-mix(in srgb, var(--accent) 25%, transparent)); }
@@ -36,6 +37,45 @@
   .bub audio { max-width:220px; height:38px; }
   .meta { font-size:.6rem; color:var(--muted); margin-top:3px; }
   .bub-text { white-space:pre-wrap; word-break:break-word; }
+  .bub.temp { opacity:.75; }
+
+  /* quoted reply inside a bubble */
+  .qt { border-inline-start:3px solid var(--accent); background:rgba(0,0,0,.18);
+    padding:5px 10px; border-radius:8px; font-size:.76rem; margin-bottom:6px;
+    max-width:100%; overflow:hidden; }
+  .qt .qw { color:var(--accent); font-weight:700; font-size:.68rem; }
+  body.light .qt { background:rgba(0,0,0,.06); }
+  .bub.flash { box-shadow: 0 0 0 2.5px var(--accent); transition: box-shadow .4s; }
+
+  /* reaction chips */
+  .rx { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
+  .rx button { font-size:.72rem; padding:2px 8px; border-radius:999px;
+    border:1px solid var(--card-border); background:rgba(0,0,0,.2);
+    color:var(--text); cursor:pointer; line-height:1.4; }
+  body.light .rx button { background:rgba(0,0,0,.05); }
+  .rx button.mine { border-color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 28%, transparent); }
+
+  /* tap-to-react picker */
+  .pick { position:absolute; display:flex; gap:2px; padding:5px 8px; align-items:center;
+    background:var(--card); border:1px solid var(--card-border); border-radius:999px;
+    box-shadow:0 10px 28px rgba(0,0,0,.4); z-index:6; animation:popIn .16s ease both;
+    white-space:nowrap; }
+  .pick button { background:none; border:none; font-size:1.15rem; cursor:pointer;
+    padding:3px 5px; border-radius:10px; transition:.15s; color:var(--text); }
+  .pick button:hover { transform: scale(1.25); }
+  .pick .rpl { font-size:.95rem; border-inline-start:1px solid var(--card-border);
+    padding-inline-start:9px; margin-inline-start:4px; }
+
+  /* replying-to bar above composer */
+  .rbar { display:flex; align-items:center; gap:8px; padding:7px 14px; font-size:.78rem;
+    background: var(--card); border-inline:1px solid var(--card-border);
+    border-top:1px solid var(--card-border); }
+  .rbar .rtxt { flex:1; min-width:0; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; color:var(--muted); }
+  .rbar b { color:var(--accent); }
+  .rbar button { background:none; border:none; color:var(--muted); cursor:pointer;
+    font-size:1rem; }
 </style>
 
 <div class="dm-shell">
@@ -57,6 +97,14 @@
     {% for m in thread %}
     <div class="bub {{ 'me' if m.from_id == cu.id else 'them' }}" data-mid="{{ m.id }}"
          style="animation-delay: {{ [loop.index0 * 0.03, 0.4]|min }}s">
+      {% if m.reply_to %}
+      <div class="qt" data-qid="{{ m.reply_to }}">
+        <div class="qw">{{ (cu.full_name or cu.username) if m.r_from == cu.id
+                           else (friend.full_name or friend.username) }}</div>
+        {{ ((m.r_content or '')[:90]) or
+           ({'image':'📷','voice':'🎤 🎵','file':'📄 ' + (m.r_orig or '')}.get(m.r_kind or '', '')) }}
+      </div>
+      {% endif %}
       {% if m.kind == 'image' and m.stored %}
         <a href="{{ url_for('dm_file', msg_id=m.id) }}" target="_blank">
           <img src="{{ url_for('dm_file', msg_id=m.id) }}" alt=""></a>
@@ -74,14 +122,25 @@
       {% if m.content %}
         <div class="bub-text" style="{{ 'margin-top:6px' if m.kind != 'text' }}">{{ m.content }}</div>
       {% endif %}
+      <div class="rx" data-rx="{{ m.id }}">
+        {%- for r in reacts.get(m.id, []) -%}
+        <button type="button" class="{{ 'mine' if r.me }}" data-e="{{ r.e }}">{{ r.e }} {{ r.n }}</button>
+        {%- endfor -%}
+      </div>
       <div class="meta" dir="ltr">{{ m.created_at[5:16].replace('T',' ') }}
         {% if m.from_id == cu.id %}<span class="tick">{{ '✓✓' if m.is_read else '✓' }}</span>{% endif %}</div>
     </div>
     {% endfor %}
   </div>
 
+  <div class="rbar" id="replyBar" style="display:none">
+    ↩ <b id="rbName"></b><span class="rtxt" id="rbText"></span>
+    <button type="button" onclick="clearReply()">✕</button>
+  </div>
+
   <form class="dm-composer" method="post" enctype="multipart/form-data" id="dmForm">
     <input type="hidden" name="kind" id="dmKind" value="">
+    <input type="hidden" name="reply_to" id="dmReply" value="">
     <label class="cbtn" title="{{ t('attach_t') }}">📎
       <input type="file" name="file" id="dmFile" style="display:none"
              accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.md,.docx,.xlsx,.pptx,.zip"
@@ -102,15 +161,21 @@
   const form = document.getElementById("dmForm");
   const ta = document.getElementById("dmText");
   const fileInp = document.getElementById("dmFile");
+  const replyInp = document.getElementById("dmReply");
   const POLL_URL = {{ url_for('dm_poll', username=friend.username)|tojson }};
+  const REACT_URL = {{ url_for('dm_react', username=friend.username)|tojson }};
   const FILE_URL = "/dmfile/";
+  const EMOJIS = {{ REACTIONS|tojson }};
+  const MY_NAME = {{ (cu.full_name or cu.username)|tojson }};
+  const FRIEND_NAME = {{ (friend.full_name or friend.username)|tojson }};
+  const REPLY_T = {{ t('reply')|tojson }};
   let lastId = {{ (thread[-1].id if thread else 0)|tojson }};
-  let sending = false;
+  let temps = [];
 
   function scrollBottom() { if (box) box.scrollTop = box.scrollHeight; }
   scrollBottom();
 
-  /* ---------- growing composer: long messages wrap instead of hiding ---------- */
+  /* ---------- growing composer ---------- */
   function autosize() {
     ta.style.height = "auto";
     ta.style.height = Math.min(ta.scrollHeight, 130) + "px";
@@ -118,7 +183,6 @@
   ta.addEventListener("input", autosize);
   const touchKb = matchMedia("(pointer: coarse)").matches;
   ta.addEventListener("keydown", (e) => {
-    // desktop: Enter sends, Shift+Enter = new line. phone: Enter = new line.
     if (e.key === "Enter" && !e.shiftKey && !touchKb) { e.preventDefault(); sendMsg(); }
   });
 
@@ -130,28 +194,150 @@
     } else hint.style.display = "none";
   }
 
-  /* ---------- send without page reload ---------- */
+  /* ---------- instant send: bubble appears the moment you tap ➤ ---------- */
+  let chain = Promise.resolve();
   form.addEventListener("submit", (e) => { e.preventDefault(); sendMsg(); });
-  async function sendMsg() {
-    if (sending) return;
-    if (!ta.value.trim() && !fileInp.files.length) return;
-    sending = true;
+  function nowStr() {
+    return new Date().toISOString().slice(5, 16).replace("T", " ");
+  }
+  function sendMsg() {
+    const content = ta.value.trim();
+    const hasFile = fileInp.files.length > 0;
+    if (!content && !hasFile) return;
     const fd = new FormData(form);
-    try {
-      await fetch(location.href, { method: "POST", body: fd });
-      ta.value = ""; autosize();
-      fileInp.value = ""; fileChosen(fileInp);
-      await poll();
-    } catch (err) {}
-    sending = false;
+    if (!hasFile) {
+      const tb = bubble({ id: 0, me: true, kind: "text", content: content,
+                          at: nowStr(), read: false, reply: replyPreview() });
+      tb.classList.add("temp");
+      tb.querySelector(".tick").textContent = "🕓";
+      box.appendChild(tb); temps.push(tb); scrollBottom();
+    }
+    ta.value = ""; autosize();
+    fileInp.value = ""; fileChosen(fileInp);
+    clearReply();
+    chain = chain
+      .then(() => fetch(location.href, { method: "POST", body: fd }))
+      .then(() => poll()).catch(() => {});
     ta.focus();
   }
 
-  /* ---------- live chat: new messages appear without refreshing ---------- */
+  /* ---------- reply ---------- */
+  let replyData = null;
+  function replyPreview() { return replyData ? { ...replyData } : null; }
+  function setReply(mid, me, text) {
+    replyData = { id: mid, me: me, text: text };
+    replyInp.value = mid;
+    document.getElementById("rbName").textContent = me ? MY_NAME : FRIEND_NAME;
+    document.getElementById("rbText").textContent = " — " + text;
+    document.getElementById("replyBar").style.display = "flex";
+    ta.focus();
+  }
+  function clearReply() {
+    replyData = null; replyInp.value = "";
+    document.getElementById("replyBar").style.display = "none";
+  }
+  function bubSnippet(b) {
+    const t = b.querySelector(".bub-text");
+    if (t) return t.textContent.slice(0, 90);
+    if (b.querySelector("img")) return "📷";
+    if (b.querySelector("audio")) return "🎤 🎵";
+    const f = b.querySelector("a span:last-child");
+    return f ? "📄 " + f.textContent : "";
+  }
+
+  /* ---------- tap a message: emoji picker + reply ---------- */
+  const pick = document.createElement("div");
+  pick.className = "pick";
+  EMOJIS.forEach((em) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = em;
+    b.onclick = (e) => { e.stopPropagation(); react(pick._mid, em); hidePick(); };
+    pick.appendChild(b);
+  });
+  const rp = document.createElement("button");
+  rp.type = "button"; rp.className = "rpl"; rp.textContent = "↩ " + REPLY_T;
+  rp.onclick = (e) => {
+    e.stopPropagation();
+    const b = pick._bub;
+    setReply(pick._mid, b.classList.contains("me"), bubSnippet(b));
+    hidePick();
+  };
+  pick.appendChild(rp);
+  function hidePick() { pick.remove(); pick._mid = null; }
+  function showPick(b) {
+    const mid = +b.dataset.mid;
+    if (!mid) return;
+    if (pick._mid === mid) { hidePick(); return; }
+    pick._mid = mid; pick._bub = b;
+    b.appendChild(pick);
+    const nearTop = b.offsetTop - box.scrollTop < 54;
+    pick.style.top = nearTop ? "auto" : "-46px";
+    pick.style.bottom = nearTop ? "-46px" : "auto";
+    if (b.classList.contains("me")) {
+      pick.style.insetInlineEnd = "0"; pick.style.insetInlineStart = "auto";
+    } else {
+      pick.style.insetInlineStart = "0"; pick.style.insetInlineEnd = "auto";
+    }
+  }
+  box.addEventListener("click", (e) => {
+    if (e.target.closest(".pick")) return;
+    const chip = e.target.closest(".rx button");
+    if (chip) {
+      const b = chip.closest(".bub");
+      if (+b.dataset.mid) react(+b.dataset.mid, chip.dataset.e);
+      return;
+    }
+    const qt = e.target.closest(".qt");
+    if (qt) {
+      const orig = box.querySelector('.bub[data-mid="' + qt.dataset.qid + '"]');
+      if (orig) {
+        orig.scrollIntoView({ behavior: "smooth", block: "center" });
+        orig.classList.add("flash");
+        setTimeout(() => orig.classList.remove("flash"), 1300);
+      }
+      return;
+    }
+    if (e.target.closest("a, audio")) return;
+    const b = e.target.closest(".bub");
+    if (b) showPick(b); else hidePick();
+  });
+
+  async function react(mid, emoji) {
+    const fd = new FormData();
+    fd.append("msg_id", mid); fd.append("emoji", emoji);
+    try {
+      await fetch(REACT_URL, { method: "POST", body: fd });
+      await poll();
+    } catch (err) {}
+  }
+  function applyReacts(map) {
+    box.querySelectorAll(".rx").forEach((rx) => {
+      const list = map[rx.dataset.rx] || [];
+      rx.innerHTML = "";
+      list.forEach((r) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.dataset.e = r.e;
+        if (r.me) b.className = "mine";
+        b.textContent = r.e + " " + r.n;
+        rx.appendChild(b);
+      });
+    });
+  }
+
+  /* ---------- live chat ---------- */
   function bubble(m) {
     const b = document.createElement("div");
     b.className = "bub " + (m.me ? "me" : "them");
     b.dataset.mid = m.id;
+    if (m.reply) {
+      const q = document.createElement("div");
+      q.className = "qt"; q.dataset.qid = m.reply.id;
+      const w = document.createElement("div");
+      w.className = "qw"; w.textContent = m.reply.me ? MY_NAME : FRIEND_NAME;
+      q.appendChild(w);
+      q.append(m.reply.text);
+      b.appendChild(q);
+    }
     if (m.stored && m.kind === "image") {
       const a = document.createElement("a");
       a.href = FILE_URL + m.id; a.target = "_blank";
@@ -184,6 +370,9 @@
       t.textContent = m.content;
       b.appendChild(t);
     }
+    const rx = document.createElement("div");
+    rx.className = "rx"; rx.dataset.rx = m.id;
+    b.appendChild(rx);
     const meta = document.createElement("div");
     meta.className = "meta"; meta.dir = "ltr";
     meta.textContent = m.at + " ";
@@ -204,16 +393,17 @@
       const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
       let gotNew = false;
       for (const m of d.msgs) {
-        if (m.id <= lastId || box.querySelector('[data-mid="' + m.id + '"]')) continue;
+        if (m.id <= lastId || box.querySelector('.bub[data-mid="' + m.id + '"]')) continue;
+        if (m.me && temps.length) { const t = temps.shift(); t.remove(); }
         box.appendChild(bubble(m));
         lastId = Math.max(lastId, m.id);
         gotNew = true;
       }
       if (gotNew && (nearBottom || d.msgs.some((m) => m.me))) scrollBottom();
-      // live read receipts: my sent messages flip ✓ -> ✓✓
+      if (d.reacts) applyReacts(d.reacts);
       if (d.read_max) {
         box.querySelectorAll(".bub.me").forEach((el) => {
-          if (+el.dataset.mid <= d.read_max) {
+          if (+el.dataset.mid > 0 && +el.dataset.mid <= d.read_max) {
             const tick = el.querySelector(".tick");
             if (tick) tick.textContent = "✓✓";
           }
@@ -240,6 +430,8 @@
         const fd = new FormData();
         fd.append("file", blob, "voice.webm");
         fd.append("kind", "voice");
+        if (replyInp.value) fd.append("reply_to", replyInp.value);
+        clearReply();
         fetch(location.href, { method: "POST", body: fd }).then(() => poll());
       };
       rec.start();
