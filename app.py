@@ -34,7 +34,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "1.4"   # shown in the footer — bump this with each release
+APP_VERSION = "1.5"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -362,7 +362,9 @@ def init_db():
                  "ALTER TABLE dms ADD COLUMN kind TEXT DEFAULT 'text'",
                  "ALTER TABLE dms ADD COLUMN stored TEXT DEFAULT ''",
                  "ALTER TABLE dms ADD COLUMN orig_name TEXT DEFAULT ''",
-                 "ALTER TABLE dms ADD COLUMN reply_to INTEGER"):
+                 "ALTER TABLE dms ADD COLUMN reply_to INTEGER",
+                 "ALTER TABLE dms ADD COLUMN deleted INTEGER DEFAULT 0",
+                 "ALTER TABLE users ADD COLUMN last_seen TEXT DEFAULT ''"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -1300,6 +1302,26 @@ V12 = {
 for _l, _d in V12.items():
     T[_l].update(_d)
 
+V13 = {
+    "en": {
+        "online": "Online", "last_seen": "Last seen",
+        "msg_deleted": "Message deleted",
+        "del_confirm": "Delete this message for everyone?",
+    },
+    "ar": {
+        "online": "متصل الآن", "last_seen": "آخر ظهور",
+        "msg_deleted": "تم حذف الرسالة",
+        "del_confirm": "حذف هذه الرسالة للجميع؟",
+    },
+    "ku": {
+        "online": "ئۆنلاینە", "last_seen": "دوایین بینین",
+        "msg_deleted": "نامەکە سڕایەوە",
+        "del_confirm": "ئەم نامەیە بۆ هەمووان بسڕدرێتەوە؟",
+    },
+}
+for _l, _d in V13.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1371,6 +1393,26 @@ def current_user():
     if uid is None:
         return None
     return get_db().execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+
+
+@app.before_request
+def touch_last_seen():
+    """Keep users.last_seen fresh (throttled to one write per minute)."""
+    uid = session.get("user_id")
+    if uid is None:
+        return
+    now = datetime.utcnow()
+    last = session.get("_seen")
+    try:
+        fresh = last and (now - datetime.fromisoformat(last)).total_seconds() < 60
+    except ValueError:
+        fresh = False
+    if not fresh:
+        db = get_db()
+        db.execute("UPDATE users SET last_seen = ? WHERE id = ?",
+                   (now.isoformat(timespec="seconds"), uid))
+        db.commit()
+        session["_seen"] = now.isoformat(timespec="seconds")
 
 
 def login_required(f):
@@ -2998,17 +3040,24 @@ def messages():
     uid = session["user_id"]
     convos = []
     for fid in sorted(get_friend_ids(uid)):
-        friend = db.execute("SELECT id, username, full_name FROM users WHERE id = ?",
-                            (fid,)).fetchone()
+        friend = db.execute("SELECT id, username, full_name, last_seen "
+                            "FROM users WHERE id = ?", (fid,)).fetchone()
         if friend is None:
             continue
+        online = False
+        if friend["last_seen"]:
+            try:
+                online = (datetime.utcnow() - datetime.fromisoformat(
+                    friend["last_seen"])).total_seconds() < 120
+            except ValueError:
+                pass
         last = db.execute(
             "SELECT * FROM dms WHERE (from_id = ? AND to_id = ?) "
             "OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 1",
             (uid, fid, fid, uid)).fetchone()
         unread = db.execute("SELECT COUNT(*) FROM dms WHERE from_id = ? AND to_id = ? "
                             "AND is_read = 0", (fid, uid)).fetchone()[0]
-        convos.append(dict(friend=friend, last=last, unread=unread))
+        convos.append(dict(friend=friend, last=last, unread=unread, online=online))
     convos.sort(key=lambda c: c["last"]["id"] if c["last"] else 0, reverse=True)
     return render_template("messages.html", user=current_user(), convos=convos)
 
@@ -3090,8 +3139,16 @@ def dm_thread(username):
                 [uid] + [m["id"] for m in thread]):
             reacts.setdefault(row["msg_id"], []).append(
                 {"e": row["emoji"], "n": row["n"], "me": bool(row["me"])})
+    online = False
+    if friend["last_seen"]:
+        try:
+            online = (datetime.utcnow() - datetime.fromisoformat(
+                friend["last_seen"])).total_seconds() < 120
+        except ValueError:
+            pass
     return render_template("dm.html", user=current_user(), friend=friend,
                            thread=thread, reacts=reacts,
+                           pres={"online": online, "at": friend["last_seen"] or ""},
                            REACTIONS=REACTION_EMOJIS)
 
 
@@ -3101,7 +3158,8 @@ def dm_poll(username):
     """Live chat: return messages newer than ?after=<id> as JSON (no refresh)."""
     db = get_db()
     uid = session["user_id"]
-    friend = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    friend = db.execute("SELECT id, last_seen FROM users WHERE username = ?",
+                        (username,)).fetchone()
     if friend is None:
         abort(404)
     if not are_friends(uid, friend["id"]):
@@ -3140,12 +3198,54 @@ def dm_poll(username):
             txt = {"image": "📷", "voice": "🎤 🎵",
                    "file": "📄 " + (m["r_orig"] or "")}.get(m["r_kind"] or "", "")
         return {"id": m["reply_to"], "me": m["r_from"] == uid, "text": txt[:90]}
+    # ids of deleted messages anywhere in the thread (so both sides remove them live)
+    dels = [r[0] for r in db.execute(
+        "SELECT id FROM dms WHERE ((from_id = ? AND to_id = ?) "
+        "OR (from_id = ? AND to_id = ?)) AND deleted = 1",
+        (uid, friend["id"], friend["id"], uid))]
+    # friend presence: online if active in the last 2 minutes
+    online = False
+    if friend["last_seen"]:
+        try:
+            online = (datetime.utcnow() - datetime.fromisoformat(
+                friend["last_seen"])).total_seconds() < 120
+        except ValueError:
+            pass
     return {"msgs": [{"id": m["id"], "me": m["from_id"] == uid,
                       "kind": m["kind"] or "text", "content": m["content"] or "",
                       "orig": m["orig_name"] or "", "stored": bool(m["stored"]),
                       "at": (m["created_at"] or "")[5:16].replace("T", " "),
-                      "read": bool(m["is_read"]), "reply": snip(m)} for m in rows],
-            "read_max": read_max, "reacts": reacts}
+                      "read": bool(m["is_read"]), "reply": snip(m),
+                      "gone": bool(m["deleted"])} for m in rows],
+            "read_max": read_max, "reacts": reacts, "del": dels,
+            "pres": {"online": online, "at": friend["last_seen"] or ""}}
+
+
+@app.route("/messages/<username>/delete", methods=["POST"])
+@login_required
+def dm_delete(username):
+    """Delete my own message for everyone (WhatsApp style)."""
+    db = get_db()
+    uid = session["user_id"]
+    friend = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    if friend is None:
+        abort(404)
+    if not are_friends(uid, friend["id"]):
+        abort(403)
+    msg_id = request.form.get("msg_id", type=int)
+    m = db.execute("SELECT * FROM dms WHERE id = ? AND from_id = ? AND to_id = ?",
+                   (msg_id, uid, friend["id"])).fetchone()
+    if m and not m["deleted"]:
+        if m["stored"]:
+            try:
+                os.remove(os.path.join(BASE_DIR, "dmfiles", m["stored"]))
+            except OSError:
+                pass
+        db.execute("UPDATE dms SET deleted = 1, content = '', stored = '', "
+                   "orig_name = '' WHERE id = ?", (msg_id,))
+        db.execute("DELETE FROM dm_reactions WHERE msg_id = ?", (msg_id,))
+        db.commit()
+    return {"ok": 1}
 
 
 @app.route("/messages/<username>/react", methods=["POST"])

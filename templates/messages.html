@@ -7,12 +7,21 @@
     {% for c in convos %}
     <a href="{{ url_for('dm_thread', username=c.friend.username) }}" style="color:inherit">
       <div class="plan {{ 'high' if c.unread else 'medium' }}" style="align-items:center">
-        {{ avi(c.friend.id, c.friend.username, 46, '1.15rem') }}
+        <span style="position:relative; flex-shrink:0">
+          {{ avi(c.friend.id, c.friend.username, 46, '1.15rem') }}
+          {% if c.online %}
+          <span style="position:absolute; bottom:1px; inset-inline-end:1px; width:12px;
+                height:12px; border-radius:50%; background:#22c55e;
+                border:2px solid var(--card)"></span>
+          {% endif %}
+        </span>
         <div class="plan-body">
           <strong>{{ c.friend.full_name or c.friend.username }}</strong>
+          {% if c.online %}<span style="font-size:.66rem; color:#22c55e; font-weight:700">
+            ● {{ t('online') }}</span>{% endif %}
           <div style="font-size:.8rem; color:var(--muted); overflow:hidden;
                text-overflow:ellipsis; white-space:nowrap; max-width:420px">
-            {% if c.last %}{{ c.last.content }}{% else %}{{ t('open_chat') }} →{% endif %}
+            {% if c.last %}{{ ('🚫 ' + t('msg_deleted')) if c.last.deleted else c.last.content }}{% else %}{{ t('open_chat') }} →{% endif %}
           </div>
         </div>
         {% if c.unread %}
