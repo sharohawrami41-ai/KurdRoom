@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_widgets.html" import edu_fields with context %}
 {% block content %}
 <div class="auth-wrap">
   {% if quote %}<div class="quote">{{ quote }}</div>{% endif %}
@@ -14,6 +15,7 @@
       <input name="full_name" maxlength="60" autocomplete="name">
       <label>{{ t('email_addr') }} ({{ t('optional') }})</label>
       <input type="email" name="email" maxlength="80" autocomplete="email">
+      {{ edu_fields() }}
       <label>{{ t('password') }}</label>
       <input type="password" name="password" required minlength="6" autocomplete="new-password">
       <label>{{ t('confirm_password') }}</label>

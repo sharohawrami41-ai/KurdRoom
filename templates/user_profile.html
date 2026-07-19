@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_widgets.html" import avi with context %}
+{% from "_widgets.html" import avi, edu_line with context %}
 {% block content %}
   <div class="card" style="max-width:520px; margin:4vh auto 0; text-align:center; padding:34px">
     <div style="display:flex; justify-content:center; margin-bottom:14px">
@@ -13,6 +13,7 @@
     {% if person.bio %}
       <p style="margin-top:14px; font-size:.94rem; white-space:pre-wrap">{{ person.bio }}</p>
     {% endif %}
+    {{ edu_line(person) }}
 
     <div style="display:flex; gap:10px; justify-content:center; margin-top:20px; flex-wrap:wrap">
       <div style="padding:10px 20px; border-radius:14px; background:color-mix(in srgb, var(--accent) 14%, transparent)">

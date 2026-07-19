@@ -1,3 +1,51 @@
+{% macro edu_fields(u=None) %}
+<label>🎓 {{ t('edu_info') }} ({{ t('optional') }}) — {{ t('i_am') }}</label>
+<select name="edu_level" id="eduLevel" onchange="eduToggle()">
+  <option value="">{{ t('prefer_not') }}</option>
+  {% for lvl in ['school','bachelor','master','phd','professor','graduate'] %}
+    <option value="{{ lvl }}" {{ 'selected' if u and u.edu_level == lvl }}>{{ t('lvl_' + lvl) }}</option>
+  {% endfor %}
+</select>
+<div id="eduFields" style="display:none">
+  <label>{{ t('institution') }}</label>
+  <input name="institution" maxlength="80" value="{{ u.institution or '' if u else '' }}">
+  <div class="grid2" style="gap:10px">
+    <div><label>{{ t('college') }}</label>
+      <input name="college" maxlength="80" value="{{ u.college or '' if u else '' }}"></div>
+    <div><label>{{ t('department') }}</label>
+      <input name="department" maxlength="80" value="{{ u.department or '' if u else '' }}"></div>
+  </div>
+  <label>{{ t('stage') }}</label>
+  <input name="stage" maxlength="30" value="{{ u.stage or '' if u else '' }}">
+</div>
+<div id="jobFields" style="display:none">
+  <label>{{ t('job_title') }}</label>
+  <input name="job_title" maxlength="80" value="{{ u.job_title or '' if u else '' }}">
+  <label>{{ t('job_field') }}</label>
+  <input name="job_field" maxlength="80" value="{{ u.job_field or '' if u else '' }}">
+</div>
+<script>
+function eduToggle() {
+  const v = document.getElementById("eduLevel").value;
+  document.getElementById("eduFields").style.display = (v && v !== "graduate") ? "block" : "none";
+  document.getElementById("jobFields").style.display = v === "graduate" ? "block" : "none";
+}
+eduToggle();
+</script>
+{% endmacro %}
+
+{% macro edu_line(p) %}
+{% if p.edu_level %}
+<div style="margin-top:10px; font-size:.84rem; color:var(--muted); line-height:1.6">
+  {% if p.edu_level == 'graduate' %}
+    💼 {{ p.job_title or t('lvl_graduate') }}{% if p.job_field %} · {{ p.job_field }}{% endif %}
+  {% else %}
+    🎓 {{ t('lvl_' + p.edu_level) }}{% if p.institution %} · {{ p.institution }}{% endif %}{% if p.college %} · {{ p.college }}{% endif %}{% if p.department %} · {{ p.department }}{% endif %}{% if p.stage %} · {{ t('stage') }}: {{ p.stage }}{% endif %}
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
 {% macro avi(user_id, username, size=34, fs='.95rem') -%}
   {%- set url = av(user_id) -%}
   {%- if url -%}

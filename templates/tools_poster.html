@@ -10,8 +10,8 @@
 .color-dot { width:100%; height:44px; padding:3px; border-radius:12px; cursor:pointer; }
 </style>
   <h2 style="font-size:1.4rem; margin:8px 0 18px">🎨 {{ t('poster_maker') }}</h2>
-  <div class="grid2" style="grid-template-columns: 1fr 1.1fr">
-    <div class="card">
+  <div style="max-width:760px; margin:0 auto">
+    <div class="card" style="margin-bottom:22px">
       <div class="opt-row">
         <div>
           <label>{{ t('p_template') }}</label>
@@ -99,7 +99,7 @@ Everyone is welcome!</textarea>
     </div>
     <div class="card" style="display:flex; align-items:center; justify-content:center">
       <canvas id="cv" width="800" height="1130"
-              style="max-width:100%; max-height:78vh; height:auto; border-radius:14px;
+              style="max-width:min(100%, 560px); height:auto; border-radius:14px;
               box-shadow:0 14px 40px rgba(0,0,0,.4)"></canvas>
     </div>
   </div>

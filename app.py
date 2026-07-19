@@ -239,7 +239,14 @@ def init_db():
                  "ALTER TABLE users ADD COLUMN full_name TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''",
-                 "ALTER TABLE plans ADD COLUMN done_at TEXT"):
+                 "ALTER TABLE plans ADD COLUMN done_at TEXT",
+                 "ALTER TABLE users ADD COLUMN edu_level TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN institution TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN college TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN department TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN stage TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN job_title TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN job_field TEXT DEFAULT ''"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -977,6 +984,61 @@ V8 = {
 for _l, _d in V8.items():
     T[_l].update(_d)
 
+# --- v9 education/work strings ---
+V9 = {
+    "en": {
+        "edu_info": "Education / Work", "i_am": "I am…",
+        "lvl_school": "School student", "lvl_bachelor": "University student",
+        "lvl_master": "Master's student", "lvl_phd": "PhD student",
+        "lvl_professor": "Professor / Teacher", "lvl_graduate": "Graduated — working",
+        "institution": "University / School", "college": "College / Faculty",
+        "department": "Department", "stage": "Stage / Year",
+        "job_title": "Job", "job_field": "Field",
+        "prefer_not": "— prefer not to say —",
+    },
+    "ar": {
+        "edu_info": "الدراسة / العمل", "i_am": "أنا…",
+        "lvl_school": "طالب مدرسة", "lvl_bachelor": "طالب جامعة",
+        "lvl_master": "طالب ماجستير", "lvl_phd": "طالب دكتوراه",
+        "lvl_professor": "أستاذ / مدرّس", "lvl_graduate": "خريج — أعمل",
+        "institution": "الجامعة / المدرسة", "college": "الكلية",
+        "department": "القسم", "stage": "المرحلة / السنة",
+        "job_title": "الوظيفة", "job_field": "المجال",
+        "prefer_not": "— أفضّل عدم الذكر —",
+    },
+    "ku": {
+        "edu_info": "خوێندن / کار", "i_am": "من…",
+        "lvl_school": "قوتابی قوتابخانە", "lvl_bachelor": "قوتابی زانکۆ",
+        "lvl_master": "قوتابی ماستەر", "lvl_phd": "قوتابی دکتۆرا",
+        "lvl_professor": "مامۆستا / پرۆفیسۆر", "lvl_graduate": "دەرچوو — کار دەکەم",
+        "institution": "زانکۆ / قوتابخانە", "college": "کۆلێژ",
+        "department": "بەش", "stage": "قۆناغ / ساڵ",
+        "job_title": "کار", "job_field": "بوار",
+        "prefer_not": "— نامەوێت بیڵێم —",
+    },
+}
+for _l, _d in V9.items():
+    T[_l].update(_d)
+
+
+EDU_LEVELS = ("school", "bachelor", "master", "phd", "professor", "graduate")
+
+
+def save_edu_fields(uid):
+    """Store the optional education/work info from the current form."""
+    lvl = request.form.get("edu_level", "")
+    if lvl and lvl not in EDU_LEVELS:
+        lvl = ""
+    db = get_db()
+    db.execute("UPDATE users SET edu_level=?, institution=?, college=?, department=?, "
+               "stage=?, job_title=?, job_field=? WHERE id = ?",
+               (lvl, request.form.get("institution", "").strip()[:80],
+                request.form.get("college", "").strip()[:80],
+                request.form.get("department", "").strip()[:80],
+                request.form.get("stage", "").strip()[:30],
+                request.form.get("job_title", "").strip()[:80],
+                request.form.get("job_field", "").strip()[:80], uid))
+
 
 def tr(key):
     lang = session.get("lang", "en")
@@ -1251,8 +1313,9 @@ def register():
                      datetime.utcnow().isoformat(timespec="seconds"),
                      request.form.get("full_name", "").strip()[:60],
                      request.form.get("email", "").strip()[:80]))
-                db.commit()
                 session["user_id"] = cur.lastrowid
+                save_edu_fields(cur.lastrowid)
+                db.commit()
                 flash(tr("ok_registered"), "ok")
                 return redirect(url_for("dashboard"))
             except sqlite3.IntegrityError:
@@ -1684,6 +1747,7 @@ def profile():
                    (request.form.get("full_name", "").strip()[:60],
                     request.form.get("email", "").strip()[:80],
                     request.form.get("bio", "").strip()[:300], uid))
+        save_edu_fields(uid)
         new_pw = request.form.get("new_password", "")
         if new_pw:
             if len(new_pw) < 6:

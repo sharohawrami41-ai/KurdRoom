@@ -205,8 +205,10 @@ details.dd > summary::-webkit-details-marker { display: none; }
 .pill.primary { background: var(--accent); border-color: var(--accent); color:#fff; font-weight:600; }
 .pill.danger:hover { border-color: var(--high); color: var(--high); }
 .langs { display:flex; gap:4px; background:var(--card); border:1px solid var(--card-border);
-  border-radius:999px; padding:3px; }
-.langs a { padding:4px 11px; border-radius:999px; font-size:.8rem; color:var(--muted); }
+  border-radius:999px; padding:3px; align-items:center; }
+.langs a { padding:0 12px; height:30px; border-radius:999px; font-size:.8rem;
+  color:var(--muted); display:inline-flex; align-items:center; justify-content:center;
+  line-height:1; }
 .langs a.active { background: var(--accent); color:#fff; }
 
 /* ---------- cards / layout ---------- */
@@ -345,7 +347,8 @@ button.small.warn:hover { border-color: var(--high); color: var(--high); }
 
 /* ---------- grids ---------- */
 .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+/* !important so pages with custom column ratios also collapse cleanly on phones */
+@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr !important; } }
 
 /* ---------- progress ---------- */
 .progress-wrap { display:flex; align-items:center; gap:12px; margin: 16px 0 22px; }
