@@ -57,6 +57,60 @@
     {% endif %}
   </div>
 
+  {% if duels %}
+  <div class="card" style="margin-bottom:22px">
+    <h2>⚔️ {{ t('duels_t') }}</h2>
+    <div class="hint"></div>
+    {% for d in duels %}
+    <div class="plan {{ 'high' if d.status == 'active' else 'medium' }}"
+         style="flex-direction:column; align-items:stretch; gap:8px">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
+        <strong>⚔️ {{ d.from_u.username }} {{ t('duel_vs') }} {{ d.to_u.username }}</strong>
+        {% if d.status == 'pending' %}
+          {% if d.mine_incoming %}
+          <span style="display:flex; gap:6px">
+            <form method="post" action="{{ url_for('duel_accept', duel_id=d.id) }}">
+              <button class="small" style="border-color:var(--ok); color:var(--ok)" type="submit">✓ {{ t('accept') }}</button>
+            </form>
+            <form method="post" action="{{ url_for('duel_decline', duel_id=d.id) }}">
+              <button class="small warn" type="submit">✕ {{ t('decline') }}</button>
+            </form>
+          </span>
+          {% else %}
+          <span style="display:flex; gap:6px; align-items:center">
+            <span class="badge medium">{{ t('pending_dots') }}</span>
+            <form method="post" action="{{ url_for('duel_decline', duel_id=d.id) }}">
+              <button class="small warn" type="submit">✕ {{ t('cancel') }}</button>
+            </form>
+          </span>
+          {% endif %}
+        {% elif d.status == 'active' %}
+          <span class="badge today">⏳ {{ d.days_left }} {{ t('days_short') }}</span>
+        {% else %}
+          {% if d.winner_id %}
+            <span class="badge high">🏆 {{ d.from_u.username if d.winner_id == d.from_u.id else d.to_u.username }} — {{ t('duel_won') }}</span>
+          {% else %}
+            <span class="badge medium">🤝 {{ t('duel_tie') }}</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% if d.status in ('active', 'done') and d.a is defined %}
+      <div style="display:flex; align-items:center; gap:10px; font-size:.85rem">
+        <strong style="min-width:20px; text-align:center">{{ d.a }}</strong>
+        <div class="progress" style="flex:1; height:12px">
+          <div style="width: {{ d.a_pct }}%; background:linear-gradient(90deg, var(--accent), #e879f9)"></div>
+        </div>
+        <strong style="min-width:20px; text-align:center">{{ d.b }}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:.68rem; color:var(--muted)">
+        <span>{{ d.from_u.username }}</span><span>{{ d.to_u.username }}</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if incoming %}
   <div class="card" style="margin-bottom:22px; border-color: color-mix(in srgb, var(--accent) 55%, transparent)">
     <h2>📨 {{ t('incoming_requests') }} ({{ incoming|length }})</h2>
@@ -92,6 +146,9 @@
           <div style="font-size:.72rem; color:var(--muted)">
             {{ t('last_login') }}: {{ (f.last_login or t('never'))[:16].replace('T',' ') }}</div>
         </div>
+        <form method="post" action="{{ url_for('duel_challenge', username=f.username) }}">
+          <button class="small" type="submit" style="border-color:var(--medium); color:var(--medium)">⚔️</button>
+        </form>
         <form method="post" action="{{ url_for('friend_decline', fid=f.fid) }}"
               onsubmit="return confirm('{{ t('remove_friend') }}?')">
           <button class="small warn" type="submit">✕ {{ t('remove_friend') }}</button>

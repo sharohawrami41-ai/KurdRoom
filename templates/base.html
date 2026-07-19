@@ -528,6 +528,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 {% endmacro %}
 {% macro account_rows() %}
   <a href="{{ url_for('profile') }}">👤 {{ t('profile') }}</a>
+  <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
+  <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
   {% if cu.is_admin %}<a href="{{ url_for('admin') }}">🛠 {{ t('admin_panel') }}</a>{% endif %}
   <hr>
   <form method="post" action="{{ url_for('prefs_theme') }}">
@@ -672,6 +674,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
         AI Kurd</span>
     {% endif %}
     <span style="color:#ffc857">★</span>
+    <span style="opacity:.55; font-size:.72rem" dir="ltr">· v{{ app_version }}</span>
+    <a href="{{ url_for('guide') }}" style="opacity:.75; font-size:.75rem">· 📖 {{ t('guide_t') }}</a>
   </footer>
 </div>
 <script>

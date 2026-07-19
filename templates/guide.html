@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .g-sec { margin-bottom: 20px; }
+  .g-sec h2 { font-size: 1.15rem; margin-bottom: 4px; }
+  .g-item { display:flex; gap:14px; padding:12px 6px; border-bottom:1px solid var(--card-border);
+    font-size:.92rem; line-height:1.65; }
+  .g-item:last-child { border-bottom:none; }
+  .g-ico { font-size:1.4rem; flex-shrink:0; width:36px; text-align:center; }
+  .g-item strong { color: var(--accent); }
+</style>
+
+{% if lang == 'ar' %}
+  <h2 style="font-size:1.5rem; margin:8px 0 6px">📖 دليل استخدام {{ settings.site_name }}</h2>
+  <p style="color:var(--muted); margin-bottom:18px">كل ما تحتاج معرفته — ببساطة.</p>
+
+  <div class="card g-sec"><h2>📋 التخطيط</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">📋</span><span><strong>الرئيسية:</strong> أضف خططك القصيرة (اليوم/الأسبوع) والطويلة (أهداف كبيرة). حدّد الأولوية — المهم يظهر كبيرًا وبارزًا. عند إنجاز خطة اضغط «تم» وستحصل على نقاط خبرة واحتفال! يمكنك جعل الخطة تتكرر يوميًا أو أسبوعيًا.</span></div>
+    <div class="g-item"><span class="g-ico">🎯</span><span><strong>الهدف اليومي:</strong> حلقة تمتلئ كلما أنجزت خططًا اليوم. حدد رقمك المناسب.</span></div>
+    <div class="g-item"><span class="g-ico">🎯</span><span><strong>تحدياتي:</strong> تحدَّ نفسك — «١٥ خطة في أسبوع» — وأكملها لتربح ١٠٠ XP إضافية.</span></div>
+    <div class="g-item"><span class="g-ico">⏱</span><span><strong>التركيز (بومودورو):</strong> ٢٥ دقيقة دراسة ثم ٥ دقائق راحة. ابدأ المؤقت وركّز.</span></div>
+    <div class="g-item"><span class="g-ico">🔁</span><span><strong>العادات:</strong> أضف عادات يومية (قراءة، رياضة…) وسجّلها كل يوم لبناء سلسلة 🔥.</span></div>
+    <div class="g-item"><span class="g-ico">📝</span><span><strong>الملاحظات:</strong> مساحتك الخاصة لأفكارك ويومياتك.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>🎓 الجامعة</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">⏳</span><span><strong>عدّاد الامتحانات:</strong> أضف امتحاناتك وشاهد الأيام المتبقية تنقص — يتحول أحمر عند الاقتراب.</span></div>
+    <div class="g-item"><span class="g-ico">🗓</span><span><strong>جدول المحاضرات:</strong> جدولك الأسبوعي من الأحد إلى الخميس مع القاعات والأوقات.</span></div>
+    <div class="g-item"><span class="g-ico">🃏</span><span><strong>بطاقات المراجعة:</strong> اكتب سؤالًا وجوابًا، ثم اقلب البطاقات للحفظ. جرّب وضع الاختبار في الأدوات!</span></div>
+    <div class="g-item"><span class="g-ico">📊</span><span><strong>سجل الدرجات:</strong> احفظ درجات كل فصل وشاهد معدلك الفصلي والتراكمي.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>🛠 الأدوات</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">🎨</span><span><strong>صانع الملصقات:</strong> صمّم ملصقات جميلة لفعالياتك وحمّلها كصورة.</span></div>
+    <div class="g-item"><span class="g-ico">📄</span><span><strong>السيرة الذاتية:</strong> املأ النموذج واحصل على CV احترافي جاهز للطباعة.</span></div>
+    <div class="g-item"><span class="g-ico">📝</span><span><strong>مدقق المقالات:</strong> الصق مقالك واحصل على درجة وتحليل ونصائح فورية.</span></div>
+    <div class="g-item"><span class="g-ico">🔖</span><span><strong>المراجع:</strong> أنشئ مراجع APA وMLA وHarvard جاهزة للنسخ.</span></div>
+    <div class="g-item"><span class="g-ico">❓</span><span><strong>الاختبار:</strong> يحوّل بطاقاتك إلى اختبار اختيارات متعددة مع نتيجة نهائية.</span></div>
+    <div class="g-item"><span class="g-ico">🤖</span><span><strong>المساعد الذكي:</strong> قريبًا — تقييم المقالات والتلخيص والشرح.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>👥 الاجتماعي</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">👥</span><span><strong>الأصدقاء:</strong> ابحث بالاسم وأرسل طلب صداقة. من ملف صديقك يمكنك مراسلته أو تحدّيه ⚔️ في مبارزة أسبوعية — من ينجز خططًا أكثر يفوز!</span></div>
+    <div class="g-item"><span class="g-ico">💬</span><span><strong>المجموعات:</strong> أنشئ مجموعة دراسة مع أصدقائك: دردشة مع تفاعلات وردود، ملفات مشتركة، بطاقات مشتركة، استطلاعات، خطط مثبتة، وتحديات جماعية بشريط تقدم مشترك.</span></div>
+    <div class="g-item"><span class="g-ico">✉️</span><span><strong>الرسائل:</strong> محادثات خاصة بينك وبين أصدقائك.</span></div>
+    <div class="g-item"><span class="g-ico">🏆</span><span><strong>لوحة الصدارة:</strong> ترتيبك الأسبوعي بين أصدقائك — ١٠ نقاط لكل خطة، ٥ لكل عادة، ٣ لكل يوم متواصل.</span></div>
+    <div class="g-item"><span class="g-ico">⚡</span><span><strong>المستويات والأوسمة:</strong> كل نشاط يمنحك XP لترتفع في المستويات، والأوسمة تُفتح تلقائيًا وتظهر في ملفك.</span></div>
+  </div>
+
+{% elif lang == 'ku' %}
+  <h2 style="font-size:1.5rem; margin:8px 0 6px">📖 ڕێبەری بەکارهێنانی {{ settings.site_name }}</h2>
+  <p style="color:var(--muted); margin-bottom:18px">هەموو ئەوەی پێویستە بیزانیت — بە سادەیی.</p>
+
+  <div class="card g-sec"><h2>📋 پلاندانان</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">📋</span><span><strong>سەرەکی:</strong> پلانە کورتەکانت (ئەمڕۆ/ئەم هەفتەیە) و درێژەکانت (ئامانجی گەورە) زیاد بکە. گرنگی دیاری بکە — گرنگەکان گەورە و دیار دەبن. کە پلانێک تەواو کرد «تەواو» دابگرە و XP و ئاهەنگ وەردەگریت! دەتوانیت پلانێک ڕۆژانە یان هەفتانە دووبارە ببێتەوە.</span></div>
+    <div class="g-item"><span class="g-ico">🎯</span><span><strong>ئامانجی ڕۆژانە:</strong> بازنەیەک کە پڕ دەبێتەوە بە تەواوکردنی پلانەکانی ئەمڕۆ.</span></div>
+    <div class="g-item"><span class="g-ico">🎯</span><span><strong>چالێنجەکانم:</strong> خۆت تاقی بکەرەوە — «١٥ پلان لە هەفتەیەک» — و ١٠٠ XP ی زیادە ببە.</span></div>
+    <div class="g-item"><span class="g-ico">⏱</span><span><strong>سەرنج (پۆمۆدۆرۆ):</strong> ٢٥ خولەک خوێندن و ٥ خولەک پشوو.</span></div>
+    <div class="g-item"><span class="g-ico">🔁</span><span><strong>خووەکان:</strong> خووی ڕۆژانە زیاد بکە (خوێندنەوە، وەرزش…) و هەموو ڕۆژێک تۆماری بکە بۆ زنجیرەی 🔥.</span></div>
+    <div class="g-item"><span class="g-ico">📝</span><span><strong>تێبینییەکان:</strong> شوێنی تایبەتی خۆت بۆ بیرۆکەکانت.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>🎓 زانکۆ</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">⏳</span><span><strong>ژمێرەری تاقیکردنەوەکان:</strong> تاقیکردنەوەکانت زیاد بکە و ببینە چەند ڕۆژ ماوە — کە نزیک بووەوە سوور دەبێت.</span></div>
+    <div class="g-item"><span class="g-ico">🗓</span><span><strong>خشتەی وانەکان:</strong> خشتەی هەفتانەت لە یەکشەممە بۆ پێنجشەممە لەگەڵ هۆڵ و کاتەکان.</span></div>
+    <div class="g-item"><span class="g-ico">🃏</span><span><strong>کارتی بیرهێنانەوە:</strong> پرسیار و وەڵام بنووسە و کارتەکان هەڵبگێڕەوە بۆ لەبەرکردن.</span></div>
+    <div class="g-item"><span class="g-ico">📊</span><span><strong>تۆماری نمرەکان:</strong> نمرەکانی هەر وەرزێک پاشەکەوت بکە و تێکڕای وەرزی و گشتیت ببینە.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>🛠 ئامرازەکان</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">🎨</span><span><strong>دروستکەری پۆستەر:</strong> پۆستەری جوان بۆ چالاکییەکانت دروست بکە و وەک وێنە دایبگرە.</span></div>
+    <div class="g-item"><span class="g-ico">📄</span><span><strong>دروستکەری سیڤی:</strong> فۆڕمەکە پڕ بکەرەوە و CV یەکی پرۆفیشناڵ وەربگرە.</span></div>
+    <div class="g-item"><span class="g-ico">📝</span><span><strong>پشکنەری وتار:</strong> وتارەکەت دابنێ و نمرە و شیکردنەوە و ئامۆژگاری وەربگرە.</span></div>
+    <div class="g-item"><span class="g-ico">🔖</span><span><strong>سەرچاوەکان:</strong> سەرچاوەی APA و MLA و Harvard ئامادە بۆ کۆپیکردن.</span></div>
+    <div class="g-item"><span class="g-ico">❓</span><span><strong>تاقیکردنەوە:</strong> کارتەکانت دەکات بە تاقیکردنەوەی هەڵبژاردن لەگەڵ نمرەی کۆتایی.</span></div>
+    <div class="g-item"><span class="g-ico">🤖</span><span><strong>یاریدەدەری زیرەک:</strong> بەم زووانە — هەڵسەنگاندنی وتار و پوختکردنەوە و ڕوونکردنەوە.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>👥 کۆمەڵایەتی</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">👥</span><span><strong>هاوڕێکان:</strong> بە ناو بگەڕێ و داواکاری هاوڕێیەتی بنێرە. لە پرۆفایلی هاوڕێکەتەوە دەتوانیت نامەی بۆ بنێریت یان ملمالانێی ⚔️ لەگەڵ بکەیت — ئەوەی زیاتر پلان تەواو بکات دەیباتەوە!</span></div>
+    <div class="g-item"><span class="g-ico">💬</span><span><strong>گروپەکان:</strong> گروپی خوێندن دروست بکە: گفتوگۆ لەگەڵ کاردانەوە و وەڵام، فایلی هاوبەش، کارتی هاوبەش، ڕاپرسی، پلانی چەسپاو، و چالێنجی گروپی بە شریتی پێشکەوتنی هاوبەش.</span></div>
+    <div class="g-item"><span class="g-ico">✉️</span><span><strong>نامەکان:</strong> گفتوگۆی تایبەت لەگەڵ هاوڕێکانت.</span></div>
+    <div class="g-item"><span class="g-ico">🏆</span><span><strong>خشتەی پێشەنگەکان:</strong> ڕیزبەندی هەفتانەت لەناو هاوڕێکانت — ١٠ خاڵ بۆ پلان، ٥ بۆ خوو، ٣ بۆ ڕۆژی بەردەوام.</span></div>
+    <div class="g-item"><span class="g-ico">⚡</span><span><strong>ئاست و خەڵاتەکان:</strong> هەموو چالاکییەک XP ت دەداتێ بۆ بەرزبوونەوەی ئاست، و خەڵاتەکان خۆکارانە دەکرێنەوە.</span></div>
+  </div>
+
+{% else %}
+  <h2 style="font-size:1.5rem; margin:8px 0 6px">📖 How to use {{ settings.site_name }}</h2>
+  <p style="color:var(--muted); margin-bottom:18px">Everything you need to know — in plain words.</p>
+
+  <div class="card g-sec"><h2>📋 Planning</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">📋</span><span><strong>Home:</strong> add short-term plans (today/this week) and long-term plans (big goals). Set the priority — important things appear big and bold. Press "Done" when you finish and earn XP plus a little celebration! You can also make a plan repeat daily or weekly.</span></div>
+    <div class="g-item"><span class="g-ico">🎯</span><span><strong>Daily goal:</strong> a ring that fills as you complete plans today. Set your own target.</span></div>
+    <div class="g-item"><span class="g-ico">🎯</span><span><strong>My challenges:</strong> challenge yourself — "15 plans in a week" — and earn a 100 XP bonus for finishing.</span></div>
+    <div class="g-item"><span class="g-ico">⏱</span><span><strong>Focus (Pomodoro):</strong> 25 minutes of studying, 5 minutes of rest. Start the timer and concentrate.</span></div>
+    <div class="g-item"><span class="g-ico">🔁</span><span><strong>Habits:</strong> add daily habits (reading, gym…) and check them off every day to build a 🔥 streak.</span></div>
+    <div class="g-item"><span class="g-ico">📝</span><span><strong>Notes:</strong> your private space for thoughts and journaling.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>🎓 University</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">⏳</span><span><strong>Exam countdown:</strong> add your exams and watch the days tick down — it turns red as the date gets close.</span></div>
+    <div class="g-item"><span class="g-ico">🗓</span><span><strong>Class timetable:</strong> your weekly Sunday–Thursday schedule with rooms and times.</span></div>
+    <div class="g-item"><span class="g-ico">🃏</span><span><strong>Flashcards:</strong> write a question and answer, then flip through the cards to memorize. Try Quiz mode in Tools!</span></div>
+    <div class="g-item"><span class="g-ico">📊</span><span><strong>Grade book:</strong> save each semester's grades and see your semester GPA and cumulative GPA.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>🛠 Tools</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">🎨</span><span><strong>Poster maker:</strong> design beautiful posters for your events and download them as images.</span></div>
+    <div class="g-item"><span class="g-ico">📄</span><span><strong>CV builder:</strong> fill the form and get a professional CV ready to print.</span></div>
+    <div class="g-item"><span class="g-ico">📝</span><span><strong>Essay checker:</strong> paste your essay and get an instant score, analysis, and tips.</span></div>
+    <div class="g-item"><span class="g-ico">🔖</span><span><strong>Citations:</strong> generate APA, MLA, and Harvard references ready to copy.</span></div>
+    <div class="g-item"><span class="g-ico">❓</span><span><strong>Quiz:</strong> turns your flashcards into a multiple-choice test with a final score.</span></div>
+    <div class="g-item"><span class="g-ico">🤖</span><span><strong>AI Assistant:</strong> coming soon — essay rating, summarizing, and explanations.</span></div>
+  </div>
+
+  <div class="card g-sec"><h2>👥 Social</h2><div class="hint"></div>
+    <div class="g-item"><span class="g-ico">👥</span><span><strong>Friends:</strong> search by name and send a friend request. From a friend's profile you can message them or challenge them ⚔️ to a week-long duel — whoever completes more plans wins!</span></div>
+    <div class="g-item"><span class="g-ico">💬</span><span><strong>Groups:</strong> create a study group with your friends: chat with reactions and replies, shared files, shared flashcard decks, polls, pinned plans, and group challenges with a shared progress bar.</span></div>
+    <div class="g-item"><span class="g-ico">✉️</span><span><strong>Messages:</strong> private conversations between you and your friends.</span></div>
+    <div class="g-item"><span class="g-ico">🏆</span><span><strong>Leaderboard:</strong> your weekly ranking among friends — 10 points per plan, 5 per habit, 3 per streak day.</span></div>
+    <div class="g-item"><span class="g-ico">⚡</span><span><strong>Levels & badges:</strong> everything you do earns XP that raises your level, and badges unlock automatically on your profile.</span></div>
+  </div>
+{% endif %}
+{% endblock %}

@@ -29,12 +29,12 @@
       <div class="plan {{ 'medium' if not n.is_read else 'low' }}" style="align-items:center">
         <span style="font-size:1.3rem">
           {{ {'friend_req':'👥','friend_acc':'🤝','group_msg':'💬','group_add':'➕',
-              'badge':'🏅','dm':'✉️'}.get(n.kind, '🔔') }}</span>
+              'badge':'🏅','dm':'✉️','duel_req':'⚔️','duel_acc':'⚔️','duel_end':'🏆'}.get(n.kind, '🔔') }}</span>
         <div class="plan-body">
           {% if n.kind == 'badge' %}
             <strong>{{ t('ntf_badge') }} {{ BADGES.get(n.actor, '🏅') }}
               {{ t('badge_' + n.actor + '_n') }}</strong>
-          {% elif n.kind in ('group_msg', 'group_add') %}
+          {% elif n.kind in ('group_msg', 'group_add', 'duel_end') %}
             <strong>{{ t('ntf_' + n.kind) }} “{{ n.actor }}”</strong>
           {% else %}
             <strong>{{ n.actor }}</strong> {{ t('ntf_' + n.kind) }}

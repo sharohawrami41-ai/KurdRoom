@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:8px 0 18px">
+    <h2 style="font-size:1.4rem">📊 {{ t('grade_book') }}</h2>
+    <a class="pill" href="{{ url_for('university') }}">🎓 {{ t('university') }} {{ '←' if is_rtl else '→' }}</a>
+  </div>
+
+  {% if cum is not none %}
+  <div class="card" style="display:flex; align-items:center; gap:24px; margin-bottom:20px;
+       flex-wrap:wrap; justify-content:center; text-align:center">
+    <div>
+      <div style="font-size:.75rem; color:var(--muted)">{{ t('cum_gpa') }}</div>
+      <div style="font-size:2.6rem; font-weight:800; color:var(--accent)" dir="ltr">{{ '%.2f'|format(cum) }}</div>
+      <div style="font-size:.68rem; color:var(--muted)">{{ total_credits|int }} {{ t('credits') }}</div>
+    </div>
+    <div style="flex:1; min-width:220px; display:flex; gap:8px; align-items:flex-end; height:80px; justify-content:center">
+      {% for s in sems %}{% if s.gpa is not none %}
+      <div style="text-align:center">
+        <div style="width:34px; border-radius:8px 8px 0 0; margin:0 auto;
+             height: {{ (s.gpa / 4 * 64)|int }}px;
+             background:linear-gradient(180deg, var(--accent), #e879f9)"></div>
+        <div style="font-size:.6rem; color:var(--muted); margin-top:3px; max-width:52px;
+             overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ s.name }}</div>
+      </div>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% for s in sems %}
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap">
+      <h2>📚 {{ s.name }}</h2>
+      <span style="display:flex; gap:10px; align-items:center">
+        {% if s.gpa is not none %}
+        <span class="badge high" style="font-size:.8rem">{{ t('sem_gpa') }}: {{ '%.2f'|format(s.gpa) }}</span>
+        {% endif %}
+        <form method="post" action="{{ url_for('semester_delete', sem_id=s.id) }}"
+              onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+          <button class="small warn" type="submit">✕</button>
+        </form>
+      </span>
+    </div>
+    <div class="hint"></div>
+    {% for c in s.courses %}
+    <div style="display:flex; align-items:center; gap:10px; padding:8px 4px;
+         border-bottom:1px solid var(--card-border); font-size:.9rem">
+      <span style="flex:1">{{ c.name }}</span>
+      <span class="badge medium">{{ c.credits|int if c.credits == c.credits|int else c.credits }} {{ t('credits') }}</span>
+      <span class="badge {{ 'high' if c.points >= 3.7 else 'medium' if c.points >= 2 else 'low' }}"
+            dir="ltr">{{ c.letter }}</span>
+      <form method="post" action="{{ url_for('course_delete', c_id=c.id) }}">
+        <button class="small warn" type="submit" style="padding:2px 8px">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+    <form method="post" action="{{ url_for('course_add') }}"
+          style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:flex-end">
+      <input type="hidden" name="semester_id" value="{{ s.id }}">
+      <div style="flex:2; min-width:140px"><label>{{ t('course') }}</label>
+        <input name="name" required maxlength="60"></div>
+      <div style="width:90px"><label>{{ t('credits') }}</label>
+        <input type="number" name="credits" min="0.5" max="12" step="0.5" value="3"></div>
+      <div style="width:100px"><label>{{ t('grade') }}</label>
+        <select name="letter">
+          {% for l, p in GRADES %}<option value="{{ l }}">{{ l }}</option>{% endfor %}
+        </select></div>
+      <button class="small" type="submit" style="padding:11px 18px">➕ {{ t('add_row') }}</button>
+    </form>
+  </div>
+  {% endfor %}
+
+  <div class="card">
+    <form method="post" action="{{ url_for('semester_add') }}"
+          style="display:flex; gap:10px; flex-wrap:wrap">
+      <input name="name" required maxlength="60" placeholder="{{ t('new_semester') }}"
+             style="flex:1; min-width:220px">
+      <button class="primary" type="submit" style="width:auto; padding:11px 26px">
+        ➕ {{ t('semester') }}</button>
+    </form>
+  </div>
+{% endblock %}

@@ -3,6 +3,9 @@
   <div class="quote">{{ quote }}</div>
 
   <!-- ============================ exams ============================ -->
+  <div style="display:flex; justify-content:flex-end; margin-bottom:12px">
+    <a class="pill" href="{{ url_for('grades') }}">📊 {{ t('grade_book') }} {{ '←' if is_rtl else '→' }}</a>
+  </div>
   <div class="card" style="margin-bottom:22px">
     <h2>⏳ {{ t('exams') }}</h2>
     <div class="hint">{{ t('empty_exams') if not exams else '' }}</div>

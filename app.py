@@ -34,6 +34,8 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
+APP_VERSION = "1.1"   # shown in the footer — bump this with each release
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
 app.config["PERMANENT_SESSION_LIFETIME"] = _td(days=60)  # stay signed in like a real app
@@ -235,6 +237,75 @@ def init_db():
         stored     TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS msg_reactions (
+        message_id INTEGER NOT NULL REFERENCES group_messages(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        emoji      TEXT NOT NULL,
+        PRIMARY KEY (message_id, user_id, emoji)
+    );
+    CREATE TABLE IF NOT EXISTS polls (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        question   TEXT NOT NULL,
+        closed     INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS poll_options (
+        id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+        text    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS poll_votes (
+        poll_id   INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+        option_id INTEGER NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (poll_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS challenges (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title      TEXT NOT NULL,
+        target     INTEGER NOT NULL,
+        start_day  TEXT NOT NULL,
+        end_day    TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS personal_challenges (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title      TEXT NOT NULL,
+        target     INTEGER NOT NULL,
+        start_day  TEXT NOT NULL,
+        end_day    TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS semesters (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS semester_courses (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        semester_id INTEGER NOT NULL REFERENCES semesters(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        credits     REAL NOT NULL DEFAULT 3,
+        letter      TEXT NOT NULL DEFAULT 'A',
+        points      REAL NOT NULL DEFAULT 4.0
+    );
+    CREATE TABLE IF NOT EXISTS duels (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        to_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status     TEXT NOT NULL DEFAULT 'pending'
+                   CHECK(status IN ('pending','active','done')),
+        start_day  TEXT,
+        end_day    TEXT,
+        winner_id  INTEGER,
+        created_at TEXT NOT NULL
+    );
     """)
     # migrations for databases created by earlier versions
     for stmt in ("ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'dark'",
@@ -249,7 +320,10 @@ def init_db():
                  "ALTER TABLE users ADD COLUMN department TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN stage TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN job_title TEXT DEFAULT ''",
-                 "ALTER TABLE users ADD COLUMN job_field TEXT DEFAULT ''"):
+                 "ALTER TABLE users ADD COLUMN job_field TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN daily_goal INTEGER DEFAULT 3",
+                 "ALTER TABLE group_messages ADD COLUMN reply_to INTEGER",
+                 "ALTER TABLE plans ADD COLUMN repeat TEXT DEFAULT ''"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -1026,6 +1100,108 @@ V9 = {
 for _l, _d in V9.items():
     T[_l].update(_d)
 
+# --- v10 motivation strings ---
+V10 = {
+    "en": {
+        "reply": "Reply", "replying_to": "Replying to", "cancel_reply": "✕",
+        "polls_t": "Polls", "new_poll": "New poll", "poll_q": "Question",
+        "poll_opts": "Options (one per line)", "create": "Create",
+        "votes_n": "votes", "close_poll": "Close", "reopen_poll": "Reopen",
+        "closed_p": "Closed",
+        "challenges_t": "Group challenges", "new_challenge": "New challenge",
+        "ch_title": "Challenge title (e.g. Finish 25 plans together)",
+        "ch_target": "Target (completed plans)", "ch_days": "Days",
+        "ch_done": "Challenge completed! 🎉", "ch_by": "by",
+        "ch_left": "days left", "ch_of": "of",
+        "group_lb": "This week in this group",
+        "level": "Level", "xp": "XP", "to_next": "to level",
+        "daily_goal": "Daily goal", "today_t": "Today",
+        "week_report": "This week", "vs_last": "vs last week",
+    },
+    "ar": {
+        "reply": "رد", "replying_to": "رد على", "cancel_reply": "✕",
+        "polls_t": "استطلاعات", "new_poll": "استطلاع جديد", "poll_q": "السؤال",
+        "poll_opts": "الخيارات (سطر لكل خيار)", "create": "إنشاء",
+        "votes_n": "صوت", "close_poll": "إغلاق", "reopen_poll": "إعادة فتح",
+        "closed_p": "مغلق",
+        "challenges_t": "تحديات المجموعة", "new_challenge": "تحدٍ جديد",
+        "ch_title": "عنوان التحدي (مثال: ننجز ٢٥ خطة معًا)",
+        "ch_target": "الهدف (خطط منجزة)", "ch_days": "الأيام",
+        "ch_done": "اكتمل التحدي! 🎉", "ch_by": "بواسطة",
+        "ch_left": "يوم متبقٍ", "ch_of": "من",
+        "group_lb": "هذا الأسبوع في هذه المجموعة",
+        "level": "المستوى", "xp": "نقاط الخبرة", "to_next": "إلى المستوى",
+        "daily_goal": "الهدف اليومي", "today_t": "اليوم",
+        "week_report": "هذا الأسبوع", "vs_last": "مقارنة بالأسبوع الماضي",
+    },
+    "ku": {
+        "reply": "وەڵام", "replying_to": "وەڵام بۆ", "cancel_reply": "✕",
+        "polls_t": "ڕاپرسییەکان", "new_poll": "ڕاپرسی نوێ", "poll_q": "پرسیار",
+        "poll_opts": "بژاردەکان (هێڵێک بۆ هەر یەکێک)", "create": "دروستکردن",
+        "votes_n": "دەنگ", "close_poll": "داخستن", "reopen_poll": "کردنەوە",
+        "closed_p": "داخراوە",
+        "challenges_t": "چالێنجەکانی گروپ", "new_challenge": "چالێنجی نوێ",
+        "ch_title": "ناونیشانی چالێنج (نموونە: پێکەوە ٢٥ پلان تەواو بکەین)",
+        "ch_target": "ئامانج (پلانی تەواوکراو)", "ch_days": "ڕۆژەکان",
+        "ch_done": "چالێنجەکە تەواو بوو! 🎉", "ch_by": "لەلایەن",
+        "ch_left": "ڕۆژ ماوە", "ch_of": "لە",
+        "group_lb": "ئەم هەفتەیە لەم گروپەدا",
+        "level": "ئاست", "xp": "خاڵی ئەزموون", "to_next": "بۆ ئاستی",
+        "daily_goal": "ئامانجی ڕۆژانە", "today_t": "ئەمڕۆ",
+        "week_report": "ئەم هەفتەیە", "vs_last": "بەراورد بە هەفتەی پێشوو",
+    },
+}
+for _l, _d in V10.items():
+    T[_l].update(_d)
+
+# --- v11 strings ---
+V11 = {
+    "en": {
+        "personal_ch": "My challenges", "repeat_t": "Repeat",
+        "r_none": "No repeat", "r_daily": "Daily", "r_weekly": "Weekly",
+        "grade_book": "Grade book", "semester": "Semester",
+        "new_semester": "Add semester (e.g. Year 2 — Fall)",
+        "sem_gpa": "Semester GPA", "cum_gpa": "Cumulative GPA",
+        "duels_t": "Duels", "duel_btn": "⚔️ Challenge to a duel",
+        "duel_pending": "Duel invitation", "duel_vs": "vs",
+        "duel_won": "won the duel! 🏆", "duel_tie": "Draw!",
+        "ntf_duel_req": "challenged you to a duel ⚔️",
+        "ntf_duel_acc": "accepted your duel ⚔️",
+        "ntf_duel_end": "Duel finished — winner:",
+        "guide_t": "Guide",
+    },
+    "ar": {
+        "personal_ch": "تحدياتي", "repeat_t": "التكرار",
+        "r_none": "بدون تكرار", "r_daily": "يوميًا", "r_weekly": "أسبوعيًا",
+        "grade_book": "سجل الدرجات", "semester": "الفصل الدراسي",
+        "new_semester": "أضف فصلًا (مثال: السنة ٢ — الخريف)",
+        "sem_gpa": "معدل الفصل", "cum_gpa": "المعدل التراكمي",
+        "duels_t": "المبارزات", "duel_btn": "⚔️ تحدَّ للمبارزة",
+        "duel_pending": "دعوة مبارزة", "duel_vs": "ضد",
+        "duel_won": "فاز بالمبارزة! 🏆", "duel_tie": "تعادل!",
+        "ntf_duel_req": "تحداك في مبارزة ⚔️",
+        "ntf_duel_acc": "قبل مبارزتك ⚔️",
+        "ntf_duel_end": "انتهت المبارزة — الفائز:",
+        "guide_t": "الدليل",
+    },
+    "ku": {
+        "personal_ch": "چالێنجەکانم", "repeat_t": "دووبارەبوونەوە",
+        "r_none": "بێ دووبارەبوونەوە", "r_daily": "ڕۆژانە", "r_weekly": "هەفتانە",
+        "grade_book": "تۆماری نمرەکان", "semester": "وەرز",
+        "new_semester": "وەرزێک زیاد بکە (نموونە: ساڵی ٢ — پاییز)",
+        "sem_gpa": "تێکڕای وەرز", "cum_gpa": "تێکڕای گشتی",
+        "duels_t": "ملمالانێکان", "duel_btn": "⚔️ بانگهێشتی ملمالانێ بکە",
+        "duel_pending": "بانگهێشتی ملمالانێ", "duel_vs": "دژ بە",
+        "duel_won": "لە ملمالانێکە بردیەوە! 🏆", "duel_tie": "یەکسان!",
+        "ntf_duel_req": "بانگهێشتی کردیت بۆ ملمالانێ ⚔️",
+        "ntf_duel_acc": "ملمالانێکەتی قبوڵ کرد ⚔️",
+        "ntf_duel_end": "ملمالانێکە تەواو بوو — براوە:",
+        "guide_t": "ڕێبەر",
+    },
+}
+for _l, _d in V11.items():
+    T[_l].update(_d)
+
 
 EDU_LEVELS = ("school", "bachelor", "master", "phd", "professor", "graduate")
 
@@ -1085,7 +1261,8 @@ def inject_globals():
                 settings=s, tagline=tagline, today=date.today().isoformat(),
                 cu=cu, theme=theme, accent=accent, pending_requests=pending,
                 unread_notifs=unread_n, unread_dms=unread_d,
-                av=avatar_url, BADGES=BADGES, site_logo=logo)
+                av=avatar_url, BADGES=BADGES, site_logo=logo,
+                app_version=APP_VERSION)
 
 
 # ---------------------------------------------------------------- helpers
@@ -1173,6 +1350,114 @@ def award_badges(uid):
                        (uid, code, datetime.utcnow().isoformat(timespec="seconds")))
             notify(uid, "badge", actor=code)
     db.commit()
+
+
+REACTION_EMOJIS = ["❤️", "👍", "😂", "🔥", "🎉", "😮"]
+
+
+def user_xp(uid):
+    """XP from everything the user has done; level grows as sqrt(xp)."""
+    db = get_db()
+    plans = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1",
+                       (uid,)).fetchone()[0]
+    habits = db.execute("SELECT COUNT(*) FROM habit_checks hc JOIN habits h "
+                        "ON h.id = hc.habit_id WHERE h.user_id = ?", (uid,)).fetchone()[0]
+    bcount = db.execute("SELECT COUNT(*) FROM badges WHERE user_id = ?",
+                        (uid,)).fetchone()[0]
+    pch_done = sum(1 for c in my_challenges(uid) if c["done"])
+    xp = plans * 20 + habits * 10 + bcount * 50 + user_streak(uid) * 5 + pch_done * 100
+    level = int((xp / 100) ** 0.5) + 1
+    floor_xp = 100 * (level - 1) ** 2
+    next_xp = 100 * level ** 2
+    pct = int((xp - floor_xp) * 100 / max(1, next_xp - floor_xp))
+    return dict(xp=xp, level=level, pct=pct, next_xp=next_xp)
+
+
+def week_window():
+    from datetime import timedelta
+    monday = date.today() - timedelta(days=date.today().weekday())
+    return monday.isoformat(), (monday - timedelta(days=7)).isoformat()
+
+
+def week_counts(uid, start_iso, end_iso=None):
+    """Completed plans + habit checks in [start, end) — end None = open."""
+    db = get_db()
+    if end_iso:
+        p = db.execute("SELECT COUNT(*) FROM plans WHERE user_id=? AND done=1 AND "
+                       "substr(done_at,1,10) >= ? AND substr(done_at,1,10) < ?",
+                       (uid, start_iso, end_iso)).fetchone()[0]
+        h = db.execute("SELECT COUNT(*) FROM habit_checks hc JOIN habits ha ON "
+                       "ha.id=hc.habit_id WHERE ha.user_id=? AND hc.day >= ? AND hc.day < ?",
+                       (uid, start_iso, end_iso)).fetchone()[0]
+    else:
+        p = db.execute("SELECT COUNT(*) FROM plans WHERE user_id=? AND done=1 AND "
+                       "substr(done_at,1,10) >= ?", (uid, start_iso)).fetchone()[0]
+        h = db.execute("SELECT COUNT(*) FROM habit_checks hc JOIN habits ha ON "
+                       "ha.id=hc.habit_id WHERE ha.user_id=? AND hc.day >= ?",
+                       (uid, start_iso)).fetchone()[0]
+    return p, h
+
+
+def plans_done_between(uid, start_iso, end_iso):
+    return get_db().execute(
+        "SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1 AND "
+        "substr(done_at,1,10) >= ? AND substr(done_at,1,10) <= ?",
+        (uid, start_iso, end_iso)).fetchone()[0]
+
+
+def my_challenges(uid):
+    out = []
+    for ch in get_db().execute(
+            "SELECT * FROM personal_challenges WHERE user_id = ? ORDER BY id DESC "
+            "LIMIT 6", (uid,)).fetchall():
+        total = plans_done_between(uid, ch["start_day"], ch["end_day"])
+        try:
+            days_left = (date.fromisoformat(ch["end_day"]) - date.today()).days
+        except ValueError:
+            days_left = None
+        out.append(dict(id=ch["id"], title=ch["title"], target=ch["target"],
+                        total=total, pct=min(100, int(total * 100 / max(1, ch["target"]))),
+                        days_left=days_left, done=total >= ch["target"]))
+    return out
+
+
+def finish_due_duels(uid):
+    """Close any of this user's active duels whose time is up; notify both sides."""
+    db = get_db()
+    today_s = date.today().isoformat()
+    for d in db.execute("SELECT * FROM duels WHERE status='active' AND end_day < ? "
+                        "AND (from_id = ? OR to_id = ?)",
+                        (today_s, uid, uid)).fetchall():
+        a = plans_done_between(d["from_id"], d["start_day"], d["end_day"])
+        b = plans_done_between(d["to_id"], d["start_day"], d["end_day"])
+        winner = d["from_id"] if a > b else d["to_id"] if b > a else None
+        db.execute("UPDATE duels SET status='done', winner_id = ? WHERE id = ?",
+                   (winner, d["id"]))
+        for uid2 in (d["from_id"], d["to_id"]):
+            wname = ""
+            if winner:
+                w = db.execute("SELECT username FROM users WHERE id = ?",
+                               (winner,)).fetchone()
+                wname = w["username"] if w else ""
+            notify(uid2, "duel_end", actor=wname, link=url_for("friends"))
+    db.commit()
+
+
+def challenge_progress(ch):
+    """Total completed plans by all group members inside the challenge window."""
+    db = get_db()
+    total = db.execute(
+        "SELECT COUNT(*) FROM plans p JOIN group_members gm ON gm.user_id = p.user_id "
+        "AND gm.group_id = ? WHERE p.done = 1 AND substr(p.done_at,1,10) >= ? "
+        "AND substr(p.done_at,1,10) <= ?",
+        (ch["group_id"], ch["start_day"], ch["end_day"])).fetchone()[0]
+    pct = min(100, int(total * 100 / max(1, ch["target"])))
+    days_left = None
+    try:
+        days_left = (date.fromisoformat(ch["end_day"]) - date.today()).days
+    except ValueError:
+        pass
+    return total, pct, days_left
 
 
 def user_badges(uid):
@@ -1372,10 +1657,24 @@ def dashboard():
         if p_n or h_n or b_new:
             feed.append(dict(user=fr, plans=p_n, habits=h_n, badges=b_new))
     feed.sort(key=lambda x: x["plans"] + x["habits"], reverse=True)
+    # daily goal ring + weekly report
+    today_done = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1 "
+                            "AND substr(done_at,1,10) = ?",
+                            (user["id"], today_s)).fetchone()[0]
+    goal = user["daily_goal"] or 3
+    wk_start, lastwk_start = week_window()
+    wp, wh = week_counts(user["id"], wk_start)
+    lp, lh = week_counts(user["id"], lastwk_start, wk_start)
     return render_template("dashboard.html", user=user, short_plans=short_plans,
                            long_plans=long_plans, quote=random_quote(),
                            total=total, done_count=done, pct=pct,
-                           streak=user_streak(user["id"]), feed=feed)
+                           streak=user_streak(user["id"]), feed=feed,
+                           today_done=today_done, goal=goal,
+                           ring_pct=min(100, int(today_done * 100 / max(1, goal))),
+                           wk=dict(plans=wp, habits=wh),
+                           lastwk=dict(plans=lp, habits=lh),
+                           xpinfo=user_xp(user["id"]),
+                           pchallenges=my_challenges(user["id"]))
 
 
 @app.route("/plan/add", methods=["POST"])
@@ -1391,12 +1690,15 @@ def plan_add():
     priority = request.form.get("priority", "medium")
     if priority not in ("high", "medium", "low"):
         priority = "medium"
+    repeat = request.form.get("repeat", "")
+    if repeat not in ("daily", "weekly"):
+        repeat = ""
     due = request.form.get("due_date") or None
     db = get_db()
     db.execute("INSERT INTO plans(user_id, title, details, plan_type, priority, "
-               "due_date, created_at) VALUES(?,?,?,?,?,?,?)",
+               "due_date, created_at, repeat) VALUES(?,?,?,?,?,?,?,?)",
                (session["user_id"], title, details, plan_type, priority, due,
-                datetime.utcnow().isoformat(timespec="seconds")))
+                datetime.utcnow().isoformat(timespec="seconds"), repeat))
     db.commit()
     return redirect(url_for("dashboard"))
 
@@ -1419,6 +1721,16 @@ def plan_toggle(plan_id):
                (now_done,
                 datetime.utcnow().isoformat(timespec="seconds") if now_done else None,
                 plan_id))
+    if now_done and (row["repeat"] or ""):
+        # recurring plan: spawn the next occurrence automatically
+        from datetime import timedelta
+        step = 1 if row["repeat"] == "daily" else 7
+        next_due = (date.today() + timedelta(days=step)).isoformat()
+        db.execute("INSERT INTO plans(user_id, title, details, plan_type, priority, "
+                   "due_date, created_at, repeat) VALUES(?,?,?,?,?,?,?,?)",
+                   (row["user_id"], row["title"], row["details"], row["plan_type"],
+                    row["priority"], next_due,
+                    datetime.utcnow().isoformat(timespec="seconds"), row["repeat"]))
     db.commit()
     if now_done:
         record_activity(session["user_id"])
@@ -1782,7 +2094,7 @@ def profile():
                             (uid,)).fetchone()[0]
     return render_template("profile.html", user=current_user(),
                            streak=user_streak(uid), done_count=done_count,
-                           earned=user_badges(uid))
+                           earned=user_badges(uid), xpinfo=user_xp(uid))
 
 
 @app.route("/u/<username>")
@@ -1798,7 +2110,8 @@ def user_profile(username):
                             (person["id"],)).fetchone()[0]
     return render_template("user_profile.html", user=current_user(), person=person,
                            status=status, fid=fid, streak=user_streak(person["id"]),
-                           done_count=done_count, earned=user_badges(person["id"]))
+                           done_count=done_count, earned=user_badges(person["id"]),
+                           xpinfo=user_xp(person["id"]))
 
 
 # ---------------------------------------------------------------- friends
@@ -1807,6 +2120,30 @@ def user_profile(username):
 def friends():
     db = get_db()
     uid = session["user_id"]
+    finish_due_duels(uid)
+    # duels involving me
+    duels = []
+    for d in db.execute(
+            "SELECT * FROM duels WHERE (from_id = ? OR to_id = ?) "
+            "ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, "
+            "id DESC LIMIT 8", (uid, uid)).fetchall():
+        u_from = db.execute("SELECT id, username FROM users WHERE id = ?",
+                            (d["from_id"],)).fetchone()
+        u_to = db.execute("SELECT id, username FROM users WHERE id = ?",
+                          (d["to_id"],)).fetchone()
+        if not u_from or not u_to:
+            continue
+        item = dict(id=d["id"], status=d["status"], from_u=u_from, to_u=u_to,
+                    mine_incoming=d["to_id"] == uid and d["status"] == "pending",
+                    end_day=d["end_day"], winner_id=d["winner_id"])
+        if d["status"] in ("active", "done") and d["start_day"]:
+            a = plans_done_between(d["from_id"], d["start_day"], d["end_day"])
+            b = plans_done_between(d["to_id"], d["start_day"], d["end_day"])
+            item.update(a=a, b=b,
+                        a_pct=int(a * 100 / max(1, a + b)) if a + b else 50,
+                        days_left=(date.fromisoformat(d["end_day"]) - date.today()).days
+                        if d["status"] == "active" else None)
+        duels.append(item)
     q = request.args.get("q", "").strip()
     results = []
     if q:
@@ -1834,7 +2171,7 @@ def friends():
         ORDER BY u.username""", (uid, uid, uid)).fetchall()
     return render_template("friends.html", user=current_user(), incoming=incoming,
                            outgoing=outgoing, my_friends=my_friends,
-                           q=q, results=results, quote=random_quote())
+                           q=q, results=results, quote=random_quote(), duels=duels)
 
 
 @app.route("/friend/request", methods=["POST"])
@@ -1963,13 +2300,79 @@ def group_page(group_id):
     my_subjects = sorted({r["subject"] for r in db.execute(
         "SELECT DISTINCT subject FROM flashcards WHERE user_id = ?",
         (session["user_id"],))})
+    # --- chat extras: reactions + quoted replies ---
+    msg_ids = [m["id"] for m in messages]
+    reactions = {}
+    if msg_ids:
+        ph = ",".join("?" * len(msg_ids))
+        for r in db.execute(
+                f"SELECT message_id, emoji, COUNT(*) AS n, "
+                f"SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS mine "
+                f"FROM msg_reactions WHERE message_id IN ({ph}) "
+                f"GROUP BY message_id, emoji",
+                [session["user_id"]] + msg_ids).fetchall():
+            reactions.setdefault(r["message_id"], []).append(
+                dict(emoji=r["emoji"], n=r["n"], mine=bool(r["mine"])))
+    quotes = {}
+    for m in messages:
+        if m["reply_to"]:
+            q = db.execute("SELECT gm.content, u.username FROM group_messages gm "
+                           "JOIN users u ON u.id = gm.user_id WHERE gm.id = ?",
+                           (m["reply_to"],)).fetchone()
+            if q:
+                quotes[m["id"]] = dict(username=q["username"],
+                                       content=q["content"][:90])
+    # --- polls ---
+    polls = []
+    for p in db.execute("SELECT p.*, u.username FROM polls p JOIN users u ON "
+                        "u.id = p.user_id WHERE p.group_id = ? ORDER BY p.id DESC "
+                        "LIMIT 6", (group_id,)).fetchall():
+        opts = db.execute("SELECT * FROM poll_options WHERE poll_id = ?",
+                          (p["id"],)).fetchall()
+        votes = db.execute("SELECT option_id, COUNT(*) AS n FROM poll_votes "
+                           "WHERE poll_id = ? GROUP BY option_id", (p["id"],)).fetchall()
+        vmap = {v["option_id"]: v["n"] for v in votes}
+        total_v = sum(vmap.values())
+        my_v = db.execute("SELECT option_id FROM poll_votes WHERE poll_id = ? AND "
+                          "user_id = ?", (p["id"], session["user_id"])).fetchone()
+        polls.append(dict(id=p["id"], question=p["question"], username=p["username"],
+                          closed=p["closed"], user_id=p["user_id"], total=total_v,
+                          my_vote=my_v["option_id"] if my_v else None,
+                          options=[dict(id=o["id"], text=o["text"], n=vmap.get(o["id"], 0),
+                                        pct=int(vmap.get(o["id"], 0) * 100 / max(1, total_v)))
+                                   for o in opts]))
+    # --- challenges ---
+    chs = []
+    for ch in db.execute("SELECT c.*, u.username FROM challenges c JOIN users u ON "
+                         "u.id = c.user_id WHERE c.group_id = ? ORDER BY c.id DESC "
+                         "LIMIT 4", (group_id,)).fetchall():
+        total, pct, days_left = challenge_progress(ch)
+        chs.append(dict(id=ch["id"], title=ch["title"], target=ch["target"],
+                        username=ch["username"], user_id=ch["user_id"],
+                        total=total, pct=pct, days_left=days_left,
+                        done=total >= ch["target"]))
+    # --- group leaderboard (this week) + member levels ---
+    wk_start, _ = week_window()
+    glb = []
+    levels = {}
+    for m in members:
+        p_n, h_n = week_counts(m["id"], wk_start)
+        streak = user_streak(m["id"])
+        glb.append(dict(id=m["id"], username=m["username"],
+                        points=p_n * 10 + h_n * 5 + streak * 3,
+                        plans=p_n, habits=h_n, streak=streak))
+        levels[m["id"]] = user_xp(m["id"])["level"]
+    glb.sort(key=lambda r: r["points"], reverse=True)
     return render_template("group.html", user=current_user(), g=g_row, members=members,
                            messages=list(reversed(messages)), gplans=gplans,
                            addable=[a for a in addable if a],
                            next_meeting=nm.isoformat() if nm else None,
                            days_to_meeting=(nm - date.today()).days if nm else None,
                            is_owner=g_row["owner_id"] == session["user_id"],
-                           files=files, decks=decks, my_subjects=my_subjects)
+                           files=files, decks=decks, my_subjects=my_subjects,
+                           reactions=reactions, quotes=quotes, polls=polls,
+                           challenges=chs, glb=glb, levels=levels,
+                           REACTIONS=REACTION_EMOJIS)
 
 
 @app.route("/group/<int:group_id>/message", methods=["POST"])
@@ -1979,9 +2382,16 @@ def group_message(group_id):
     content = request.form.get("content", "").strip()
     if content:
         db = get_db()
-        db.execute("INSERT INTO group_messages(group_id, user_id, content, created_at) "
-                   "VALUES(?,?,?,?)", (group_id, session["user_id"], content[:500],
-                                       datetime.utcnow().isoformat(timespec="seconds")))
+        reply_to = request.form.get("reply_to") or None
+        if reply_to:
+            ok = db.execute("SELECT 1 FROM group_messages WHERE id = ? AND group_id = ?",
+                            (reply_to, group_id)).fetchone()
+            if not ok:
+                reply_to = None
+        db.execute("INSERT INTO group_messages(group_id, user_id, content, created_at, "
+                   "reply_to) VALUES(?,?,?,?,?)",
+                   (group_id, session["user_id"], content[:500],
+                    datetime.utcnow().isoformat(timespec="seconds"), reply_to))
         g_row = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
         link = url_for("group_page", group_id=group_id)
         for m in db.execute("SELECT user_id FROM group_members WHERE group_id = ? "
@@ -2066,6 +2476,325 @@ def group_settings(group_id):
     db.commit()
     flash(tr("ok_saved"), "ok")
     return redirect(url_for("group_page", group_id=group_id))
+
+
+# ---------------------------------------------------------------- chat extras
+@app.route("/msg/<int:msg_id>/react", methods=["POST"])
+@login_required
+def msg_react(msg_id):
+    db = get_db()
+    m = db.execute("SELECT * FROM group_messages WHERE id = ?", (msg_id,)).fetchone()
+    if m is None or not is_group_member(m["group_id"], session["user_id"]):
+        abort(403)
+    emoji = request.form.get("emoji", "")
+    if emoji in REACTION_EMOJIS:
+        hit = db.execute("SELECT 1 FROM msg_reactions WHERE message_id=? AND user_id=? "
+                         "AND emoji=?", (msg_id, session["user_id"], emoji)).fetchone()
+        if hit:
+            db.execute("DELETE FROM msg_reactions WHERE message_id=? AND user_id=? "
+                       "AND emoji=?", (msg_id, session["user_id"], emoji))
+        else:
+            db.execute("INSERT INTO msg_reactions(message_id, user_id, emoji) "
+                       "VALUES(?,?,?)", (msg_id, session["user_id"], emoji))
+        db.commit()
+    return redirect(url_for("group_page", group_id=m["group_id"]) + "#chat")
+
+
+@app.route("/msg/<int:msg_id>/delete", methods=["POST"])
+@login_required
+def msg_delete(msg_id):
+    db = get_db()
+    m = db.execute("SELECT * FROM group_messages WHERE id = ?", (msg_id,)).fetchone()
+    if m is None:
+        abort(404)
+    g_row = db.execute("SELECT owner_id FROM groups WHERE id = ?",
+                       (m["group_id"],)).fetchone()
+    if m["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    db.execute("DELETE FROM group_messages WHERE id = ?", (msg_id,))
+    db.commit()
+    return redirect(url_for("group_page", group_id=m["group_id"]) + "#chat")
+
+
+# ---------------------------------------------------------------- polls
+@app.route("/group/<int:group_id>/poll/create", methods=["POST"])
+@login_required
+def poll_create(group_id):
+    member_group_or_403(group_id)
+    q = request.form.get("question", "").strip()
+    opts = [o.strip() for o in request.form.get("options", "").split("\n") if o.strip()]
+    if q and len(opts) >= 2:
+        db = get_db()
+        cur = db.execute("INSERT INTO polls(group_id, user_id, question, created_at) "
+                         "VALUES(?,?,?,?)", (group_id, session["user_id"], q[:150],
+                                             datetime.utcnow().isoformat(timespec="seconds")))
+        for o in opts[:8]:
+            db.execute("INSERT INTO poll_options(poll_id, text) VALUES(?,?)",
+                       (cur.lastrowid, o[:80]))
+        db.commit()
+    return redirect(url_for("group_page", group_id=group_id) + "#polls")
+
+
+@app.route("/poll/<int:poll_id>/vote", methods=["POST"])
+@login_required
+def poll_vote(poll_id):
+    db = get_db()
+    p = db.execute("SELECT * FROM polls WHERE id = ?", (poll_id,)).fetchone()
+    if p is None or not is_group_member(p["group_id"], session["user_id"]):
+        abort(403)
+    if not p["closed"]:
+        try:
+            opt = int(request.form.get("option_id", "0"))
+        except ValueError:
+            opt = 0
+        ok = db.execute("SELECT 1 FROM poll_options WHERE id = ? AND poll_id = ?",
+                        (opt, poll_id)).fetchone()
+        if ok:
+            db.execute("INSERT OR REPLACE INTO poll_votes(poll_id, option_id, user_id) "
+                       "VALUES(?,?,?)", (poll_id, opt, session["user_id"]))
+            db.commit()
+    return redirect(url_for("group_page", group_id=p["group_id"]) + "#polls")
+
+
+@app.route("/poll/<int:poll_id>/close", methods=["POST"])
+@login_required
+def poll_close(poll_id):
+    db = get_db()
+    p = db.execute("SELECT * FROM polls WHERE id = ?", (poll_id,)).fetchone()
+    if p is None:
+        abort(404)
+    g_row = db.execute("SELECT owner_id FROM groups WHERE id = ?",
+                       (p["group_id"],)).fetchone()
+    if p["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    db.execute("UPDATE polls SET closed = 1 - closed WHERE id = ?", (poll_id,))
+    db.commit()
+    return redirect(url_for("group_page", group_id=p["group_id"]) + "#polls")
+
+
+# ---------------------------------------------------------------- challenges
+@app.route("/group/<int:group_id>/challenge/create", methods=["POST"])
+@login_required
+def challenge_create(group_id):
+    member_group_or_403(group_id)
+    from datetime import timedelta
+    title = request.form.get("title", "").strip()
+    try:
+        target = max(1, min(10000, int(request.form.get("target", "10"))))
+        days = max(1, min(60, int(request.form.get("days", "7"))))
+    except ValueError:
+        target, days = 10, 7
+    if title:
+        db = get_db()
+        db.execute("INSERT INTO challenges(group_id, user_id, title, target, start_day, "
+                   "end_day, created_at) VALUES(?,?,?,?,?,?,?)",
+                   (group_id, session["user_id"], title[:100], target,
+                    date.today().isoformat(),
+                    (date.today() + timedelta(days=days)).isoformat(),
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(url_for("group_page", group_id=group_id) + "#challenges")
+
+
+@app.route("/challenge/<int:ch_id>/delete", methods=["POST"])
+@login_required
+def challenge_delete(ch_id):
+    db = get_db()
+    ch = db.execute("SELECT * FROM challenges WHERE id = ?", (ch_id,)).fetchone()
+    if ch is None:
+        abort(404)
+    g_row = db.execute("SELECT owner_id FROM groups WHERE id = ?",
+                       (ch["group_id"],)).fetchone()
+    if ch["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
+        abort(403)
+    db.execute("DELETE FROM challenges WHERE id = ?", (ch_id,))
+    db.commit()
+    return redirect(url_for("group_page", group_id=ch["group_id"]) + "#challenges")
+
+
+# ---------------------------------------------------------------- personal challenges
+@app.route("/pchallenge/add", methods=["POST"])
+@login_required
+def pchallenge_add():
+    from datetime import timedelta
+    title = request.form.get("title", "").strip()
+    try:
+        target = max(1, min(10000, int(request.form.get("target", "10"))))
+        days = max(1, min(60, int(request.form.get("days", "7"))))
+    except ValueError:
+        target, days = 10, 7
+    if title:
+        db = get_db()
+        db.execute("INSERT INTO personal_challenges(user_id, title, target, start_day, "
+                   "end_day, created_at) VALUES(?,?,?,?,?,?)",
+                   (session["user_id"], title[:100], target, date.today().isoformat(),
+                    (date.today() + timedelta(days=days)).isoformat(),
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/pchallenge/<int:pc_id>/delete", methods=["POST"])
+@login_required
+def pchallenge_delete(pc_id):
+    db = get_db()
+    db.execute("DELETE FROM personal_challenges WHERE id = ? AND user_id = ?",
+               (pc_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("dashboard"))
+
+
+# ---------------------------------------------------------------- grade book
+GRADE_POINTS = [("A", 4.0), ("A-", 3.7), ("B+", 3.3), ("B", 3.0), ("B-", 2.7),
+                ("C+", 2.3), ("C", 2.0), ("C-", 1.7), ("D+", 1.3), ("D", 1.0),
+                ("F", 0.0)]
+
+
+@app.route("/grades")
+@login_required
+def grades():
+    db = get_db()
+    uid = session["user_id"]
+    sems = []
+    all_pts = all_cr = 0.0
+    for s in db.execute("SELECT * FROM semesters WHERE user_id = ? ORDER BY id",
+                        (uid,)).fetchall():
+        courses = db.execute("SELECT * FROM semester_courses WHERE semester_id = ? "
+                             "ORDER BY id", (s["id"],)).fetchall()
+        pts = sum(c["points"] * c["credits"] for c in courses)
+        cr = sum(c["credits"] for c in courses)
+        all_pts += pts
+        all_cr += cr
+        sems.append(dict(id=s["id"], name=s["name"], courses=courses,
+                         gpa=round(pts / cr, 2) if cr else None, credits=cr))
+    cum = round(all_pts / all_cr, 2) if all_cr else None
+    return render_template("grades.html", user=current_user(), sems=sems,
+                           cum=cum, total_credits=all_cr, GRADES=GRADE_POINTS)
+
+
+@app.route("/semester/add", methods=["POST"])
+@login_required
+def semester_add():
+    name = request.form.get("name", "").strip()
+    if name:
+        db = get_db()
+        db.execute("INSERT INTO semesters(user_id, name, created_at) VALUES(?,?,?)",
+                   (session["user_id"], name[:60],
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(url_for("grades"))
+
+
+@app.route("/semester/<int:sem_id>/delete", methods=["POST"])
+@login_required
+def semester_delete(sem_id):
+    db = get_db()
+    db.execute("DELETE FROM semesters WHERE id = ? AND user_id = ?",
+               (sem_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("grades"))
+
+
+@app.route("/course/add", methods=["POST"])
+@login_required
+def course_add():
+    db = get_db()
+    sem = db.execute("SELECT * FROM semesters WHERE id = ? AND user_id = ?",
+                     (request.form.get("semester_id", 0), session["user_id"])).fetchone()
+    name = request.form.get("name", "").strip()
+    if sem and name:
+        letter = request.form.get("letter", "A")
+        points = dict(GRADE_POINTS).get(letter, 4.0)
+        try:
+            credits = max(0.5, min(12, float(request.form.get("credits", "3"))))
+        except ValueError:
+            credits = 3
+        db.execute("INSERT INTO semester_courses(semester_id, name, credits, letter, "
+                   "points) VALUES(?,?,?,?,?)", (sem["id"], name[:60], credits,
+                                                 letter, points))
+        db.commit()
+    return redirect(url_for("grades"))
+
+
+@app.route("/course/<int:c_id>/delete", methods=["POST"])
+@login_required
+def course_delete(c_id):
+    db = get_db()
+    db.execute("DELETE FROM semester_courses WHERE id = ? AND semester_id IN "
+               "(SELECT id FROM semesters WHERE user_id = ?)",
+               (c_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("grades"))
+
+
+# ---------------------------------------------------------------- duels
+@app.route("/duel/challenge/<username>", methods=["POST"])
+@login_required
+def duel_challenge(username):
+    db = get_db()
+    target = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    uid = session["user_id"]
+    if target is None or target["id"] == uid or not are_friends(uid, target["id"]):
+        abort(403)
+    open_d = db.execute("SELECT 1 FROM duels WHERE status IN ('pending','active') AND "
+                        "((from_id=? AND to_id=?) OR (from_id=? AND to_id=?))",
+                        (uid, target["id"], target["id"], uid)).fetchone()
+    if not open_d:
+        db.execute("INSERT INTO duels(from_id, to_id, created_at) VALUES(?,?,?)",
+                   (uid, target["id"], datetime.utcnow().isoformat(timespec="seconds")))
+        notify(target["id"], "duel_req", actor=current_user()["username"],
+               link=url_for("friends"))
+        db.commit()
+        flash(tr("ok_request_sent"), "ok")
+    return redirect(request.referrer or url_for("friends"))
+
+
+@app.route("/duel/<int:duel_id>/accept", methods=["POST"])
+@login_required
+def duel_accept(duel_id):
+    from datetime import timedelta
+    db = get_db()
+    d = db.execute("SELECT * FROM duels WHERE id = ? AND to_id = ? AND status='pending'",
+                   (duel_id, session["user_id"])).fetchone()
+    if d:
+        db.execute("UPDATE duels SET status='active', start_day=?, end_day=? WHERE id=?",
+                   (date.today().isoformat(),
+                    (date.today() + timedelta(days=7)).isoformat(), duel_id))
+        notify(d["from_id"], "duel_acc", actor=current_user()["username"],
+               link=url_for("friends"))
+        db.commit()
+    return redirect(url_for("friends"))
+
+
+@app.route("/duel/<int:duel_id>/decline", methods=["POST"])
+@login_required
+def duel_decline(duel_id):
+    db = get_db()
+    db.execute("DELETE FROM duels WHERE id = ? AND status='pending' AND "
+               "(to_id = ? OR from_id = ?)",
+               (duel_id, session["user_id"], session["user_id"]))
+    db.commit()
+    return redirect(url_for("friends"))
+
+
+# ---------------------------------------------------------------- guide
+@app.route("/guide")
+@login_required
+def guide():
+    return render_template("guide.html", user=current_user())
+
+
+@app.route("/prefs/daily_goal", methods=["POST"])
+@login_required
+def prefs_daily_goal():
+    try:
+        g = max(1, min(20, int(request.form.get("goal", "3"))))
+    except ValueError:
+        g = 3
+    db = get_db()
+    db.execute("UPDATE users SET daily_goal = ? WHERE id = ?", (g, session["user_id"]))
+    db.commit()
+    return redirect(url_for("dashboard"))
 
 
 # ---------------------------------------------------------------- group plans

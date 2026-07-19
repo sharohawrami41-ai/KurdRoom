@@ -7,6 +7,7 @@
     {% if p.details %}<div class="plan-details">{{ p.details }}</div>{% endif %}
     <div class="plan-meta">
       <span class="badge {{ p.priority }}">{{ t('p_' + p.priority) }}</span>
+      {% if p.repeat %}<span class="badge medium">🔁 {{ t('r_' + p.repeat) }}</span>{% endif %}
       {% if p.due_date %}
         {% if not p.done and p.due_date < today %}
           <span class="badge overdue">⚠ {{ t('overdue') }} · {{ p.due_date }}</span>
@@ -45,6 +46,66 @@
   </div>
   {% endif %}
 
+  <!-- ============ motivation row: goal ring · week report · level ============ -->
+  <div class="grid2" style="grid-template-columns: auto 1fr 1fr; gap:14px; margin:14px 0 20px; align-items:stretch">
+    <div class="card" style="display:flex; align-items:center; gap:16px; padding:16px 20px">
+      <div style="position:relative; width:92px; height:92px">
+        <svg width="92" height="92" style="transform:rotate(-90deg)">
+          <circle cx="46" cy="46" r="38" stroke="rgba(128,128,160,.18)" stroke-width="9" fill="none"/>
+          <circle cx="46" cy="46" r="38" stroke="{{ 'var(--ok)' if ring_pct >= 100 else 'var(--accent)' }}"
+                  stroke-width="9" fill="none" stroke-linecap="round"
+                  stroke-dasharray="238.8" stroke-dashoffset="{{ 238.8 * (1 - ring_pct / 100) }}"
+                  style="transition:stroke-dashoffset .8s ease"/>
+        </svg>
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column;
+             align-items:center; justify-content:center">
+          <strong style="font-size:1.25rem">{{ '🎯' if ring_pct >= 100 else today_done }}</strong>
+          <span style="font-size:.58rem; color:var(--muted)">/ {{ goal }}</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.78rem; color:var(--muted)">{{ t('today_t') }}</div>
+        <strong style="font-size:.95rem">{{ t('daily_goal') }}</strong>
+        <form method="post" action="{{ url_for('prefs_daily_goal') }}"
+              style="display:flex; gap:6px; margin-top:6px">
+          <input type="number" name="goal" min="1" max="20" value="{{ goal }}"
+                 style="width:64px; padding:6px 10px; font-size:.85rem">
+          <button class="small" type="submit">✓</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card" style="padding:16px 20px">
+      <div style="font-size:.78rem; color:var(--muted)">📈 {{ t('week_report') }}</div>
+      <div style="display:flex; gap:18px; margin-top:10px">
+        <div>
+          <strong style="font-size:1.5rem">✓ {{ wk.plans }}</strong>
+          <div style="font-size:.68rem; color:var(--muted)">{{ t('f_plans') }}
+            {% if wk.plans >= lastwk.plans %}<span style="color:var(--ok)">▲ {{ wk.plans - lastwk.plans }}</span>
+            {% else %}<span style="color:var(--high)">▼ {{ lastwk.plans - wk.plans }}</span>{% endif %}</div>
+        </div>
+        <div>
+          <strong style="font-size:1.5rem">🔁 {{ wk.habits }}</strong>
+          <div style="font-size:.68rem; color:var(--muted)">{{ t('f_habits') }}
+            {% if wk.habits >= lastwk.habits %}<span style="color:var(--ok)">▲ {{ wk.habits - lastwk.habits }}</span>
+            {% else %}<span style="color:var(--high)">▼ {{ lastwk.habits - wk.habits }}</span>{% endif %}</div>
+        </div>
+      </div>
+      <div style="font-size:.66rem; color:var(--muted); margin-top:8px">{{ t('vs_last') }}</div>
+    </div>
+
+    <div class="card" style="padding:16px 20px">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <div style="font-size:.78rem; color:var(--muted)">⚡ {{ t('xp') }}</div>
+        <span class="badge high" style="font-size:.72rem">{{ t('level') }} {{ xpinfo.level }}</span>
+      </div>
+      <strong style="font-size:1.5rem">{{ xpinfo.xp }} XP</strong>
+      <div class="progress" style="margin-top:10px"><div style="width: {{ xpinfo.pct }}%"></div></div>
+      <div style="font-size:.66rem; color:var(--muted); margin-top:6px">
+        {{ xpinfo.pct }}% {{ t('to_next') }} {{ xpinfo.level + 1 }} ({{ xpinfo.next_xp }} XP)</div>
+    </div>
+  </div>
+
   {% if total %}
   <div class="progress-wrap">
     <div class="progress"><div style="width: {{ pct }}%"></div></div>
@@ -77,6 +138,29 @@
   </div>
   {% endif %}
 
+  {% if pchallenges %}
+  <div class="card" style="margin-bottom:22px">
+    <h2>🎯 {{ t('personal_ch') }}</h2>
+    <div class="hint"></div>
+    {% for ch in pchallenges %}
+    <div class="plan {{ 'high gp-pinned' if ch.done else 'medium' }}"
+         style="flex-direction:column; align-items:stretch; gap:8px">
+      <div style="display:flex; justify-content:space-between; gap:8px">
+        <strong>{{ '🏆' if ch.done else '🎯' }} {{ ch.title }}</strong>
+        <form method="post" action="{{ url_for('pchallenge_delete', pc_id=ch.id) }}">
+          <button class="small warn" type="submit">✕</button>
+        </form>
+      </div>
+      <div class="progress" style="height:12px"><div style="width: {{ ch.pct }}%"></div></div>
+      <div style="display:flex; justify-content:space-between; font-size:.74rem; color:var(--muted)">
+        <span><strong style="color:var(--accent)">{{ ch.total }}</strong> {{ t('ch_of') }} {{ ch.target }} · {{ ch.pct }}%</span>
+        <span>{% if ch.done %}{{ t('ch_done') }} +100 XP{% elif ch.days_left is not none %}⏳ {{ ch.days_left }} {{ t('ch_left') }}{% endif %}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="card" style="margin-bottom:22px">
     <h2>➕ {{ t('new_plan') }}</h2>
     <div class="hint">{{ t('important_first') }}</div>
@@ -106,14 +190,41 @@
               </select>
             </div>
           </div>
-          <label>{{ t('due') }}</label>
-          <input type="date" name="due_date">
+          <div class="grid2" style="gap:10px">
+            <div>
+              <label>{{ t('due') }}</label>
+              <input type="date" name="due_date">
+            </div>
+            <div>
+              <label>🔁 {{ t('repeat_t') }}</label>
+              <select name="repeat">
+                <option value="">{{ t('r_none') }}</option>
+                <option value="daily">{{ t('r_daily') }}</option>
+                <option value="weekly">{{ t('r_weekly') }}</option>
+              </select>
+            </div>
+          </div>
           <div style="margin-top:14px">
             <button class="primary" type="submit">{{ t('add') }}</button>
           </div>
         </div>
       </div>
     </form>
+    <details style="margin-top:14px">
+      <summary style="font-size:.85rem">🎯 {{ t('new_challenge') }} — {{ t('personal_ch') }}</summary>
+      <form method="post" action="{{ url_for('pchallenge_add') }}" style="margin-top:8px">
+        <input name="title" required maxlength="100" placeholder="{{ t('ch_title') }}">
+        <div class="grid2" style="gap:10px">
+          <div><label>{{ t('ch_target') }}</label>
+            <input type="number" name="target" min="1" max="10000" value="15"></div>
+          <div><label>{{ t('ch_days') }}</label>
+            <input type="number" name="days" min="1" max="60" value="7"></div>
+        </div>
+        <div style="margin-top:10px">
+          <button class="primary" type="submit" style="width:auto; padding:10px 24px">🎯 {{ t('create') }}</button>
+        </div>
+      </form>
+    </details>
   </div>
 
   <div class="grid2">
