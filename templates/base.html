@@ -301,7 +301,7 @@ button.primary:hover { transform: translateY(-2px);
 .pill:hover { transform: translateY(-2px); }
 /* ---------- living background: drifting orbs + brand watermark ---------- */
 .bgfx { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.container, .topbar, .bottombar, .mobile-menu, footer { position: relative; z-index: 1; }
+.container, footer { position: relative; z-index: 1; }
 .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .32;
   will-change: transform; }
 .orb.o1 { width: 46vw; height: 46vw; max-width:520px; max-height:520px;
@@ -331,6 +331,76 @@ body.light .bg-marquee.m1 { -webkit-text-stroke-color: rgba(30,20,80,.05); }
 body.light .bg-marquee.m2 { color: rgba(30,20,80,.03); }
 @keyframes marqL { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes marqR { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+
+/* ---------- floating particles (rise from bottom, drift + fade) ---------- */
+.pt { position: absolute; bottom: -4vh; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 70%, #fff);
+  opacity: 0; will-change: transform, opacity;
+  animation: ptRise linear infinite; }
+@keyframes ptRise {
+  0%   { transform: translate(0, 0) scale(.6); opacity: 0; }
+  12%  { opacity: var(--po, .35); }
+  85%  { opacity: var(--po, .35); }
+  100% { transform: translate(var(--px, 4vw), -108vh) scale(1.15); opacity: 0; }
+}
+.pt.p1 { left: 8%;  width: 5px;  height: 5px;  --px: 6vw;  --po:.35; animation-duration: 21s; }
+.pt.p2 { left: 21%; width: 8px;  height: 8px;  --px: -5vw; --po:.22; animation-duration: 27s; animation-delay: -9s; }
+.pt.p3 { left: 34%; width: 4px;  height: 4px;  --px: 7vw;  --po:.4;  animation-duration: 18s; animation-delay: -4s; }
+.pt.p4 { left: 47%; width: 10px; height: 10px; --px: -8vw; --po:.16; animation-duration: 32s; animation-delay: -15s; }
+.pt.p5 { left: 58%; width: 6px;  height: 6px;  --px: 5vw;  --po:.3;  animation-duration: 23s; animation-delay: -11s; }
+.pt.p6 { left: 69%; width: 4px;  height: 4px;  --px: -6vw; --po:.38; animation-duration: 19s; animation-delay: -6s; }
+.pt.p7 { left: 80%; width: 7px;  height: 7px;  --px: 6vw;  --po:.24; animation-duration: 29s; animation-delay: -18s; }
+.pt.p8 { left: 91%; width: 5px;  height: 5px;  --px: -4vw; --po:.33; animation-duration: 22s; animation-delay: -2s; }
+body.light .pt { background: color-mix(in srgb, var(--accent) 80%, #1e1450); }
+
+/* ---------- drifting outline shapes: rings + squares ---------- */
+.shp { position: absolute; border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: .14; will-change: transform; }
+.shp.ring { border-radius: 50%; }
+.shp.sq   { border-radius: 22%; }
+.shp.s1 { width: 130px; height: 130px; top: 12%; inset-inline-end: 12%;
+  animation: shpFloat 34s ease-in-out infinite alternate; }
+.shp.s2 { width: 70px; height: 70px; top: 62%; inset-inline-start: 7%;
+  border-color: rgba(232,121,249,.4);
+  animation: shpSpin 46s linear infinite; }
+.shp.s3 { width: 95px; height: 95px; top: 34%; inset-inline-start: 22%;
+  border-color: rgba(56,189,248,.4);
+  animation: shpFloat 40s ease-in-out infinite alternate-reverse; }
+.shp.s4 { width: 55px; height: 55px; bottom: 22%; inset-inline-end: 26%;
+  animation: shpSpin 38s linear infinite reverse; }
+@keyframes shpFloat {
+  from { transform: translate(0,0) rotate(0deg); }
+  to   { transform: translate(-5vw, 7vh) rotate(160deg); } }
+@keyframes shpSpin {
+  from { transform: rotate(0deg) translateY(0); }
+  50%  { transform: rotate(180deg) translateY(-4vh); }
+  to   { transform: rotate(360deg) translateY(0); } }
+body.light .shp { opacity: .1; }
+
+/* ---------- twinkling stars ---------- */
+.tw { position: absolute; color: #fff; opacity: 0; will-change: opacity, transform;
+  animation: twinkle ease-in-out infinite; font-size: .9rem; }
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(.5) rotate(0deg); }
+  50%      { opacity: var(--to, .4); transform: scale(1.1) rotate(45deg); } }
+.tw.t1 { top: 18%; inset-inline-start: 12%; --to:.4;  animation-duration: 5s; }
+.tw.t2 { top: 8%;  inset-inline-start: 62%; --to:.28; animation-duration: 7s;  animation-delay: 1.6s; }
+.tw.t3 { top: 46%; inset-inline-end: 8%;    --to:.35; animation-duration: 6s;  animation-delay: 3s; }
+.tw.t4 { top: 72%; inset-inline-start: 40%; --to:.25; animation-duration: 8s;  animation-delay: .8s; }
+.tw.t5 { top: 30%; inset-inline-start: 78%; --to:.4;  animation-duration: 5.5s; animation-delay: 2.2s; font-size: 1.2rem; }
+.tw.t6 { top: 84%; inset-inline-end: 16%;   --to:.3;  animation-duration: 6.5s; animation-delay: 4s; }
+body.light .tw { color: #1e1450; }
+
+/* ---------- glowing beam sweeping diagonally ---------- */
+.beam { position: absolute; top: -30%; inset-inline-start: -15%;
+  width: 34vw; height: 160vh; transform: rotate(24deg);
+  background: linear-gradient(90deg, transparent,
+    color-mix(in srgb, var(--accent) 7%, transparent) 50%, transparent);
+  animation: beamSweep 26s ease-in-out infinite alternate; will-change: transform; }
+@keyframes beamSweep {
+  from { transform: rotate(24deg) translateX(-10vw); }
+  to   { transform: rotate(24deg) translateX(85vw); } }
+body.light .beam { opacity: .5; }
 
 /* ---------- touch ripple ---------- */
 * { -webkit-tap-highlight-color: transparent; }
@@ -523,6 +593,15 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <div class="orb o1"></div>
   <div class="orb o2"></div>
   <div class="orb o3"></div>
+  <div class="beam"></div>
+  <div class="shp ring s1"></div>
+  <div class="shp sq s2"></div>
+  <div class="shp ring s3"></div>
+  <div class="shp sq s4"></div>
+  <div class="pt p1"></div><div class="pt p2"></div><div class="pt p3"></div><div class="pt p4"></div>
+  <div class="pt p5"></div><div class="pt p6"></div><div class="pt p7"></div><div class="pt p8"></div>
+  <span class="tw t1">✦</span><span class="tw t2">✧</span><span class="tw t3">✦</span>
+  <span class="tw t4">✧</span><span class="tw t5">✦</span><span class="tw t6">✧</span>
   <div class="bg-marquee m1"><span>{% for _ in range(8) %}{{ settings.site_name }} {% endfor %}</span><span>{% for _ in range(8) %}{{ settings.site_name }} {% endfor %}</span></div>
   <div class="bg-marquee m2"><span>{% for _ in range(10) %}{{ settings.site_name }} ✦ {% endfor %}</span><span>{% for _ in range(10) %}{{ settings.site_name }} ✦ {% endfor %}</span></div>
 </div>
