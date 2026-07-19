@@ -98,7 +98,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }  /* never scroll sideways *
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--card-border);
 }
-.brand { white-space: nowrap; }
+.brand { white-space: nowrap; flex-shrink: 1; min-width: 0; overflow: hidden; }
+.brand small { overflow: hidden; text-overflow: ellipsis; }
+.top-actions > * { flex-shrink: 0; }
 [dir="rtl"] .tab { padding: 0 12px; font-size: .88rem; }
 .brand { font-size: 1.3rem; font-weight: 800; letter-spacing:.5px; line-height: 1.05;
   background: linear-gradient(90deg, var(--accent), #e879f9);
@@ -538,6 +540,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('tool_ai') }}">🤖 {{ t('ai_assistant') }}</a>
 {% endmacro %}
 {% macro account_rows() %}
+  <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
+    {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
   <a href="{{ url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
@@ -593,14 +597,12 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   </nav>
 
   <div class="top-actions">
-    <a class="icon-btn {{ 'active' if request.endpoint == 'notifications' }}"
-       href="{{ url_for('notifications') }}" title="{{ t('notifications') }}">🔔
-      {% if unread_notifs %}<span class="dot-count">{{ unread_notifs }}</span>{% endif %}</a>
     <a class="icon-btn {{ 'active' if request.endpoint in ('messages','dm_thread') }}"
        href="{{ url_for('messages') }}" title="{{ t('messages_t') }}">✉️
       {% if unread_dms %}<span class="dot-count">{{ unread_dms }}</span>{% endif %}</a>
     <details class="dd">
-      <summary style="cursor:pointer; display:inline-flex" title="{{ t('account') }}">
+      <summary style="cursor:pointer; display:inline-flex; position:relative" title="{{ t('account') }}">
+        {% if unread_notifs %}<span class="dot-count" style="z-index:2">{{ unread_notifs }}</span>{% endif %}
         {% set purl = av(cu.id) %}
         {% if purl %}
           <img src="{{ purl }}" alt="" class="avi" style="width:38px; height:38px">
