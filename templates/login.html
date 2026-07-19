@@ -1,22 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="auth-wrap">
-  {% if quote %}<div class="quote">{{ quote }}</div>{% endif %}
-  <div class="card">
-    <div class="auth-title">{{ t('welcome_back') }} 👋</div>
-    <div class="auth-sub">{{ t('login') }}</div>
-    <form method="post">
-      <label>{{ t('username') }}</label>
-      <input name="username" required autofocus autocomplete="username">
-      <label>{{ t('password') }}</label>
-      <input type="password" name="password" required autocomplete="current-password">
-      <div style="margin-top:18px">
-        <button class="primary" type="submit">{{ t('login') }}</button>
-      </div>
-    </form>
-    <p style="margin-top:16px; font-size:.85rem; color:var(--muted)">
-      {{ t('no_account') }} <a href="{{ url_for('register') }}">{{ t('register') }}</a>
-    </p>
+<div class="auth-shell">
+  <div class="auth-panel">
+    <div class="auth-hero">
+      {% if site_logo %}
+        <img src="{{ site_logo }}" alt="" class="hero-logo">
+      {% endif %}
+      <h1>{{ settings.site_name }}</h1>
+      <div class="hero-tag">{{ tagline }}</div>
+      <div class="feat">📋 {{ t('planning') }} · {{ t('habits') }} · {{ t('focus') }}</div>
+      <div class="feat">🎓 {{ t('university') }} · {{ t('flashcards') }}</div>
+      <div class="feat">👥 {{ t('friends') }} · {{ t('groups') }} · {{ t('messages_t') }}</div>
+      <div class="feat">🏆 {{ t('leaderboard') }} · {{ t('badges_t') }}</div>
+      {% if quote %}<div class="mini-quote">✦ {{ quote }}</div>{% endif %}
+    </div>
+
+    <div class="auth-form">
+      <div class="auth-title">{{ t('welcome_back') }} 👋</div>
+      <div class="auth-sub">{{ t('login') }}</div>
+      <form method="post">
+        <div class="inp">
+          <span class="ico">👤</span>
+          <input name="username" required autofocus autocomplete="username"
+                 placeholder="{{ t('username') }}">
+        </div>
+        <div class="inp">
+          <span class="ico">🔒</span>
+          <input type="password" name="password" id="pw" required
+                 autocomplete="current-password" placeholder="{{ t('password') }}">
+          <button type="button" class="eye" onclick="pwToggle('pw', this)">👁</button>
+        </div>
+        <div style="margin-top:20px">
+          <button class="primary" type="submit">{{ t('login') }} {{ '←' if is_rtl else '→' }}</button>
+        </div>
+      </form>
+      <p style="margin-top:18px; font-size:.85rem; color:var(--muted); text-align:center">
+        {{ t('no_account') }} <a href="{{ url_for('register') }}">{{ t('register') }}</a>
+      </p>
+    </div>
   </div>
 </div>
+<script>
+function pwToggle(id, btn) {
+  const f = document.getElementById(id);
+  f.type = f.type === "password" ? "text" : "password";
+  btn.textContent = f.type === "password" ? "👁" : "🙈";
+}
+</script>
 {% endblock %}

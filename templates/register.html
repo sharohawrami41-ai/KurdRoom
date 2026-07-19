@@ -1,33 +1,71 @@
 {% extends "base.html" %}
 {% from "_widgets.html" import edu_fields with context %}
 {% block content %}
-<div class="auth-wrap">
-  {% if quote %}<div class="quote">{{ quote }}</div>{% endif %}
-  <div class="card">
-    <div class="auth-title">{{ t('register') }} ✨</div>
-    <div class="auth-sub">{{ tagline }}</div>
-    {% if not closed %}
-    <form method="post">
-      <label>{{ t('username') }}</label>
-      <input name="username" required autofocus minlength="3" maxlength="20"
-             pattern="[A-Za-z0-9_]+" autocomplete="username">
-      <label>{{ t('full_name') }} ({{ t('optional') }})</label>
-      <input name="full_name" maxlength="60" autocomplete="name">
-      <label>{{ t('email_addr') }} ({{ t('optional') }})</label>
-      <input type="email" name="email" maxlength="80" autocomplete="email">
-      {{ edu_fields() }}
-      <label>{{ t('password') }}</label>
-      <input type="password" name="password" required minlength="6" autocomplete="new-password">
-      <label>{{ t('confirm_password') }}</label>
-      <input type="password" name="confirm" required minlength="6" autocomplete="new-password">
-      <div style="margin-top:18px">
-        <button class="primary" type="submit">{{ t('register') }}</button>
-      </div>
-    </form>
-    {% endif %}
-    <p style="margin-top:16px; font-size:.85rem; color:var(--muted)">
-      {{ t('have_account') }} <a href="{{ url_for('login') }}">{{ t('login') }}</a>
-    </p>
+<div class="auth-shell">
+  <div class="auth-panel">
+    <div class="auth-hero">
+      {% if site_logo %}
+        <img src="{{ site_logo }}" alt="" class="hero-logo">
+      {% endif %}
+      <h1>{{ settings.site_name }}</h1>
+      <div class="hero-tag">{{ tagline }}</div>
+      <div class="feat">📋 {{ t('planning') }} · {{ t('habits') }} · {{ t('focus') }}</div>
+      <div class="feat">🎓 {{ t('university') }} · {{ t('flashcards') }}</div>
+      <div class="feat">👥 {{ t('friends') }} · {{ t('groups') }} · {{ t('messages_t') }}</div>
+      <div class="feat">🏆 {{ t('leaderboard') }} · {{ t('badges_t') }}</div>
+      {% if quote %}<div class="mini-quote">✦ {{ quote }}</div>{% endif %}
+    </div>
+
+    <div class="auth-form">
+      <div class="auth-title">{{ t('register') }} ✨</div>
+      <div class="auth-sub">{{ tagline }}</div>
+      {% if not closed %}
+      <form method="post">
+        <div class="inp">
+          <span class="ico">@</span>
+          <input name="username" required autofocus minlength="3" maxlength="20"
+                 pattern="[A-Za-z0-9_]+" autocomplete="username"
+                 placeholder="{{ t('username') }}">
+        </div>
+        <div class="inp">
+          <span class="ico">👤</span>
+          <input name="full_name" maxlength="60" autocomplete="name"
+                 placeholder="{{ t('full_name') }} ({{ t('optional') }})">
+        </div>
+        <div class="inp">
+          <span class="ico">✉️</span>
+          <input type="email" name="email" maxlength="80" autocomplete="email"
+                 placeholder="{{ t('email_addr') }} ({{ t('optional') }})">
+        </div>
+        {{ edu_fields() }}
+        <div class="inp">
+          <span class="ico">🔒</span>
+          <input type="password" name="password" id="pw1" required minlength="6"
+                 autocomplete="new-password" placeholder="{{ t('password') }}">
+          <button type="button" class="eye" onclick="pwToggle('pw1', this)">👁</button>
+        </div>
+        <div class="inp">
+          <span class="ico">🔒</span>
+          <input type="password" name="confirm" id="pw2" required minlength="6"
+                 autocomplete="new-password" placeholder="{{ t('confirm_password') }}">
+          <button type="button" class="eye" onclick="pwToggle('pw2', this)">👁</button>
+        </div>
+        <div style="margin-top:20px">
+          <button class="primary" type="submit">{{ t('register') }} {{ '←' if is_rtl else '→' }}</button>
+        </div>
+      </form>
+      {% endif %}
+      <p style="margin-top:18px; font-size:.85rem; color:var(--muted); text-align:center">
+        {{ t('have_account') }} <a href="{{ url_for('login') }}">{{ t('login') }}</a>
+      </p>
+    </div>
   </div>
 </div>
+<script>
+function pwToggle(id, btn) {
+  const f = document.getElementById(id);
+  f.type = f.type === "password" ? "text" : "password";
+  btn.textContent = f.type === "password" ? "👁" : "🙈";
+}
+</script>
 {% endblock %}
