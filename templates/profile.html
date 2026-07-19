@@ -60,7 +60,7 @@
         <input type="file" name="photo" accept=".png,.jpg,.jpeg,.webp,.gif">
         <div style="font-size:.72rem; color:var(--muted); margin-top:4px">{{ t('upload_hint') }}</div>
         <label>@ {{ t('username') }}</label>
-        <input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+"
+        <input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_.]+"
                value="{{ cu.username }}">
         <label>{{ t('full_name') }}</label>
         <input name="full_name" maxlength="60" value="{{ cu.full_name or '' }}">

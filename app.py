@@ -447,7 +447,7 @@ T = {
         "err_user_exists": "That username is already taken.",
         "err_pw_match": "Passwords do not match.",
         "err_pw_short": "Password must be at least 6 characters.",
-        "err_username": "Username must be 3–20 letters, numbers or _.",
+        "err_username": "Username: 3–20 letters, numbers, _ or . (no dot at start/end).",
         "err_reg_closed": "Registration is currently closed.",
         "ok_registered": "Account created — welcome!",
         "ok_saved": "Saved.", "ok_deleted": "Deleted.",
@@ -488,7 +488,7 @@ T = {
         "err_user_exists": "اسم المستخدم مأخوذ بالفعل.",
         "err_pw_match": "كلمتا المرور غير متطابقتين.",
         "err_pw_short": "كلمة المرور يجب أن تكون 6 أحرف على الأقل.",
-        "err_username": "اسم المستخدم يجب أن يكون 3–20 حرفًا أو رقمًا أو _.",
+        "err_username": "اسم المستخدم: 3–20 حرفًا أو رقمًا أو _ أو . (بدون نقطة في البداية/النهاية).",
         "err_reg_closed": "التسجيل مغلق حاليًا.",
         "ok_registered": "تم إنشاء الحساب — أهلاً بك!",
         "ok_saved": "تم الحفظ.", "ok_deleted": "تم الحذف.",
@@ -529,7 +529,7 @@ T = {
         "err_user_exists": "ئەم ناوە پێشتر گیراوە.",
         "err_pw_match": "وشە نهێنییەکان وەک یەک نین.",
         "err_pw_short": "وشەی نهێنی دەبێت لانیکەم ٦ پیت بێت.",
-        "err_username": "ناوی بەکارهێنەر دەبێت ٣–٢٠ پیت، ژمارە یان _ بێت.",
+        "err_username": "ناوی بەکارهێنەر: ٣–٢٠ پیت، ژمارە، _ یان . (خاڵ لە سەرەتا/کۆتایی نابێت).",
         "err_reg_closed": "تۆمارکردن لە ئێستادا داخراوە.",
         "ok_registered": "هەژمارەکە دروستکرا — بەخێربێیت!",
         "ok_saved": "پاشەکەوتکرا.", "ok_deleted": "سڕایەوە.",
@@ -1294,6 +1294,8 @@ for _l, _d in V12.items():
     T[_l].update(_d)
 
 
+USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
+
 EDU_LEVELS = ("school", "bachelor", "master", "phd", "professor", "graduate")
 
 
@@ -1680,7 +1682,7 @@ def register():
         password = request.form.get("password", "")
         confirm = request.form.get("confirm", "")
         import re
-        if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", username):
+        if not re.fullmatch(USERNAME_RE, username):
             flash(tr("err_username"), "error")
         elif len(password) < 6:
             flash(tr("err_pw_short"), "error")
@@ -2163,7 +2165,7 @@ def profile():
         import re
         new_un = request.form.get("username", "").strip()
         if new_un and new_un != current_user()["username"]:
-            if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", new_un):
+            if not re.fullmatch(USERNAME_RE, new_un):
                 flash(tr("err_username"), "error")
             else:
                 try:

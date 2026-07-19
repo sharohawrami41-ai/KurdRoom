@@ -299,6 +299,39 @@ button.primary:hover { transform: translateY(-2px);
   box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 50%, transparent); }
 .pill { transition: transform .18s, border-color .18s, background .18s; }
 .pill:hover { transform: translateY(-2px); }
+/* ---------- living background: drifting orbs + brand watermark ---------- */
+.bgfx { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.container, .topbar, .bottombar, .mobile-menu, footer { position: relative; z-index: 1; }
+.orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .32;
+  will-change: transform; }
+.orb.o1 { width: 46vw; height: 46vw; max-width:520px; max-height:520px;
+  background: var(--accent); top: -12%; inset-inline-start: -10%;
+  animation: orbA 26s ease-in-out infinite alternate; }
+.orb.o2 { width: 38vw; height: 38vw; max-width:440px; max-height:440px;
+  background: #e879f9; bottom: -14%; inset-inline-end: -8%;
+  animation: orbB 32s ease-in-out infinite alternate; }
+.orb.o3 { width: 30vw; height: 30vw; max-width:360px; max-height:360px;
+  background: #38bdf8; top: 40%; inset-inline-start: 44%;
+  animation: orbC 38s ease-in-out infinite alternate; opacity:.2; }
+@keyframes orbA { to { transform: translate(9vw, 12vh) scale(1.18); } }
+@keyframes orbB { to { transform: translate(-10vw, -10vh) scale(1.12); } }
+@keyframes orbC { to { transform: translate(-8vw, 9vh) scale(1.25); } }
+body.light .orb { opacity: .18; }
+
+.bg-marquee { position: absolute; white-space: nowrap; font-weight: 800;
+  letter-spacing: .06em; user-select: none; will-change: transform; direction: ltr; }
+.bg-marquee span { display: inline-block; padding-inline-end: 1.2em; }
+.bg-marquee.m1 { top: 16%; font-size: clamp(5rem, 13vw, 11rem);
+  color: transparent; -webkit-text-stroke: 1.5px rgba(255,255,255,.045);
+  animation: marqL 70s linear infinite; }
+.bg-marquee.m2 { bottom: 10%; font-size: clamp(3.4rem, 9vw, 7.5rem);
+  color: rgba(255,255,255,.025);
+  animation: marqR 95s linear infinite; }
+body.light .bg-marquee.m1 { -webkit-text-stroke-color: rgba(30,20,80,.05); }
+body.light .bg-marquee.m2 { color: rgba(30,20,80,.03); }
+@keyframes marqL { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes marqR { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+
 /* ---------- touch ripple ---------- */
 * { -webkit-tap-highlight-color: transparent; }
 button, .pill, .tab, .icon-btn, .bottombar a { position: relative; overflow: hidden; }
@@ -484,6 +517,15 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 </style>
 </head>
 <body class="{{ theme }}">
+
+{# ============================ living background ============================ #}
+<div class="bgfx" aria-hidden="true">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+  <div class="bg-marquee m1"><span>{% for _ in range(8) %}{{ settings.site_name }} {% endfor %}</span><span>{% for _ in range(8) %}{{ settings.site_name }} {% endfor %}</span></div>
+  <div class="bg-marquee m2"><span>{% for _ in range(10) %}{{ settings.site_name }} ✦ {% endfor %}</span><span>{% for _ in range(10) %}{{ settings.site_name }} ✦ {% endfor %}</span></div>
+</div>
 
 {# ============================ app launch splash ============================ #}
 <div id="splash">
