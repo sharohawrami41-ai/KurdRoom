@@ -34,7 +34,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "1.2"   # shown in the footer — bump this with each release
+APP_VERSION = "1.3"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -3065,6 +3065,37 @@ def dm_thread(username):
         (uid, friend["id"], friend["id"], uid)).fetchall()
     return render_template("dm.html", user=current_user(), friend=friend,
                            thread=list(reversed(thread)))
+
+
+@app.route("/messages/<username>/poll")
+@login_required
+def dm_poll(username):
+    """Live chat: return messages newer than ?after=<id> as JSON (no refresh)."""
+    db = get_db()
+    uid = session["user_id"]
+    friend = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    if friend is None:
+        abort(404)
+    if not are_friends(uid, friend["id"]):
+        abort(403)
+    after = request.args.get("after", 0, type=int)
+    # reader has the thread open -> mark incoming as read (powers live checkmarks)
+    db.execute("UPDATE dms SET is_read = 1 WHERE from_id = ? AND to_id = ? "
+               "AND is_read = 0", (friend["id"], uid))
+    db.commit()
+    rows = db.execute(
+        "SELECT * FROM dms WHERE ((from_id = ? AND to_id = ?) "
+        "OR (from_id = ? AND to_id = ?)) AND id > ? ORDER BY id ASC LIMIT 100",
+        (uid, friend["id"], friend["id"], uid, after)).fetchall()
+    read_max = db.execute(
+        "SELECT COALESCE(MAX(id), 0) FROM dms WHERE from_id = ? AND to_id = ? "
+        "AND is_read = 1", (uid, friend["id"])).fetchone()[0]
+    return {"msgs": [{"id": m["id"], "me": m["from_id"] == uid,
+                      "kind": m["kind"] or "text", "content": m["content"] or "",
+                      "orig": m["orig_name"] or "", "stored": bool(m["stored"]),
+                      "at": (m["created_at"] or "")[5:16].replace("T", " "),
+                      "read": bool(m["is_read"])} for m in rows],
+            "read_max": read_max}
 
 
 @app.route("/dmfile/<int:msg_id>")

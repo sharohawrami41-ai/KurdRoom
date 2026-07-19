@@ -10,10 +10,12 @@
   .dm-box { flex:1; overflow-y:auto; padding: 16px 12px; display:flex;
     flex-direction:column; gap:8px; scroll-behavior:smooth;
     background: var(--card); border-inline:1px solid var(--card-border); }
-  .dm-composer { display:flex; align-items:center; gap:6px; padding: 10px 12px;
+  .dm-composer { display:flex; align-items:flex-end; gap:6px; padding: 10px 12px;
     background: var(--card); border:1px solid var(--card-border);
     border-radius: 0 0 18px 18px; backdrop-filter: blur(12px); }
-  .dm-composer input[type=text] { flex:1; }
+  .dm-composer textarea { flex:1; resize:none; min-height:42px; max-height:130px;
+    padding:10px 14px; border-radius:16px; line-height:1.4; overflow-y:auto;
+    font-size:.92rem; width:auto; margin:0; }
   .cbtn { width:42px; height:42px; border-radius:50%; border:none; cursor:pointer;
     display:inline-flex; align-items:center; justify-content:center; font-size:1.15rem;
     background: color-mix(in srgb, var(--accent) 14%, transparent); color:var(--text);
@@ -33,6 +35,7 @@
     cursor:pointer; }
   .bub audio { max-width:220px; height:38px; }
   .meta { font-size:.6rem; color:var(--muted); margin-top:3px; }
+  .bub-text { white-space:pre-wrap; word-break:break-word; }
 </style>
 
 <div class="dm-shell">
@@ -52,7 +55,7 @@
 
   <div class="dm-box" id="chatbox">
     {% for m in thread %}
-    <div class="bub {{ 'me' if m.from_id == cu.id else 'them' }}"
+    <div class="bub {{ 'me' if m.from_id == cu.id else 'them' }}" data-mid="{{ m.id }}"
          style="animation-delay: {{ [loop.index0 * 0.03, 0.4]|min }}s">
       {% if m.kind == 'image' and m.stored %}
         <a href="{{ url_for('dm_file', msg_id=m.id) }}" target="_blank">
@@ -69,11 +72,10 @@
         </a>
       {% endif %}
       {% if m.content %}
-        <div style="white-space:pre-wrap; word-break:break-word;
-             {{ 'margin-top:6px' if m.kind != 'text' }}">{{ m.content }}</div>
+        <div class="bub-text" style="{{ 'margin-top:6px' if m.kind != 'text' }}">{{ m.content }}</div>
       {% endif %}
       <div class="meta" dir="ltr">{{ m.created_at[5:16].replace('T',' ') }}
-        {% if m.from_id == cu.id %}{{ '✓✓' if m.is_read else '✓' }}{% endif %}</div>
+        {% if m.from_id == cu.id %}<span class="tick">{{ '✓✓' if m.is_read else '✓' }}</span>{% endif %}</div>
     </div>
     {% endfor %}
   </div>
@@ -87,8 +89,8 @@
     </label>
     <button type="button" class="cbtn" id="recBtn" title="{{ t('record_v') }}"
             onclick="recToggle(this)">🎤</button>
-    <input type="text" name="content" id="dmText" maxlength="500"
-           placeholder="{{ t('write_message') }}" autocomplete="off">
+    <textarea name="content" id="dmText" maxlength="500" rows="1"
+              placeholder="{{ t('write_message') }}" autocomplete="off"></textarea>
     <button type="submit" class="cbtn send" title="{{ t('send') }}">➤</button>
   </form>
   <div id="fileHint" style="display:none; font-size:.74rem; color:var(--accent);
@@ -97,7 +99,28 @@
 
 <script>
   const box = document.getElementById("chatbox");
-  if (box) box.scrollTop = box.scrollHeight;
+  const form = document.getElementById("dmForm");
+  const ta = document.getElementById("dmText");
+  const fileInp = document.getElementById("dmFile");
+  const POLL_URL = {{ url_for('dm_poll', username=friend.username)|tojson }};
+  const FILE_URL = "/dmfile/";
+  let lastId = {{ (thread[-1].id if thread else 0)|tojson }};
+  let sending = false;
+
+  function scrollBottom() { if (box) box.scrollTop = box.scrollHeight; }
+  scrollBottom();
+
+  /* ---------- growing composer: long messages wrap instead of hiding ---------- */
+  function autosize() {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 130) + "px";
+  }
+  ta.addEventListener("input", autosize);
+  const touchKb = matchMedia("(pointer: coarse)").matches;
+  ta.addEventListener("keydown", (e) => {
+    // desktop: Enter sends, Shift+Enter = new line. phone: Enter = new line.
+    if (e.key === "Enter" && !e.shiftKey && !touchKb) { e.preventDefault(); sendMsg(); }
+  });
 
   function fileChosen(inp) {
     const hint = document.getElementById("fileHint");
@@ -107,7 +130,101 @@
     } else hint.style.display = "none";
   }
 
-  // voice messages
+  /* ---------- send without page reload ---------- */
+  form.addEventListener("submit", (e) => { e.preventDefault(); sendMsg(); });
+  async function sendMsg() {
+    if (sending) return;
+    if (!ta.value.trim() && !fileInp.files.length) return;
+    sending = true;
+    const fd = new FormData(form);
+    try {
+      await fetch(location.href, { method: "POST", body: fd });
+      ta.value = ""; autosize();
+      fileInp.value = ""; fileChosen(fileInp);
+      await poll();
+    } catch (err) {}
+    sending = false;
+    ta.focus();
+  }
+
+  /* ---------- live chat: new messages appear without refreshing ---------- */
+  function bubble(m) {
+    const b = document.createElement("div");
+    b.className = "bub " + (m.me ? "me" : "them");
+    b.dataset.mid = m.id;
+    if (m.stored && m.kind === "image") {
+      const a = document.createElement("a");
+      a.href = FILE_URL + m.id; a.target = "_blank";
+      const img = document.createElement("img");
+      img.src = FILE_URL + m.id; img.alt = "";
+      img.onload = scrollBottom;
+      a.appendChild(img); b.appendChild(a);
+    } else if (m.stored && m.kind === "voice") {
+      const w = document.createElement("div");
+      w.style.cssText = "display:flex; align-items:center; gap:8px";
+      w.append("🎤");
+      const au = document.createElement("audio");
+      au.controls = true; au.preload = "metadata"; au.src = FILE_URL + m.id;
+      w.appendChild(au); b.appendChild(w);
+    } else if (m.stored && m.kind === "file") {
+      const a = document.createElement("a");
+      a.href = FILE_URL + m.id;
+      a.style.cssText = "display:flex; align-items:center; gap:10px; color:inherit";
+      const ic = document.createElement("span");
+      ic.style.fontSize = "1.5rem"; ic.textContent = "📄";
+      const nm = document.createElement("span");
+      nm.style.cssText = "text-decoration:underline; word-break:break-all";
+      nm.textContent = m.orig;
+      a.append(ic, nm); b.appendChild(a);
+    }
+    if (m.content) {
+      const t = document.createElement("div");
+      t.className = "bub-text";
+      if (m.kind !== "text") t.style.marginTop = "6px";
+      t.textContent = m.content;
+      b.appendChild(t);
+    }
+    const meta = document.createElement("div");
+    meta.className = "meta"; meta.dir = "ltr";
+    meta.textContent = m.at + " ";
+    if (m.me) {
+      const tick = document.createElement("span");
+      tick.className = "tick"; tick.textContent = m.read ? "✓✓" : "✓";
+      meta.appendChild(tick);
+    }
+    b.appendChild(meta);
+    return b;
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch(POLL_URL + "?after=" + lastId);
+      if (!r.ok) return;
+      const d = await r.json();
+      const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+      let gotNew = false;
+      for (const m of d.msgs) {
+        if (m.id <= lastId || box.querySelector('[data-mid="' + m.id + '"]')) continue;
+        box.appendChild(bubble(m));
+        lastId = Math.max(lastId, m.id);
+        gotNew = true;
+      }
+      if (gotNew && (nearBottom || d.msgs.some((m) => m.me))) scrollBottom();
+      // live read receipts: my sent messages flip ✓ -> ✓✓
+      if (d.read_max) {
+        box.querySelectorAll(".bub.me").forEach((el) => {
+          if (+el.dataset.mid <= d.read_max) {
+            const tick = el.querySelector(".tick");
+            if (tick) tick.textContent = "✓✓";
+          }
+        });
+      }
+    } catch (err) {}
+  }
+  setInterval(() => { if (!document.hidden) poll(); }, 2500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+  /* ---------- voice messages ---------- */
   let rec = null, chunks = [];
   async function recToggle(btn) {
     if (rec && rec.state === "recording") { rec.stop(); return; }
@@ -123,8 +240,7 @@
         const fd = new FormData();
         fd.append("file", blob, "voice.webm");
         fd.append("kind", "voice");
-        fetch(location.href, { method: "POST", body: fd })
-          .then(() => location.reload());
+        fetch(location.href, { method: "POST", body: fd }).then(() => poll());
       };
       rec.start();
       btn.classList.add("recing"); btn.textContent = "⏹";
