@@ -7,8 +7,15 @@
       <div style="display:flex; justify-content:center; margin-bottom:14px">
         {{ avi(cu.id, cu.username, 110, '2.6rem') }}
       </div>
-      <div style="font-size:1.3rem; font-weight:800">{{ cu.full_name or cu.username }}</div>
+      <div style="font-size:1.3rem; font-weight:800">{{ cu.full_name or cu.username }}
+        <span class="badge high" style="font-size:.66rem; vertical-align:middle">
+          {{ t('level') }} {{ xpinfo.level }}</span></div>
       <div style="color:var(--accent); font-weight:600">@{{ cu.username }}</div>
+      <div style="max-width:230px; margin:10px auto 0">
+        <div class="progress" style="height:8px"><div style="width:{{ xpinfo.pct }}%"></div></div>
+        <div style="font-size:.64rem; color:var(--muted); margin-top:4px">
+          ⚡ {{ xpinfo.xp }} XP · {{ xpinfo.pct }}% {{ t('to_next') }} {{ xpinfo.level + 1 }}</div>
+      </div>
       {% if cu.email %}<div style="color:var(--muted); font-size:.85rem; margin-top:4px">✉ {{ cu.email }}</div>{% endif %}
       {% if cu.bio %}<p style="margin-top:12px; font-size:.9rem; white-space:pre-wrap">{{ cu.bio }}</p>{% endif %}
       {{ edu_line(cu) }}

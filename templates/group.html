@@ -103,26 +103,178 @@
                align-self: {{ 'flex-end' if m.user_id == cu.id else 'flex-start' }}; max-width:86%">
             <a href="{{ url_for('user_profile', username=m.username) }}">
               {{ avi(m.user_id, m.username, 30, '.8rem') }}</a>
-            <div style="padding:9px 14px; font-size:.9rem;
+            <div style="padding:9px 14px; font-size:.9rem; position:relative;
                  border-radius: {{ '16px 16px 4px 16px' if m.user_id == cu.id else '16px 16px 16px 4px' }};
                  background: {{ 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--accent) 25%, transparent))' if m.user_id == cu.id else 'var(--card)' }};
                  border:1px solid var(--card-border)">
               <div style="font-size:.68rem; font-weight:700; color:var(--accent); margin-bottom:2px">
-                {{ m.username }}</div>
+                {{ m.username }}
+                <span class="badge medium" style="font-size:.56rem; padding:1px 7px">
+                  Lv {{ levels.get(m.user_id, 1) }}</span></div>
+              {% if quotes.get(m.id) %}
+              <div style="border-inline-start:3px solid var(--accent); padding:4px 10px;
+                   margin-bottom:6px; border-radius:8px; font-size:.74rem;
+                   background:rgba(0,0,0,.18); color:var(--muted)">
+                <strong style="color:var(--accent)">{{ quotes[m.id].username }}</strong><br>
+                {{ quotes[m.id].content }}…</div>
+              {% endif %}
               <div style="white-space:pre-wrap; word-break:break-word">{{ m.content }}</div>
-              <div style="font-size:.62rem; color:var(--muted); margin-top:3px" dir="ltr">
-                {{ m.created_at[5:16].replace('T',' ') }}</div>
+              <div style="display:flex; gap:8px; align-items:center; margin-top:4px; flex-wrap:wrap">
+                <span style="font-size:.62rem; color:var(--muted)" dir="ltr">
+                  {{ m.created_at[5:16].replace('T',' ') }}</span>
+                <button type="button" onclick="setReply({{ m.id }}, {{ m.username|tojson }})"
+                        style="background:none; border:none; cursor:pointer; font-size:.62rem;
+                        color:var(--muted); padding:0">↩ {{ t('reply') }}</button>
+                <details class="dd" style="display:inline-block">
+                  <summary style="cursor:pointer; font-size:.7rem; opacity:.6; list-style:none">🙂+</summary>
+                  <div class="panel" style="min-width:auto; display:flex; gap:2px; padding:5px">
+                    {% for e in REACTIONS %}
+                    <form method="post" action="{{ url_for('msg_react', msg_id=m.id) }}" style="display:inline">
+                      <input type="hidden" name="emoji" value="{{ e }}">
+                      <button type="submit" style="background:none; border:none; cursor:pointer;
+                              font-size:1.05rem; padding:3px">{{ e }}</button>
+                    </form>
+                    {% endfor %}
+                  </div>
+                </details>
+                {% if m.user_id == cu.id or is_owner %}
+                <form method="post" action="{{ url_for('msg_delete', msg_id=m.id) }}"
+                      style="display:inline" onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+                  <button type="submit" style="background:none; border:none; cursor:pointer;
+                          font-size:.62rem; color:var(--high); padding:0">✕</button>
+                </form>
+                {% endif %}
+              </div>
+              {% if reactions.get(m.id) %}
+              <div style="display:flex; gap:4px; margin-top:5px; flex-wrap:wrap">
+                {% for r in reactions[m.id] %}
+                <form method="post" action="{{ url_for('msg_react', msg_id=m.id) }}" style="display:inline">
+                  <input type="hidden" name="emoji" value="{{ r.emoji }}">
+                  <button type="submit" style="cursor:pointer; font-size:.72rem; padding:2px 8px;
+                          border-radius:999px; border:1px solid
+                          {{ 'var(--accent)' if r.mine else 'var(--card-border)' }};
+                          background: {{ 'color-mix(in srgb, var(--accent) 22%, transparent)' if r.mine else 'rgba(0,0,0,.15)' }};
+                          color:var(--text)">{{ r.emoji }} {{ r.n }}</button>
+                </form>
+                {% endfor %}
+              </div>
+              {% endif %}
             </div>
           </div>
           {% endfor %}
         </div>
+        <div id="replyBar" style="display:none; margin-top:10px; padding:8px 12px;
+             border-radius:10px; background:color-mix(in srgb, var(--accent) 12%, transparent);
+             border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+             font-size:.78rem; align-items:center; gap:8px">
+          ↩ {{ t('replying_to') }} <strong id="replyName"></strong>
+          <button type="button" onclick="clearReply()" style="margin-inline-start:auto;
+                  background:none; border:none; color:var(--high); cursor:pointer">✕</button>
+        </div>
         <form method="post" action="{{ url_for('group_message', group_id=g.id) }}"
-              style="display:flex; gap:8px; margin-top:12px">
-          <input class="typing-input" name="content" required maxlength="500"
+              style="display:flex; gap:8px; margin-top:10px">
+          <input type="hidden" name="reply_to" id="replyTo">
+          <input class="typing-input" name="content" id="msgInput" required maxlength="500"
                  placeholder="{{ t('write_message') }}" style="flex:1" autocomplete="off">
           <button class="primary" type="submit" style="width:auto; padding:11px 22px">
             ➤ {{ t('send') }}</button>
         </form>
+      </div>
+
+      <!-- ==================== challenges ==================== -->
+      <div class="card" id="challenges" style="margin-bottom:20px">
+        <h2>🏔 {{ t('challenges_t') }}</h2>
+        <div class="hint"></div>
+        {% for ch in challenges %}
+        <div class="plan {{ 'high gp-pinned' if ch.done else 'medium' }}"
+             style="flex-direction:column; align-items:stretch; gap:8px">
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start">
+            <strong style="font-size:1rem">{{ '🏆' if ch.done else '🏔' }} {{ ch.title }}</strong>
+            {% if ch.user_id == cu.id or is_owner %}
+            <form method="post" action="{{ url_for('challenge_delete', ch_id=ch.id) }}">
+              <button class="small warn" type="submit">✕</button>
+            </form>
+            {% endif %}
+          </div>
+          <div class="progress" style="height:14px">
+            <div style="width: {{ ch.pct }}%"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:.76rem; color:var(--muted)">
+            <span><strong style="color:var(--accent); font-size:.9rem">{{ ch.total }}</strong>
+              {{ t('ch_of') }} {{ ch.target }} · {{ ch.pct }}%</span>
+            <span>{% if ch.done %}{{ t('ch_done') }}{% elif ch.days_left is not none %}⏳ {{ ch.days_left }} {{ t('ch_left') }}{% endif %}</span>
+          </div>
+          <div style="font-size:.68rem; color:var(--muted)">{{ t('ch_by') }} {{ ch.username }}</div>
+        </div>
+        {% endfor %}
+        <form method="post" action="{{ url_for('challenge_create', group_id=g.id) }}" style="margin-top:10px">
+          <label>{{ t('new_challenge') }}</label>
+          <input name="title" required maxlength="100" placeholder="{{ t('ch_title') }}">
+          <div class="grid2" style="gap:10px">
+            <div><label>{{ t('ch_target') }}</label>
+              <input type="number" name="target" min="1" max="10000" value="25"></div>
+            <div><label>{{ t('ch_days') }}</label>
+              <input type="number" name="days" min="1" max="60" value="7"></div>
+          </div>
+          <div style="margin-top:12px">
+            <button class="primary" type="submit" style="width:auto; padding:10px 24px">
+              🏔 {{ t('create') }}</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ==================== polls ==================== -->
+      <div class="card" id="polls">
+        <h2>📊 {{ t('polls_t') }}</h2>
+        <div class="hint"></div>
+        {% for p in polls %}
+        <div class="plan medium" style="flex-direction:column; align-items:stretch; gap:8px">
+          <div style="display:flex; justify-content:space-between; gap:8px">
+            <strong>{{ p.question }}</strong>
+            <span style="display:flex; gap:6px; align-items:center">
+              {% if p.closed %}<span class="badge low">{{ t('closed_p') }}</span>{% endif %}
+              {% if p.user_id == cu.id or is_owner %}
+              <form method="post" action="{{ url_for('poll_close', poll_id=p.id) }}">
+                <button class="small" type="submit" style="padding:3px 9px; font-size:.68rem">
+                  {{ t('reopen_poll') if p.closed else t('close_poll') }}</button>
+              </form>
+              {% endif %}
+            </span>
+          </div>
+          {% for o in p.options %}
+          <form method="post" action="{{ url_for('poll_vote', poll_id=p.id) }}">
+            <input type="hidden" name="option_id" value="{{ o.id }}">
+            <button type="submit" {{ 'disabled' if p.closed }}
+                    style="width:100%; text-align:start; cursor:pointer; position:relative;
+                    padding:9px 12px; border-radius:10px; overflow:hidden; font-size:.85rem;
+                    border:1px solid {{ 'var(--accent)' if p.my_vote == o.id else 'var(--card-border)' }};
+                    background:var(--input-bg); color:var(--text)">
+              <span style="position:absolute; inset:0; width:{{ o.pct }}%;
+                    background:color-mix(in srgb, var(--accent) {{ '35' if p.my_vote == o.id else '18' }}%, transparent);
+                    transition:width .5s"></span>
+              <span style="position:relative">{{ '✓ ' if p.my_vote == o.id }}{{ o.text }}
+                <span style="float:{{ 'left' if is_rtl else 'right' }}; color:var(--muted)">
+                  {{ o.n }} · {{ o.pct }}%</span></span>
+            </button>
+          </form>
+          {% endfor %}
+          <div style="font-size:.68rem; color:var(--muted)">
+            {{ p.total }} {{ t('votes_n') }} · {{ p.username }}</div>
+        </div>
+        {% endfor %}
+        <details style="margin-top:10px">
+          <summary style="font-size:.85rem">➕ {{ t('new_poll') }}</summary>
+          <form method="post" action="{{ url_for('poll_create', group_id=g.id) }}" style="margin-top:8px">
+            <label>{{ t('poll_q') }}</label>
+            <input name="question" required maxlength="150">
+            <label>{{ t('poll_opts') }}</label>
+            <textarea name="options" rows="3" required placeholder="A&#10;B&#10;C"></textarea>
+            <div style="margin-top:10px">
+              <button class="primary" type="submit" style="width:auto; padding:10px 24px">
+                📊 {{ t('create') }}</button>
+            </div>
+          </form>
+        </details>
       </div>
 
       <!-- ==================== group plans ==================== -->
@@ -307,6 +459,24 @@
         </div>
       </div>
 
+      <!-- ==================== group leaderboard ==================== -->
+      <div class="card" style="margin-bottom:20px">
+        <h2>🏆 {{ t('group_lb') }}</h2>
+        <div class="hint">{{ t('lb_hint') }}</div>
+        {% for r in glb %}
+        <div style="display:flex; align-items:center; gap:10px; padding:7px 4px;
+             border-bottom:1px solid var(--card-border)">
+          <span style="width:26px; text-align:center; font-weight:800">
+            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉
+            {% else %}{{ loop.index }}{% endif %}</span>
+          {{ avi(r.id, r.username, 28, '.75rem') }}
+          <span style="flex:1; font-size:.88rem"><strong>{{ r.username }}</strong>
+            {% if r.id == cu.id %}<span class="badge today" style="font-size:.56rem">{{ t('you') }}</span>{% endif %}</span>
+          <strong style="color:var(--accent)">{{ r.points }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+
       {% if is_owner %}
       <!-- ==================== settings ==================== -->
       <div class="card">
@@ -335,6 +505,18 @@
   // keep the chat scrolled to the newest message
   const box = document.getElementById("chatbox");
   if (box) box.scrollTop = box.scrollHeight;
+
+  // reply / quote
+  function setReply(id, name) {
+    document.getElementById("replyTo").value = id;
+    document.getElementById("replyName").textContent = name;
+    document.getElementById("replyBar").style.display = "flex";
+    document.getElementById("msgInput").focus();
+  }
+  function clearReply() {
+    document.getElementById("replyTo").value = "";
+    document.getElementById("replyBar").style.display = "none";
+  }
 
   // shared deck study
   const DECKS = {{ decks|tojson }};
