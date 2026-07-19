@@ -34,7 +34,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "1.1"   # shown in the footer — bump this with each release
+APP_VERSION = "1.2"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -295,6 +295,35 @@ def init_db():
         letter      TEXT NOT NULL DEFAULT 'A',
         points      REAL NOT NULL DEFAULT 4.0
     );
+    CREATE TABLE IF NOT EXISTS posts (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title      TEXT NOT NULL,
+        content    TEXT NOT NULL,
+        category   TEXT NOT NULL DEFAULT 'other',
+        image      TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS post_likes (
+        post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (post_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS post_comments (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content    TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS feedback (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message    TEXT NOT NULL,
+        rating     INTEGER,
+        resolved   INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS duels (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         from_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -323,7 +352,10 @@ def init_db():
                  "ALTER TABLE users ADD COLUMN job_field TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN daily_goal INTEGER DEFAULT 3",
                  "ALTER TABLE group_messages ADD COLUMN reply_to INTEGER",
-                 "ALTER TABLE plans ADD COLUMN repeat TEXT DEFAULT ''"):
+                 "ALTER TABLE plans ADD COLUMN repeat TEXT DEFAULT ''",
+                 "ALTER TABLE dms ADD COLUMN kind TEXT DEFAULT 'text'",
+                 "ALTER TABLE dms ADD COLUMN stored TEXT DEFAULT ''",
+                 "ALTER TABLE dms ADD COLUMN orig_name TEXT DEFAULT ''"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -331,6 +363,8 @@ def init_db():
     os.makedirs(os.path.join(BASE_DIR, "static", "avatars"), exist_ok=True)
     # group files live OUTSIDE static so downloads always pass the membership check
     os.makedirs(os.path.join(BASE_DIR, "groupfiles"), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "dmfiles"), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "postfiles"), exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR, "static", "fonts"), exist_ok=True)
     # default settings
     defaults = {
@@ -1202,6 +1236,63 @@ V11 = {
 for _l, _d in V11.items():
     T[_l].update(_d)
 
+# --- v12 strings: posts, support, pro messaging ---
+V12 = {
+    "en": {
+        "posts_t": "Posts", "new_post": "New post", "post_cat": "Category",
+        "cat_research": "Research", "cat_science": "Science", "cat_tech": "Technology",
+        "cat_ai": "AI", "cat_other": "Other", "cat_all": "All",
+        "publish": "Publish", "post_img": "Image (optional)",
+        "comments_t": "Comments", "write_comment": "Write a comment…",
+        "no_posts": "No posts yet — share your first research, idea, or discovery!",
+        "support_t": "Support", "contact_admins": "Contact the admins",
+        "your_msg": "Your message — a question, a problem, or an idea",
+        "rate_app": "Rate the app", "my_tickets": "My messages",
+        "resolved_t": "Answered ✓", "open_t": "Waiting",
+        "thanks_fb": "Thank you! Your message reached the admins. 💜",
+        "avg_rating": "Average rating", "ratings_n": "ratings",
+        "feedback_t": "Support inbox & ratings",
+        "attach_t": "Attach a photo or file", "record_v": "Record a voice message",
+        "recording": "Recording… tap to send", "voice_msg": "Voice message",
+    },
+    "ar": {
+        "posts_t": "المنشورات", "new_post": "منشور جديد", "post_cat": "التصنيف",
+        "cat_research": "بحث", "cat_science": "علوم", "cat_tech": "تقنية",
+        "cat_ai": "ذكاء اصطناعي", "cat_other": "أخرى", "cat_all": "الكل",
+        "publish": "نشر", "post_img": "صورة (اختياري)",
+        "comments_t": "التعليقات", "write_comment": "اكتب تعليقًا…",
+        "no_posts": "لا منشورات بعد — شارك أول بحث أو فكرة أو اكتشاف لك!",
+        "support_t": "الدعم", "contact_admins": "تواصل مع الإدارة",
+        "your_msg": "رسالتك — سؤال أو مشكلة أو فكرة",
+        "rate_app": "قيّم التطبيق", "my_tickets": "رسائلي",
+        "resolved_t": "تم الرد ✓", "open_t": "قيد الانتظار",
+        "thanks_fb": "شكرًا! وصلت رسالتك إلى الإدارة. 💜",
+        "avg_rating": "متوسط التقييم", "ratings_n": "تقييم",
+        "feedback_t": "صندوق الدعم والتقييمات",
+        "attach_t": "أرفق صورة أو ملفًا", "record_v": "سجّل رسالة صوتية",
+        "recording": "جارٍ التسجيل… اضغط للإرسال", "voice_msg": "رسالة صوتية",
+    },
+    "ku": {
+        "posts_t": "پۆستەکان", "new_post": "پۆستی نوێ", "post_cat": "پۆل",
+        "cat_research": "توێژینەوە", "cat_science": "زانست", "cat_tech": "تەکنەلۆژیا",
+        "cat_ai": "زیرەکی دەستکرد", "cat_other": "هیتر", "cat_all": "هەموو",
+        "publish": "بڵاوکردنەوە", "post_img": "وێنە (ئارەزوومەندانە)",
+        "comments_t": "کۆمێنتەکان", "write_comment": "کۆمێنتێک بنووسە…",
+        "no_posts": "هێشتا پۆست نییە — یەکەم توێژینەوە یان بیرۆکەت بڵاو بکەرەوە!",
+        "support_t": "پشتگیری", "contact_admins": "پەیوەندی بە بەڕێوەبەران",
+        "your_msg": "نامەکەت — پرسیارێک، کێشەیەک، یان بیرۆکەیەک",
+        "rate_app": "هەڵسەنگاندنی ئەپەکە", "my_tickets": "نامەکانم",
+        "resolved_t": "وەڵام دراوە ✓", "open_t": "چاوەڕوانە",
+        "thanks_fb": "سوپاس! نامەکەت گەیشتە بەڕێوەبەران. 💜",
+        "avg_rating": "تێکڕای هەڵسەنگاندن", "ratings_n": "هەڵسەنگاندن",
+        "feedback_t": "سندوقی پشتگیری و هەڵسەنگاندنەکان",
+        "attach_t": "وێنە یان فایل هاوپێچ بکە", "record_v": "نامەی دەنگی تۆمار بکە",
+        "recording": "تۆمارکردن… دابگرە بۆ ناردن", "voice_msg": "نامەی دەنگی",
+    },
+}
+for _l, _d in V12.items():
+    T[_l].update(_d)
+
 
 EDU_LEVELS = ("school", "bachelor", "master", "phd", "professor", "graduate")
 
@@ -2068,6 +2159,18 @@ def profile():
                     request.form.get("email", "").strip()[:80],
                     request.form.get("bio", "").strip()[:300], uid))
         save_edu_fields(uid)
+        # optional username change (must stay unique, same rules as registration)
+        import re
+        new_un = request.form.get("username", "").strip()
+        if new_un and new_un != current_user()["username"]:
+            if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", new_un):
+                flash(tr("err_username"), "error")
+            else:
+                try:
+                    db.execute("UPDATE users SET username = ? WHERE id = ?",
+                               (new_un, uid))
+                except sqlite3.IntegrityError:
+                    flash(tr("err_user_exists"), "error")
         new_pw = request.form.get("new_password", "")
         if new_pw:
             if len(new_pw) < 6:
@@ -2901,9 +3004,15 @@ def messages():
     return render_template("messages.html", user=current_user(), convos=convos)
 
 
+IMG_EXTS = ("png", "jpg", "jpeg", "webp", "gif")
+DM_FILE_EXTS = IMG_EXTS + ("pdf", "txt", "md", "docx", "xlsx", "pptx", "zip",
+                           "webm", "m4a", "mp3", "ogg", "wav")
+
+
 @app.route("/messages/<username>", methods=["GET", "POST"])
 @login_required
 def dm_thread(username):
+    from werkzeug.utils import secure_filename
     db = get_db()
     uid = session["user_id"]
     friend = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
@@ -2913,10 +3022,34 @@ def dm_thread(username):
         abort(403)
     if request.method == "POST":
         content = request.form.get("content", "").strip()
-        if content:
+        f = request.files.get("file")
+        sent = False
+        now = datetime.utcnow().isoformat(timespec="seconds")
+        if f and f.filename:
+            ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+            if ext in DM_FILE_EXTS:
+                if request.form.get("kind") == "voice" or ext in ("webm", "m4a", "ogg", "wav"):
+                    kind = "voice"
+                elif ext in IMG_EXTS:
+                    kind = "image"
+                else:
+                    kind = "file"
+                cur = db.execute("INSERT INTO dms(from_id, to_id, content, created_at, "
+                                 "kind, orig_name) VALUES(?,?,?,?,?,?)",
+                                 (uid, friend["id"], content[:500], now, kind,
+                                  f.filename[:100]))
+                stored = f"{cur.lastrowid}_{secure_filename(f.filename) or 'file.' + ext}"
+                f.save(os.path.join(BASE_DIR, "dmfiles", stored))
+                db.execute("UPDATE dms SET stored = ? WHERE id = ?",
+                           (stored, cur.lastrowid))
+                sent = True
+            else:
+                flash(tr("err_file_type"), "error")
+        elif content:
             db.execute("INSERT INTO dms(from_id, to_id, content, created_at) "
-                       "VALUES(?,?,?,?)", (uid, friend["id"], content[:500],
-                                           datetime.utcnow().isoformat(timespec="seconds")))
+                       "VALUES(?,?,?,?)", (uid, friend["id"], content[:500], now))
+            sent = True
+        if sent:
             notify(friend["id"], "dm", actor=current_user()["username"],
                    link=url_for("dm_thread", username=current_user()["username"]))
             db.commit()
@@ -2930,6 +3063,173 @@ def dm_thread(username):
         (uid, friend["id"], friend["id"], uid)).fetchall()
     return render_template("dm.html", user=current_user(), friend=friend,
                            thread=list(reversed(thread)))
+
+
+@app.route("/dmfile/<int:msg_id>")
+@login_required
+def dm_file(msg_id):
+    from flask import send_from_directory
+    db = get_db()
+    m = db.execute("SELECT * FROM dms WHERE id = ?", (msg_id,)).fetchone()
+    if m is None or not m["stored"]:
+        abort(404)
+    if session["user_id"] not in (m["from_id"], m["to_id"]):
+        abort(403)
+    inline = m["kind"] in ("image", "voice")
+    return send_from_directory(os.path.join(BASE_DIR, "dmfiles"), m["stored"],
+                               as_attachment=not inline,
+                               download_name=m["orig_name"] or m["stored"])
+
+
+# ---------------------------------------------------------------- posts
+POST_CATS = ["research", "science", "tech", "ai", "other"]
+
+
+@app.route("/posts")
+@login_required
+def posts():
+    db = get_db()
+    uid = session["user_id"]
+    cat = request.args.get("cat", "")
+    where, args = "", []
+    if cat in POST_CATS:
+        where, args = "WHERE p.category = ?", [cat]
+    rows = db.execute(
+        f"SELECT p.*, u.username, u.full_name, "
+        f"(SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes, "
+        f"(SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS mine, "
+        f"(SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS n_comments "
+        f"FROM posts p JOIN users u ON u.id = p.user_id {where} "
+        f"ORDER BY p.id DESC LIMIT 60", [uid] + args).fetchall()
+    items = []
+    for p in rows:
+        comments = db.execute(
+            "SELECT c.*, u.username FROM post_comments c JOIN users u ON u.id = c.user_id "
+            "WHERE c.post_id = ? ORDER BY c.id", (p["id"],)).fetchall()
+        items.append(dict(p, comments=comments,
+                          level=user_xp(p["user_id"])["level"]))
+    return render_template("posts.html", user=current_user(), posts=items, cat=cat,
+                           cats=POST_CATS)
+
+
+@app.route("/post/create", methods=["POST"])
+@login_required
+def post_create():
+    from werkzeug.utils import secure_filename
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    cat = request.form.get("category", "other")
+    if cat not in POST_CATS:
+        cat = "other"
+    if title and content:
+        db = get_db()
+        cur = db.execute("INSERT INTO posts(user_id, title, content, category, "
+                         "created_at) VALUES(?,?,?,?,?)",
+                         (session["user_id"], title[:120], content[:4000], cat,
+                          datetime.utcnow().isoformat(timespec="seconds")))
+        f = request.files.get("image")
+        if f and f.filename and "." in f.filename:
+            ext = f.filename.rsplit(".", 1)[-1].lower()
+            if ext in IMG_EXTS:
+                stored = f"{cur.lastrowid}_{secure_filename(f.filename)}"
+                f.save(os.path.join(BASE_DIR, "postfiles", stored))
+                db.execute("UPDATE posts SET image = ? WHERE id = ?",
+                           (stored, cur.lastrowid))
+        db.commit()
+    return redirect(url_for("posts"))
+
+
+@app.route("/postimg/<int:post_id>")
+@login_required
+def post_image(post_id):
+    from flask import send_from_directory
+    p = get_db().execute("SELECT image FROM posts WHERE id = ?", (post_id,)).fetchone()
+    if p is None or not p["image"]:
+        abort(404)
+    return send_from_directory(os.path.join(BASE_DIR, "postfiles"), p["image"])
+
+
+@app.route("/post/<int:post_id>/like", methods=["POST"])
+@login_required
+def post_like(post_id):
+    db = get_db()
+    if db.execute("SELECT 1 FROM posts WHERE id = ?", (post_id,)).fetchone():
+        hit = db.execute("SELECT 1 FROM post_likes WHERE post_id = ? AND user_id = ?",
+                         (post_id, session["user_id"])).fetchone()
+        if hit:
+            db.execute("DELETE FROM post_likes WHERE post_id = ? AND user_id = ?",
+                       (post_id, session["user_id"]))
+        else:
+            db.execute("INSERT INTO post_likes(post_id, user_id) VALUES(?,?)",
+                       (post_id, session["user_id"]))
+        db.commit()
+    return redirect(request.referrer or url_for("posts"))
+
+
+@app.route("/post/<int:post_id>/comment", methods=["POST"])
+@login_required
+def post_comment(post_id):
+    content = request.form.get("content", "").strip()
+    db = get_db()
+    if content and db.execute("SELECT 1 FROM posts WHERE id = ?", (post_id,)).fetchone():
+        db.execute("INSERT INTO post_comments(post_id, user_id, content, created_at) "
+                   "VALUES(?,?,?,?)", (post_id, session["user_id"], content[:500],
+                                       datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(request.referrer or url_for("posts"))
+
+
+@app.route("/post/<int:post_id>/delete", methods=["POST"])
+@login_required
+def post_delete(post_id):
+    db = get_db()
+    p = db.execute("SELECT * FROM posts WHERE id = ?", (post_id,)).fetchone()
+    if p is None:
+        abort(404)
+    if p["user_id"] != session["user_id"] and not current_user()["is_admin"]:
+        abort(403)
+    if p["image"]:
+        fp = os.path.join(BASE_DIR, "postfiles", p["image"])
+        if os.path.exists(fp):
+            os.remove(fp)
+    db.execute("DELETE FROM posts WHERE id = ?", (post_id,))
+    db.commit()
+    return redirect(url_for("posts"))
+
+
+# ---------------------------------------------------------------- support
+@app.route("/support", methods=["GET", "POST"])
+@login_required
+def support():
+    db = get_db()
+    uid = session["user_id"]
+    if request.method == "POST":
+        msg = request.form.get("message", "").strip()
+        rating = request.form.get("rating") or None
+        if rating:
+            try:
+                rating = max(1, min(5, int(rating)))
+            except ValueError:
+                rating = None
+        if msg or rating:
+            db.execute("INSERT INTO feedback(user_id, message, rating, created_at) "
+                       "VALUES(?,?,?,?)", (uid, msg[:2000], rating,
+                                           datetime.utcnow().isoformat(timespec="seconds")))
+            db.commit()
+            flash(tr("thanks_fb"), "ok")
+        return redirect(url_for("support"))
+    mine = db.execute("SELECT * FROM feedback WHERE user_id = ? ORDER BY id DESC "
+                      "LIMIT 10", (uid,)).fetchall()
+    return render_template("support.html", user=current_user(), mine=mine)
+
+
+@app.route("/admin/feedback/<int:fb_id>/resolve", methods=["POST"])
+@admin_required
+def admin_feedback_resolve(fb_id):
+    db = get_db()
+    db.execute("UPDATE feedback SET resolved = 1 - resolved WHERE id = ?", (fb_id,))
+    db.commit()
+    return redirect(url_for("admin"))
 
 
 # ---------------------------------------------------------------- leaderboard
@@ -3238,8 +3538,14 @@ def admin():
         FROM users u LEFT JOIN plans p ON p.user_id = u.id
         GROUP BY u.id ORDER BY u.created_at ASC""").fetchall()
     quotes = db.execute("SELECT * FROM quotes ORDER BY id").fetchall()
+    fb = db.execute("SELECT f.*, u.username FROM feedback f JOIN users u ON "
+                    "u.id = f.user_id ORDER BY f.resolved ASC, f.id DESC LIMIT 40").fetchall()
+    avg_rating = db.execute("SELECT AVG(rating), COUNT(rating) FROM feedback "
+                            "WHERE rating IS NOT NULL").fetchone()
     return render_template("admin.html", user=current_user(), users=users,
-                           quotes=quotes)
+                           quotes=quotes, fb=fb,
+                           avg_rating=round(avg_rating[0], 2) if avg_rating[0] else None,
+                           n_ratings=avg_rating[1])
 
 
 @app.route("/admin/settings", methods=["POST"])

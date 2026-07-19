@@ -53,6 +53,32 @@
     </table>
   </div>
 
+  <!-- ===================== support inbox ===================== -->
+  <div class="card" style="margin-bottom:22px">
+    <h2>🛟 {{ t('feedback_t') }}
+      {% if avg_rating %}<span class="badge high" style="font-size:.8rem" dir="ltr">
+        ⭐ {{ avg_rating }} / 5 · {{ n_ratings }} {{ t('ratings_n') }}</span>{% endif %}</h2>
+    <div class="hint"></div>
+    {% for f in fb %}
+    <div class="plan {{ 'medium' if not f.resolved else 'low' }}"
+         style="flex-direction:column; align-items:stretch; gap:6px">
+      <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap">
+        <strong>{{ f.username }}
+          {% if f.rating %}<span class="badge medium" dir="ltr">{{ '⭐' * f.rating }}</span>{% endif %}</strong>
+        <span style="display:flex; gap:8px; align-items:center">
+          <span style="font-size:.7rem; color:var(--muted)" dir="ltr">{{ f.created_at[:16].replace('T',' ') }}</span>
+          <form method="post" action="{{ url_for('admin_feedback_resolve', fb_id=f.id) }}">
+            <button class="small" type="submit"
+                    style="{{ 'border-color:var(--ok); color:var(--ok)' if not f.resolved }}">
+              {{ '↩' if f.resolved else '✓ ' + t('resolved_t') }}</button>
+          </form>
+        </span>
+      </div>
+      {% if f.message %}<div style="font-size:.88rem; white-space:pre-wrap">{{ f.message }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
   <div class="grid2">
     <!-- ===================== settings ===================== -->
     <div class="card">

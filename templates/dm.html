@@ -1,46 +1,134 @@
 {% extends "base.html" %}
 {% from "_widgets.html" import avi with context %}
 {% block content %}
-  <div class="card" style="max-width:720px; margin:0 auto">
-    <div style="display:flex; align-items:center; gap:12px; padding-bottom:12px;
-         border-bottom:1px solid var(--card-border)">
-      <a href="{{ url_for('messages') }}" class="pill" style="padding:6px 12px">
-        {{ '→' if is_rtl else '←' }}</a>
-      <a href="{{ url_for('user_profile', username=friend.username) }}">
-        {{ avi(friend.id, friend.username, 44, '1.1rem') }}</a>
-      <div>
-        <strong style="font-size:1.05rem">{{ friend.full_name or friend.username }}</strong>
-        <div style="font-size:.75rem; color:var(--accent)">@{{ friend.username }}</div>
-      </div>
-    </div>
+<style>
+  .dm-shell { max-width: 720px; margin: 0 auto; display:flex; flex-direction:column;
+    height: calc(100vh - 160px); min-height: 420px; }
+  .dm-head { display:flex; align-items:center; gap:12px; padding:12px 16px;
+    background: var(--card); border:1px solid var(--card-border);
+    border-radius: 18px 18px 0 0; backdrop-filter: blur(12px); }
+  .dm-box { flex:1; overflow-y:auto; padding: 16px 12px; display:flex;
+    flex-direction:column; gap:8px; scroll-behavior:smooth;
+    background: var(--card); border-inline:1px solid var(--card-border); }
+  .dm-composer { display:flex; align-items:center; gap:6px; padding: 10px 12px;
+    background: var(--card); border:1px solid var(--card-border);
+    border-radius: 0 0 18px 18px; backdrop-filter: blur(12px); }
+  .dm-composer input[type=text] { flex:1; }
+  .cbtn { width:42px; height:42px; border-radius:50%; border:none; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; font-size:1.15rem;
+    background: color-mix(in srgb, var(--accent) 14%, transparent); color:var(--text);
+    flex-shrink:0; transition:.18s; position:relative; overflow:hidden; }
+  .cbtn:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+  .cbtn.send { background: linear-gradient(135deg, var(--accent), #a855f7); color:#fff; }
+  .cbtn.recing { background: var(--high); color:#fff; animation: softPulse 1s infinite; }
+  .bub { max-width:78%; padding:9px 13px; font-size:.9rem; position:relative;
+    border:1px solid var(--card-border); animation: popIn .3s ease both; }
+  .bub.me { align-self:flex-end; border-radius:16px 16px 4px 16px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent),
+                color-mix(in srgb, var(--accent) 25%, transparent)); }
+  .bub.them { align-self:flex-start; border-radius:16px 16px 16px 4px;
+    background: rgba(0,0,0,.22); }
+  body.light .bub.them { background:#fff; }
+  .bub img { max-width:230px; max-height:280px; border-radius:12px; display:block;
+    cursor:pointer; }
+  .bub audio { max-width:220px; height:38px; }
+  .meta { font-size:.6rem; color:var(--muted); margin-top:3px; }
+</style>
 
-    <div id="chatbox" style="max-height:480px; overflow-y:auto; display:flex;
-         flex-direction:column; gap:8px; padding:14px 2px; scroll-behavior:smooth">
-      {% for m in thread %}
-      <div class="msg" style="animation: popIn .3s ease both;
-           animation-delay: {{ [loop.index0 * 0.04, 0.5]|min }}s;
-           align-self: {{ 'flex-end' if m.from_id == cu.id else 'flex-start' }};
-           max-width:78%; padding:9px 14px; font-size:.9rem;
-           border-radius: {{ '16px 16px 4px 16px' if m.from_id == cu.id else '16px 16px 16px 4px' }};
-           background: {{ 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--accent) 25%, transparent))' if m.from_id == cu.id else 'var(--card)' }};
-           border:1px solid var(--card-border)">
-        <div style="white-space:pre-wrap; word-break:break-word">{{ m.content }}</div>
-        <div style="font-size:.62rem; color:var(--muted); margin-top:3px" dir="ltr">
-          {{ m.created_at[5:16].replace('T',' ') }}
-          {% if m.from_id == cu.id %}{{ '✓✓' if m.is_read else '✓' }}{% endif %}</div>
-      </div>
-      {% endfor %}
+<div class="dm-shell">
+  <div class="dm-head">
+    <a href="{{ url_for('messages') }}" class="icon-btn" style="font-size:1.2rem">
+      {{ '→' if is_rtl else '←' }}</a>
+    <a href="{{ url_for('user_profile', username=friend.username) }}">
+      {{ avi(friend.id, friend.username, 44, '1.1rem') }}</a>
+    <div style="flex:1; min-width:0">
+      <strong style="font-size:1.02rem">{{ friend.full_name or friend.username }}</strong>
+      <div style="font-size:.72rem; color:var(--accent)">@{{ friend.username }}</div>
     </div>
-
-    <form method="post" style="display:flex; gap:8px; margin-top:10px">
-      <input name="content" required maxlength="500" placeholder="{{ t('write_message') }}"
-             style="flex:1" autocomplete="off" autofocus>
-      <button class="primary" type="submit" style="width:auto; padding:11px 22px">
-        ➤ {{ t('send') }}</button>
+    <form method="post" action="{{ url_for('duel_challenge', username=friend.username) }}">
+      <button class="icon-btn" type="submit" title="{{ t('duel_btn') }}">⚔️</button>
     </form>
   </div>
+
+  <div class="dm-box" id="chatbox">
+    {% for m in thread %}
+    <div class="bub {{ 'me' if m.from_id == cu.id else 'them' }}"
+         style="animation-delay: {{ [loop.index0 * 0.03, 0.4]|min }}s">
+      {% if m.kind == 'image' and m.stored %}
+        <a href="{{ url_for('dm_file', msg_id=m.id) }}" target="_blank">
+          <img src="{{ url_for('dm_file', msg_id=m.id) }}" alt=""></a>
+      {% elif m.kind == 'voice' and m.stored %}
+        <div style="display:flex; align-items:center; gap:8px">🎤
+          <audio controls preload="metadata" src="{{ url_for('dm_file', msg_id=m.id) }}"></audio>
+        </div>
+      {% elif m.kind == 'file' and m.stored %}
+        <a href="{{ url_for('dm_file', msg_id=m.id) }}"
+           style="display:flex; align-items:center; gap:10px; color:inherit">
+          <span style="font-size:1.5rem">📄</span>
+          <span style="text-decoration:underline; word-break:break-all">{{ m.orig_name }}</span>
+        </a>
+      {% endif %}
+      {% if m.content %}
+        <div style="white-space:pre-wrap; word-break:break-word;
+             {{ 'margin-top:6px' if m.kind != 'text' }}">{{ m.content }}</div>
+      {% endif %}
+      <div class="meta" dir="ltr">{{ m.created_at[5:16].replace('T',' ') }}
+        {% if m.from_id == cu.id %}{{ '✓✓' if m.is_read else '✓' }}{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <form class="dm-composer" method="post" enctype="multipart/form-data" id="dmForm">
+    <input type="hidden" name="kind" id="dmKind" value="">
+    <label class="cbtn" title="{{ t('attach_t') }}">📎
+      <input type="file" name="file" id="dmFile" style="display:none"
+             accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.md,.docx,.xlsx,.pptx,.zip"
+             onchange="fileChosen(this)">
+    </label>
+    <button type="button" class="cbtn" id="recBtn" title="{{ t('record_v') }}"
+            onclick="recToggle(this)">🎤</button>
+    <input type="text" name="content" id="dmText" maxlength="500"
+           placeholder="{{ t('write_message') }}" autocomplete="off">
+    <button type="submit" class="cbtn send" title="{{ t('send') }}">➤</button>
+  </form>
+  <div id="fileHint" style="display:none; font-size:.74rem; color:var(--accent);
+       padding:6px 14px">📎 <span id="fileName"></span></div>
+</div>
+
 <script>
   const box = document.getElementById("chatbox");
   if (box) box.scrollTop = box.scrollHeight;
+
+  function fileChosen(inp) {
+    const hint = document.getElementById("fileHint");
+    if (inp.files.length) {
+      document.getElementById("fileName").textContent = inp.files[0].name;
+      hint.style.display = "block";
+    } else hint.style.display = "none";
+  }
+
+  // voice messages
+  let rec = null, chunks = [];
+  async function recToggle(btn) {
+    if (rec && rec.state === "recording") { rec.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        btn.classList.remove("recing"); btn.textContent = "🎤";
+        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        const fd = new FormData();
+        fd.append("file", blob, "voice.webm");
+        fd.append("kind", "voice");
+        fetch(location.href, { method: "POST", body: fd })
+          .then(() => location.reload());
+      };
+      rec.start();
+      btn.classList.add("recing"); btn.textContent = "⏹";
+    } catch (e) { alert("🎤 ✗"); }
+  }
 </script>
 {% endblock %}

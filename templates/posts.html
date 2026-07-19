@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "_widgets.html" import avi with context %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 14px">📰 {{ t('posts_t') }}</h2>
+
+  <!-- category filter -->
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px">
+    <a class="pill {{ 'active-page' if not cat }}" href="{{ url_for('posts') }}">{{ t('cat_all') }}</a>
+    {% for c in cats %}
+    <a class="pill {{ 'active-page' if cat == c }}" href="{{ url_for('posts', cat=c) }}">
+      {{ {'research':'🔬','science':'🧪','tech':'💻','ai':'🤖','other':'✨'}[c] }}
+      {{ t('cat_' + c) }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- new post -->
+  <div class="card" style="margin-bottom:20px">
+    <details>
+      <summary style="font-size:1rem; font-weight:700; cursor:pointer">✍️ {{ t('new_post') }}</summary>
+      <form method="post" action="{{ url_for('post_create') }}" enctype="multipart/form-data"
+            style="margin-top:12px">
+        <label>{{ t('title') }}</label>
+        <input name="title" required maxlength="120">
+        <div class="grid2" style="gap:10px">
+          <div>
+            <label>{{ t('post_cat') }}</label>
+            <select name="category">
+              {% for c in cats %}<option value="{{ c }}">{{ t('cat_' + c) }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>{{ t('post_img') }}</label>
+            <input type="file" name="image" accept=".png,.jpg,.jpeg,.webp,.gif">
+          </div>
+        </div>
+        <label>{{ t('details') }}</label>
+        <textarea name="content" rows="5" required maxlength="4000"></textarea>
+        <div style="margin-top:12px">
+          <button class="primary" type="submit" style="width:auto; padding:11px 30px">
+            📰 {{ t('publish') }}</button>
+        </div>
+      </form>
+    </details>
+  </div>
+
+  {% for p in posts %}
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex; align-items:center; gap:10px">
+      <a href="{{ url_for('user_profile', username=p.username) }}">
+        {{ avi(p.user_id, p.username, 40, '1rem') }}</a>
+      <div style="flex:1; min-width:0">
+        <strong>{{ p.full_name or p.username }}</strong>
+        <span class="badge medium" style="font-size:.56rem">Lv {{ p.level }}</span>
+        <div style="font-size:.7rem; color:var(--muted)" dir="ltr">
+          {{ p.created_at[:16].replace('T', ' · ') }}</div>
+      </div>
+      <span class="badge medium">
+        {{ {'research':'🔬','science':'🧪','tech':'💻','ai':'🤖','other':'✨'}[p.category] }}
+        {{ t('cat_' + p.category) }}</span>
+      {% if p.user_id == cu.id or cu.is_admin %}
+      <form method="post" action="{{ url_for('post_delete', post_id=p.id) }}"
+            onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+        <button class="small warn" type="submit">✕</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <h2 style="font-size:1.15rem; margin-top:12px">{{ p.title }}</h2>
+    <p style="font-size:.92rem; line-height:1.7; margin-top:6px; white-space:pre-wrap;
+       word-break:break-word">{{ p.content }}</p>
+    {% if p.image %}
+    <img src="{{ url_for('post_image', post_id=p.id) }}" alt=""
+         style="max-width:100%; max-height:420px; border-radius:14px; margin-top:12px;
+         display:block">
+    {% endif %}
+
+    <div style="display:flex; gap:10px; align-items:center; margin-top:14px">
+      <form method="post" action="{{ url_for('post_like', post_id=p.id) }}">
+        <button class="small" type="submit"
+                style="{{ 'border-color:var(--high); color:var(--high);' if p.mine }}">
+          ❤️ {{ p.likes }}</button>
+      </form>
+      <span style="font-size:.8rem; color:var(--muted)">💬 {{ p.n_comments }}</span>
+    </div>
+
+    <details style="margin-top:10px">
+      <summary style="font-size:.82rem">💬 {{ t('comments_t') }} ({{ p.n_comments }})</summary>
+      <div style="margin-top:8px">
+        {% for c in p.comments %}
+        <div style="display:flex; gap:8px; padding:7px 0; border-bottom:1px solid var(--card-border);
+             font-size:.85rem; align-items:flex-start">
+          {{ avi(c.user_id, c.username, 26, '.7rem') }}
+          <div><strong style="color:var(--accent)">{{ c.username }}</strong>
+            <span style="white-space:pre-wrap; word-break:break-word"> {{ c.content }}</span></div>
+        </div>
+        {% endfor %}
+        <form method="post" action="{{ url_for('post_comment', post_id=p.id) }}"
+              style="display:flex; gap:8px; margin-top:10px">
+          <input name="content" required maxlength="500" placeholder="{{ t('write_comment') }}"
+                 style="flex:1">
+          <button class="small" type="submit">➤</button>
+        </form>
+      </div>
+    </details>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center; padding:40px">
+    <div style="font-size:2.5rem">📰</div>
+    <p style="color:var(--muted); margin-top:10px">{{ t('no_posts') }}</p>
+  </div>
+  {% endfor %}
+{% endblock %}

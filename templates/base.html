@@ -294,6 +294,14 @@ button.primary:hover { transform: translateY(-2px);
   box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 50%, transparent); }
 .pill { transition: transform .18s, border-color .18s, background .18s; }
 .pill:hover { transform: translateY(-2px); }
+/* ---------- touch ripple ---------- */
+* { -webkit-tap-highlight-color: transparent; }
+button, .pill, .tab, .icon-btn, .bottombar a { position: relative; overflow: hidden; }
+.rip { position:absolute; border-radius:50%; transform:scale(0); pointer-events:none;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: ripGo .55s ease-out forwards; }
+@keyframes ripGo { to { transform: scale(3.2); opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
@@ -530,6 +538,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
+  <a href="{{ url_for('support') }}">🛟 {{ t('support_t') }}</a>
   {% if cu.is_admin %}<a href="{{ url_for('admin') }}">🛠 {{ t('admin_panel') }}</a>{% endif %}
   <hr>
   <form method="post" action="{{ url_for('prefs_theme') }}">
@@ -567,6 +576,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       <div class="panel">{{ nav_links() }}</div>
     </details>
     <a class="tab {{ 'active' if request.endpoint == 'university' }}" href="{{ url_for('university') }}">🎓 {{ t('university') }}</a>
+    <a class="tab {{ 'active' if request.endpoint == 'posts' }}" href="{{ url_for('posts') }}">📰 {{ t('posts_t') }}</a>
     <details class="dd">
       <summary class="tab {{ 'active' if request.endpoint and request.endpoint.startswith('tool_') }}">🛠 {{ t('tools') }} <span class="caret">▼</span></summary>
       <div class="panel">{{ tools_links() }}</div>
@@ -634,6 +644,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <div class="msec">{{ t('tools') }}</div>
   {{ tools_links() }}
   <div class="msec">{{ t('social') }}</div>
+  <a href="{{ url_for('posts') }}">📰 {{ t('posts_t') }}</a>
   {{ social_links() }}
   <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
     {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
@@ -697,6 +708,20 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       if (!d.contains(e.target)) d.removeAttribute("open");
     });
   });
+  // touch/click ripple effect
+  document.addEventListener("pointerdown", (e) => {
+    const el = e.target.closest("button, .pill, .tab, .icon-btn, .bottombar a");
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const d = Math.max(r.width, r.height);
+    const s = document.createElement("span");
+    s.className = "rip";
+    s.style.width = s.style.height = d + "px";
+    s.style.left = (e.clientX - r.left - d / 2) + "px";
+    s.style.top = (e.clientY - r.top - d / 2) + "px";
+    el.appendChild(s);
+    setTimeout(() => s.remove(), 600);
+  }, { passive: true });
   // only one dropdown open at a time
   document.querySelectorAll("details.dd").forEach((d) => {
     d.addEventListener("toggle", () => {

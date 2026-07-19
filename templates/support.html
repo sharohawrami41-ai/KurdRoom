@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1.4rem; margin:8px 0 18px">🛟 {{ t('support_t') }}</h2>
+
+  <div class="card" style="max-width:640px; margin:0 auto 20px">
+    <h2>💬 {{ t('contact_admins') }}</h2>
+    <div class="hint"></div>
+    <form method="post">
+      <label>{{ t('your_msg') }}</label>
+      <textarea name="message" rows="5" maxlength="2000"></textarea>
+      <label style="margin-top:16px">⭐ {{ t('rate_app') }}</label>
+      <input type="hidden" name="rating" id="ratingVal">
+      <div id="stars" style="display:flex; gap:6px; font-size:2rem; cursor:pointer" dir="ltr">
+        {% for i in range(1, 6) %}
+        <span onclick="setStars({{ i }})" data-star="{{ i }}"
+              style="opacity:.3; transition:.15s">⭐</span>
+        {% endfor %}
+      </div>
+      <div style="margin-top:18px">
+        <button class="primary" type="submit" style="width:auto; padding:12px 34px">
+          ➤ {{ t('send') }}</button>
+      </div>
+    </form>
+  </div>
+
+  {% if mine %}
+  <div class="card" style="max-width:640px; margin:0 auto">
+    <h2>📨 {{ t('my_tickets') }}</h2>
+    <div class="hint"></div>
+    {% for f in mine %}
+    <div class="plan {{ 'medium' if not f.resolved else 'low' }}"
+         style="flex-direction:column; align-items:stretch; gap:6px">
+      <div style="display:flex; justify-content:space-between; gap:8px; align-items:center">
+        <span style="font-size:.72rem; color:var(--muted)" dir="ltr">
+          {{ f.created_at[:16].replace('T',' ') }}</span>
+        <span>
+          {% if f.rating %}<span class="badge medium" dir="ltr">{{ '⭐' * f.rating }}</span>{% endif %}
+          <span class="badge {{ 'today' if f.resolved else 'medium' }}">
+            {{ t('resolved_t') if f.resolved else t('open_t') }}</span>
+        </span>
+      </div>
+      {% if f.message %}
+      <div style="font-size:.88rem; white-space:pre-wrap">{{ f.message }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+<script>
+function setStars(n) {
+  document.getElementById("ratingVal").value = n;
+  document.querySelectorAll("#stars span").forEach((s) => {
+    s.style.opacity = +s.dataset.star <= n ? "1" : ".3";
+    s.style.transform = +s.dataset.star <= n ? "scale(1.15)" : "scale(1)";
+  });
+}
+</script>
+{% endblock %}
