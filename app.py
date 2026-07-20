@@ -37,7 +37,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "2.2"   # shown in the footer — bump this with each release
+APP_VERSION = "2.3"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")

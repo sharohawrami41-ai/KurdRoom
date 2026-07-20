@@ -113,68 +113,88 @@ html, body { overflow-x: hidden; max-width: 100vw; }  /* never scroll sideways *
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: brandShine 7s linear infinite; }
 @keyframes brandShine { to { background-position: 300% 0; } }
-/* ---- the tiny animated robot that lives on the letters ---- */
-#brandBot { position: absolute; top: -14px; left: 0; width: 12px; height: 18px;
-  pointer-events: none; z-index: 1; will-change: transform;
-  transition: transform .12s linear; }
+/* ---- the tiny animated robot (Astro-style: round, bouncy, cute) ---- */
+#brandBot { position: absolute; top: -16px; left: 0; width: 14px; height: 19.5px;
+  pointer-events: none; z-index: 1; will-change: transform; }
 #brandBot span { position: absolute; }
-.bot-ball { top: 0; left: 4px; width: 4px; height: 4px; border-radius: 50%;
-  background: #7ef0ff; box-shadow: 0 0 4px #7ef0ff;
-  animation: botGlow 2.2s ease-in-out infinite; }
-.bot-ant { top: 3px; left: 5.3px; width: 1.5px; height: 3px; background: #9aa7c7; }
-.bot-head { top: 5.4px; left: 1px; width: 10px; height: 6.4px; border-radius: 3px;
-  background: linear-gradient(180deg, #e8edff, #a9b3d6);
-  box-shadow: inset 0 -1.5px 2px rgba(10, 8, 40, .4); }
-.bot-eye { top: 2px; width: 2px; height: 2px; border-radius: 50%; background: #10c5f0;
-  box-shadow: 0 0 2.5px #10c5f0; animation: botBlink 3.4s infinite; }
-.bot-eye.l { left: 2px; }
-.bot-eye.r { right: 2px; }
-.bot-mouth { bottom: 1px; left: 3.5px; width: 3px; height: 1px; border-radius: 1px;
-  background: rgba(20, 20, 60, .55); }
-.bot-body { top: 11.6px; left: 2px; width: 8px; height: 4.4px; border-radius: 2px;
-  background: linear-gradient(180deg, var(--accent), #5b3fd4);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
-.bot-arm { top: 11.8px; width: 1.8px; height: 4.6px; border-radius: 2px;
-  background: #a9b3d6; transform-origin: 50% 10%; }
-.bot-arm.l { left: .2px; }
-.bot-arm.r { right: .2px; }
-.bot-leg { top: 15.6px; width: 2.2px; height: 3px; border-radius: 1px;
-  background: #8d97bb; transform-origin: 50% 0%; }
-.bot-leg.l { left: 3.1px; }
-.bot-leg.r { right: 3.1px; }
-@keyframes botGlow { 50% { box-shadow: 0 0 7px #7ef0ff, 0 0 13px #7ef0ff; } }
+.bot-ant { top: 2.7px; left: 6.3px; width: 1.4px; height: 2.6px;
+  background: #c9d4ee; border-radius: 1px; }
+.bot-ball { top: 0; left: 5.1px; width: 3.8px; height: 3.8px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #dbfcff, #5fe8ff 60%, #19c6f2);
+  box-shadow: 0 0 5px rgba(95,232,255,.9);
+  animation: botGlow 2.4s ease-in-out infinite; }
+/* big round head, like a little astronaut helmet */
+.bot-head { top: 4.6px; left: .6px; width: 12.8px; height: 9px;
+  border-radius: 6.4px / 5.2px;
+  background: linear-gradient(180deg, #ffffff, #d3dbf2 65%, #aab6d8);
+  box-shadow: inset 0 -1.5px 2.5px rgba(30,25,80,.28), 0 1px 2.5px rgba(0,0,12,.4); }
+/* dark visor with two big glowing eyes */
+.bot-visor { top: 2.1px; left: 1.5px; width: 9.8px; height: 5.3px;
+  border-radius: 5px / 3.2px;
+  background: linear-gradient(180deg, #171d3c, #2b3364);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.55); }
+.bot-eye { top: 1.2px; width: 2.6px; height: 3px; border-radius: 50%;
+  background: #7df3ff; box-shadow: 0 0 3.5px #4fe9ff;
+  animation: botBlink 3.8s infinite; }
+.bot-eye.l { left: 1.8px; }
+.bot-eye.r { right: 1.8px; }
+/* small round body */
+.bot-body { top: 13.2px; left: 3.3px; width: 7.4px; height: 4.6px;
+  border-radius: 3.7px / 2.9px;
+  background: linear-gradient(180deg, #ffffff 20%, #d9def2 45%, var(--accent));
+  box-shadow: inset 0 -1px 2px rgba(40,20,120,.4); }
+/* stubby rounded arms + legs */
+.bot-arm { top: 13.4px; width: 2.2px; height: 4.4px; border-radius: 2px;
+  background: linear-gradient(180deg, #eef2ff, #b9c3e2);
+  transform-origin: 50% 12%; }
+.bot-arm.l { left: 1.1px; }
+.bot-arm.r { right: 1.1px; }
+.bot-leg { top: 17px; width: 2.5px; height: 2.7px; border-radius: 1.3px;
+  background: #b9c3e2; transform-origin: 50% 0%; }
+.bot-leg.l { left: 4.2px; }
+.bot-leg.r { right: 4.2px; }
+@keyframes botGlow { 50% { box-shadow: 0 0 8px #7ef0ff, 0 0 14px rgba(95,232,255,.7); } }
 @keyframes botBlink { 0%, 90%, 96%, 100% { transform: scaleY(1); }
-  93% { transform: scaleY(.15); } }
-/* walking gait: legs step, arms swing opposite */
-#brandBot.walking .bot-leg.l { animation: botStep .5s linear infinite; }
-#brandBot.walking .bot-leg.r { animation: botStep .5s linear infinite -.25s; }
-#brandBot.walking .bot-arm.l { animation: botSwing .5s linear infinite -.25s; }
-#brandBot.walking .bot-arm.r { animation: botSwing .5s linear infinite; }
-#brandBot.sprint .bot-leg.l, #brandBot.sprint .bot-leg.r
-  { animation-duration: .18s; }
+  93% { transform: scaleY(.12); } }
+/* springy walk: legs step, arms swing opposite */
+#brandBot.walking .bot-leg.l { animation: botStep .46s ease-in-out infinite; }
+#brandBot.walking .bot-leg.r { animation: botStep .46s ease-in-out infinite -.23s; }
+#brandBot.walking .bot-arm.l { animation: botSwing .46s ease-in-out infinite -.23s; }
+#brandBot.walking .bot-arm.r { animation: botSwing .46s ease-in-out infinite; }
+#brandBot.sprint .bot-leg.l, #brandBot.sprint .bot-leg.r,
 #brandBot.sprint .bot-arm.l, #brandBot.sprint .bot-arm.r
-  { animation-duration: .18s; }
-@keyframes botStep { 0%, 100% { transform: rotate(30deg); }
-  50% { transform: rotate(-30deg); } }
-@keyframes botSwing { 0%, 100% { transform: rotate(24deg); }
-  50% { transform: rotate(-24deg); } }
-/* waving: one arm up, saying hi */
+  { animation-duration: .16s; }
+@keyframes botStep { 0%, 100% { transform: rotate(32deg); }
+  50% { transform: rotate(-32deg); } }
+@keyframes botSwing { 0%, 100% { transform: rotate(26deg); }
+  50% { transform: rotate(-26deg); } }
+/* waving hello */
 #brandBot.wave .bot-arm.r { animation: botWave .45s ease-in-out infinite; }
 @keyframes botWave { 0%, 100% { transform: rotate(150deg); }
-  50% { transform: rotate(200deg); } }
-/* dancing: both arms in the air */
-#brandBot.dance .bot-arm.l { animation: botWave .38s ease-in-out infinite; }
-#brandBot.dance .bot-arm.r { animation: botWave .38s ease-in-out infinite -.19s; }
-#brandBot.dance .bot-leg.l { animation: botStep .38s linear infinite; }
-#brandBot.dance .bot-leg.r { animation: botStep .38s linear infinite -.19s; }
-/* sleeping: eyes shut, everything still */
-#brandBot.sleep .bot-eye { transform: scaleY(.15); animation: none; }
+  50% { transform: rotate(205deg); } }
+/* dancing: arms in the air, feet tapping */
+#brandBot.dance .bot-arm.l { animation: botWave .36s ease-in-out infinite; }
+#brandBot.dance .bot-arm.r { animation: botWave .36s ease-in-out infinite -.18s; }
+#brandBot.dance .bot-leg.l { animation: botStep .36s ease-in-out infinite; }
+#brandBot.dance .bot-leg.r { animation: botStep .36s ease-in-out infinite -.18s; }
+/* deep sleep on the first letter: on his back, feet kicking softly, chest breathing */
+#brandBot.sleepz .bot-eye { transform: scaleY(.12); animation: none; }
+#brandBot.sleepz .bot-arm { animation: none; transform: rotate(160deg); }
+#brandBot.sleepz .bot-leg.l { animation: botKick 2.8s ease-in-out infinite; }
+#brandBot.sleepz .bot-leg.r { animation: botKick 2.8s ease-in-out infinite -1.4s; }
+#brandBot.sleepz .bot-body { animation: botBreath 2.8s ease-in-out infinite; }
+#brandBot.sleepz .bot-ball { animation: botGlow 5s ease-in-out infinite; opacity: .55; }
+@keyframes botKick { 0%, 100% { transform: rotate(14deg); }
+  50% { transform: rotate(-22deg); } }
+@keyframes botBreath { 50% { transform: scale(1.14); } }
+/* quick nap (short antic) */
+#brandBot.sleep .bot-eye { transform: scaleY(.12); animation: none; }
 #brandBot.sleep .bot-arm, #brandBot.sleep .bot-leg { animation: none; }
-/* charging: the antenna ball burns bright */
+/* charging: antenna + eyes burn bright */
 #brandBot.charge .bot-ball { animation: none; background: #ffe66d;
-  box-shadow: 0 0 8px #ffd166, 0 0 15px #ffd166; }
-#brandBot.charge .bot-eye { background: #ffe66d; box-shadow: 0 0 3px #ffd166; }
-#botFx { position: absolute; top: -27px; left: 0; font-size: .62rem; line-height: 1;
+  box-shadow: 0 0 8px #ffd166, 0 0 16px #ffd166; }
+#brandBot.charge .bot-eye { background: #ffe66d; box-shadow: 0 0 3.5px #ffd166; }
+#botFx { position: absolute; top: -28px; left: 0; font-size: .62rem; line-height: 1;
   pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 1; }
 .main-menu { display:flex; align-items:center; gap:6px; margin-inline-start: 12px;
   height: 44px; }
@@ -829,8 +849,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a class="brand" href="{{ url_for('index') }}">
     <span class="bwrap"><span class="btxt">{{ settings.site_name }}</span><span
       id="brandBot" class="walking" aria-hidden="true"><span class="bot-ball"></span><span
-      class="bot-ant"></span><span class="bot-head"><span class="bot-eye l"></span><span
-      class="bot-eye r"></span><span class="bot-mouth"></span></span><span
+      class="bot-ant"></span><span class="bot-head"><span class="bot-visor"><span
+      class="bot-eye l"></span><span class="bot-eye r"></span></span></span><span
       class="bot-arm l"></span><span class="bot-arm r"></span><span
       class="bot-body"></span><span class="bot-leg l"></span><span
       class="bot-leg r"></span></span><span id="botFx" aria-hidden="true"></span></span>
@@ -1071,93 +1091,140 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     }
     const fx = document.getElementById("botFx");
     const txt = document.querySelector(".btxt");
-    let x = 0, dir = 1, mode = "walk";
-    const W = () => Math.max(26, txt.offsetWidth - 12);
-    const tf = () => "translateX(" + x + "px) scaleX(" + (dir < 0 ? -1 : 1) + ")";
-    function pose(cls) {           // switch the body animation
-      bot.className = cls || "";
+    const SPRING = "cubic-bezier(.34,1.56,.64,1)";   // playful overshoot
+    const W = () => Math.max(26, txt.offsetWidth - 14);
+    let x = 6, dir = 1, mode = "walk", t = 0, lastTs = 0, speed = 0.021;
+    let lastAct = Date.now(), sleeping = false, zzzTimer = null;
+    const base = () => "translateX(" + x + "px) scaleX(" + (dir < 0 ? -1 : 1) + ")";
+    function pose(c) { bot.className = c || ""; }
+    function setT(str, ms) {       // ms > 0 -> springy eased move
+      bot.style.transition = ms ? "transform " + ms + "ms " + SPRING : "none";
+      bot.style.transform = str;
     }
     function show(sym, ms) {
       fx.textContent = sym;
-      fx.style.left = (x + 5) + "px";
+      fx.style.left = (x + 6) + "px";
       fx.style.opacity = 1;
       setTimeout(() => { fx.style.opacity = 0; }, ms || 900);
     }
     function done(ms) {
-      setTimeout(() => { pose("walking"); mode = "walk"; }, ms);
+      setTimeout(() => { pose("walking"); speed = 0.021; mode = "walk"; }, ms);
     }
     const antics = [
-      () => {  // little jump, arms up
+      () => {  // spring jump: crouch → leap → soft landing (squash & stretch)
         mode = "busy"; pose("dance");
-        bot.style.transform = tf() + " translateY(-9px)";
-        done(300);
+        setT(base() + " translateY(1.5px) scaleY(.78)", 100);
+        setTimeout(() => setT(base() + " translateY(-11px) scaleY(1.14)", 260), 110);
+        setTimeout(() => setT(base() + " translateY(0) scaleY(.84)", 220), 400);
+        setTimeout(() => setT(base() + " scaleY(1)", 160), 640);
+        done(820);
       },
-      () => {  // happy backflip
+      () => {  // smooth happy backflip
         mode = "busy"; pose("dance");
-        bot.style.transition = "transform .6s";
-        bot.style.transform = tf() + " rotate(-360deg) translateY(-7px)";
-        setTimeout(() => { bot.style.transition = "transform .12s linear"; }, 640);
-        done(660);
+        setT(base() + " translateY(1.5px) scaleY(.8)", 100);
+        setTimeout(() => setT(base() + " rotate(-360deg) translateY(-9px)", 600), 120);
+        setTimeout(() => setT(base() + " rotate(-360deg) translateY(0) scaleY(.86)", 200), 740);
+        setTimeout(() => setT(base() + " rotate(-360deg) scaleY(1)", 150), 960);
+        done(1150);
       },
-      () => {  // lies down and falls asleep on a letter
-        mode = "busy"; pose("sleep"); show("💤", 2500);
-        bot.style.transform = tf() + " rotate(" + (dir < 0 ? 82 : -82) + "deg) translateY(5px)";
-        done(2700);
+      () => {  // quick nap standing against a letter
+        mode = "busy"; pose("sleep"); show("💤", 2300);
+        setT(base() + " rotate(" + (dir < 0 ? 14 : -14) + "deg) translateY(1px)", 500);
+        done(2600);
       },
-      () => {  // trips over a letter, face first
+      () => {  // trips over a letter, bounces back up
         mode = "busy"; pose("sleep"); show("❗", 800);
-        bot.style.transform = tf() + " rotate(100deg) translateY(5px)";
-        done(950);
+        setT(base() + " rotate(96deg) translateY(5px)", 320);
+        setTimeout(() => setT(base() + " rotate(0deg) translateY(-4px)", 300), 800);
+        done(1150);
       },
-      () => {  // dance party: arms in the air, wiggling
-        mode = "busy"; pose("dance"); show("🎵", 1400);
+      () => {  // dance party: smooth wiggles, arms in the air
+        mode = "busy"; pose("dance"); show("🎵", 1500);
         let n = 0;
         const iv = setInterval(() => {
-          bot.style.transform = tf() + " rotate(" + (n % 2 ? -18 : 18) + "deg)" +
-                                (n % 2 ? " translateY(-3px)" : "");
-          if (++n > 9) clearInterval(iv);
-        }, 140);
-        done(1450);
+          setT(base() + " rotate(" + (n % 2 ? -16 : 16) + "deg) translateY(" +
+               (n % 2 ? -3 : 0) + "px)", 200);
+          if (++n > 7) clearInterval(iv);
+        }, 210);
+        setTimeout(() => setT(base(), 220), 1700);
+        done(1950);
       },
-      () => {  // stops and waves hello at you
-        mode = "busy"; pose("wave"); show("👋", 1100);
-        bot.style.transform = tf();
-        done(1200);
+      () => {  // stops and waves hello
+        mode = "busy"; pose("wave"); show("👋", 1200);
+        setT(base(), 200);
+        done(1300);
       },
-      () => {  // recharging break: antenna glows yellow
-        mode = "busy"; pose("charge"); show("⚡", 1100);
-        bot.style.transform = tf();
-        done(1200);
+      () => {  // recharge break: antenna burns yellow
+        mode = "busy"; pose("charge"); show("⚡", 1200);
+        setT(base() + " translateY(.5px)", 200);
+        done(1300);
       },
       () => {  // sprints like it's late for class
-        mode = "busy"; pose("walking sprint");
-        let n = 0;
-        const iv = setInterval(() => {
-          x += dir * 5;
-          const w = W();
-          if (x >= w) { x = w; dir = -1; }
-          if (x <= 0) { x = 0; dir = 1; }
-          bot.style.transform = tf() + (n % 2 ? " translateY(-2px)" : "");
-          if (++n > 11) clearInterval(iv);
-        }, 60);
-        done(780);
+        mode = "walk"; pose("walking sprint"); speed = 0.065;
+        setTimeout(() => { pose("walking"); speed = 0.021; }, 1000);
       },
-      () => {  // sits on the edge of a letter, swinging feet
-        mode = "busy"; pose("wave");
-        bot.style.transform = tf() + " translateY(2px) rotate(" + (dir < 0 ? -8 : 8) + "deg)";
-        show("✨", 1600);
-        done(1700);
+      () => {  // sits down on the edge of a letter
+        mode = "busy"; pose("wave"); show("✨", 1700);
+        setT(base() + " translateY(2.5px) rotate(" + (dir < 0 ? -8 : 8) + "deg)", 400);
+        done(1850);
       },
     ];
-    setInterval(() => {
-      if (mode !== "walk" || document.hidden) return;
-      x += dir * 2.2;
+    // ---- deep sleep after 5 minutes with no touch/click/scroll/typing ----
+    ["pointerdown", "pointermove", "keydown", "scroll", "touchstart"].forEach((ev) =>
+      addEventListener(ev, () => {
+        lastAct = Date.now();
+        if (sleeping) wakeUp();
+      }, { passive: true }));
+    function goSleep() {
+      mode = "gosleep"; pose("walking");
+      const iv = setInterval(() => {         // walks home to the first letter
+        if (document.hidden) return;
+        dir = x > 2 ? -1 : 1;
+        x += dir * 1.7;
+        setT(base() + " translateY(" + (-Math.abs(Math.sin(x * .5)) * 2) + "px)");
+        if (Math.abs(x - 2) < 2) {
+          clearInterval(iv);
+          x = 2; dir = 1;
+          sleeping = true; mode = "sleepz"; pose("sleepz");
+          // flops onto his back on the first letter, feet in the air
+          setT("translateX(" + x + "px) rotate(-101deg) translateY(4.5px)", 650);
+          show("💤", 2000);
+          zzzTimer = setInterval(() => {
+            if (!document.hidden) show("💤", 1900);
+          }, 2700);
+        }
+      }, 40);
+    }
+    function wakeUp() {
+      sleeping = false;
+      clearInterval(zzzTimer);
+      pose("dance"); show("❗", 700);
+      setT("translateX(" + x + "px) scaleX(1) translateY(-10px)", 280);  // startled hop
+      setTimeout(() => setT("translateX(" + x + "px) scaleX(1)", 220), 340);
+      done(620);
+    }
+    // ---- smooth 60fps stroll ----
+    function frame(ts) {
+      requestAnimationFrame(frame);
+      if (document.hidden) { lastTs = ts; return; }
+      const dt = Math.min(50, ts - lastTs || 16.7);
+      lastTs = ts;
+      if (!sleeping && mode === "walk" && Date.now() - lastAct > 300000) {
+        goSleep(); return;
+      }
+      if (mode !== "walk") return;
+      t += dt;
+      x += dir * dt * speed;
       const w = W();
       if (x >= w) { x = w; dir = -1; }
-      if (x <= 0) { x = 0; dir = 1; }
-      bot.style.transform = tf();
-      if (Math.random() < 0.035) antics[Math.floor(Math.random() * antics.length)]();
-    }, 120);
+      else if (x <= 0) { x = 0; dir = 1; }
+      const hop = -Math.abs(Math.sin(t * (speed > 0.03 ? .02 : .0115))) * 2.1;
+      const tilt = dir * 2.5;
+      setT(base() + " translateY(" + hop + "px) rotate(" + tilt + "deg)");
+      if (Math.random() < dt * 0.00022)
+        antics[Math.floor(Math.random() * antics.length)]();
+    }
+    requestAnimationFrame(frame);
   })();
 
   // ---------- modern install invitation ----------
