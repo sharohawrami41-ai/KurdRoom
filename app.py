@@ -37,7 +37,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "1.8"   # shown in the footer — bump this with each release
+APP_VERSION = "2.1"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -375,7 +375,8 @@ def init_db():
                  "ALTER TABLE dms ADD COLUMN reply_to INTEGER",
                  "ALTER TABLE dms ADD COLUMN deleted INTEGER DEFAULT 0",
                  "ALTER TABLE users ADD COLUMN last_seen TEXT DEFAULT ''",
-                 "ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'"):
+                 "ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'",
+                 "ALTER TABLE group_messages ADD COLUMN deleted INTEGER DEFAULT 0"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -404,15 +405,32 @@ def init_db():
             from cryptography.hazmat.primitives import serialization
             _v = Vapid02()
             _v.generate_keys()
-            _raw = _v.public_key.public_bytes(
+            _pub = _v.public_key.public_bytes(
                 serialization.Encoding.X962,
                 serialization.PublicFormat.UncompressedPoint)
+            _priv = _v.private_key.private_numbers().private_value.to_bytes(32, "big")
             db.execute("INSERT INTO settings(key, value) VALUES('vapid_private', ?)",
-                       (_v.private_pem().decode(),))
+                       (b64urlencode(_priv),))
             db.execute("INSERT INTO settings(key, value) VALUES('vapid_public', ?)",
-                       (b64urlencode(_raw),))
+                       (b64urlencode(_pub),))
         except Exception:
             pass  # push libs missing — the site still works, just without push
+    else:
+        # v1.7 stored the key as PEM, which the push library can't sign with —
+        # convert it in place so pushes reach closed apps too
+        _row = db.execute("SELECT value FROM settings "
+                          "WHERE key = 'vapid_private'").fetchone()
+        if _row and _row[0].startswith("-----BEGIN"):
+            try:
+                from py_vapid import b64urlencode
+                from cryptography.hazmat.primitives import serialization
+                _pk = serialization.load_pem_private_key(_row[0].encode(),
+                                                         password=None)
+                _priv = _pk.private_numbers().private_value.to_bytes(32, "big")
+                db.execute("UPDATE settings SET value = ? WHERE key = 'vapid_private'",
+                           (b64urlencode(_priv),))
+            except Exception:
+                pass
     # default motivational quotes
     if db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0] == 0:
         seed_quotes = [
@@ -1405,6 +1423,14 @@ V15 = {
     },
 }
 for _l, _d in V15.items():
+    T[_l].update(_d)
+
+V16 = {
+    "en": {"show_more": "Show more", "show_less": "Show less"},
+    "ar": {"show_more": "عرض المزيد", "show_less": "عرض أقل"},
+    "ku": {"show_more": "زیاتر پیشان بدە", "show_less": "کەمتر پیشان بدە"},
+}
+for _l, _d in V16.items():
     T[_l].update(_d)
 
 
@@ -2689,6 +2715,7 @@ def group_page(group_id):
                            files=files, decks=decks, my_subjects=my_subjects,
                            reactions=reactions, quotes=quotes, polls=polls,
                            challenges=chs, glb=glb, levels=levels,
+                           avatars={m["id"]: avatar_url(m["id"]) for m in members},
                            REACTIONS=REACTION_EMOJIS)
 
 
@@ -2715,7 +2742,58 @@ def group_message(group_id):
                             "AND user_id != ?", (group_id, session["user_id"])):
             notify(m["user_id"], "group_msg", actor=g_row["name"], link=link)
         db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return {"ok": 1}
     return redirect(url_for("group_page", group_id=group_id) + "#chat")
+
+
+@app.route("/group/<int:group_id>/chat_poll")
+@login_required
+def group_chat_poll(group_id):
+    """Live group chat: messages newer than ?after=<id>, reactions, deletions."""
+    member_group_or_403(group_id)
+    db = get_db()
+    uid = session["user_id"]
+    after = request.args.get("after", 0, type=int)
+    rows = db.execute(
+        "SELECT m.*, u.username, r.content AS r_content, ru.username AS r_username "
+        "FROM group_messages m JOIN users u ON u.id = m.user_id "
+        "LEFT JOIN group_messages r ON r.id = m.reply_to "
+        "LEFT JOIN users ru ON ru.id = r.user_id "
+        "WHERE m.group_id = ? AND m.id > ? ORDER BY m.id ASC LIMIT 100",
+        (group_id, after)).fetchall()
+    # the visible window = last 100 messages: reactions + deletions can change there
+    win = [r[0] for r in db.execute(
+        "SELECT id FROM group_messages WHERE group_id = ? ORDER BY id DESC LIMIT 100",
+        (group_id,))]
+    reacts = {}
+    if win:
+        ph = ",".join("?" * len(win))
+        for r in db.execute(
+                f"SELECT message_id, emoji, COUNT(*) AS n, "
+                f"MAX(user_id = ?) AS me FROM msg_reactions "
+                f"WHERE message_id IN ({ph}) GROUP BY message_id, emoji",
+                [uid] + win):
+            reacts.setdefault(str(r["message_id"]), []).append(
+                {"e": r["emoji"], "n": r["n"], "me": bool(r["me"])})
+    dels = [r[0] for r in db.execute(
+        "SELECT id FROM group_messages WHERE group_id = ? AND deleted = 1 "
+        "ORDER BY id DESC LIMIT 200", (group_id,))]
+    lv_cache = {}
+
+    def lv(u):
+        if u not in lv_cache:
+            lv_cache[u] = user_xp(u)["level"]
+        return lv_cache[u]
+    return {"msgs": [{"id": m["id"], "uid": m["user_id"], "me": m["user_id"] == uid,
+                      "name": m["username"], "level": lv(m["user_id"]),
+                      "content": m["content"] or "",
+                      "at": (m["created_at"] or "")[5:16].replace("T", " "),
+                      "gone": bool(m["deleted"]),
+                      "reply": ({"id": m["reply_to"], "name": m["r_username"] or "",
+                                 "text": (m["r_content"] or "")[:90]}
+                                if m["reply_to"] else None)} for m in rows],
+            "reacts": reacts, "del": dels}
 
 
 @app.route("/group/<int:group_id>/add_member", methods=["POST"])
@@ -2814,6 +2892,8 @@ def msg_react(msg_id):
             db.execute("INSERT INTO msg_reactions(message_id, user_id, emoji) "
                        "VALUES(?,?,?)", (msg_id, session["user_id"], emoji))
         db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return {"ok": 1}
     return redirect(url_for("group_page", group_id=m["group_id"]) + "#chat")
 
 
@@ -2828,8 +2908,13 @@ def msg_delete(msg_id):
                        (m["group_id"],)).fetchone()
     if m["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
         abort(403)
-    db.execute("DELETE FROM group_messages WHERE id = ?", (msg_id,))
+    # soft delete so every member's open chat replaces it live
+    db.execute("UPDATE group_messages SET deleted = 1, content = '' WHERE id = ?",
+               (msg_id,))
+    db.execute("DELETE FROM msg_reactions WHERE message_id = ?", (msg_id,))
     db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return {"ok": 1}
     return redirect(url_for("group_page", group_id=m["group_id"]) + "#chat")
 
 

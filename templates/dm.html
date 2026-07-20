@@ -61,7 +61,8 @@
   .pick { position:absolute; display:flex; gap:2px; padding:5px 8px; align-items:center;
     background:var(--card); border:1px solid var(--card-border); border-radius:999px;
     box-shadow:0 10px 28px rgba(0,0,0,.4); z-index:6; animation:popIn .16s ease both;
-    white-space:nowrap; backdrop-filter: blur(16px); }
+    backdrop-filter: blur(16px); flex-wrap: wrap; justify-content: center;
+    border-radius: 22px; max-width: 84vw; }
   .pick button { background:none; border:none; font-size:1.15rem; cursor:pointer;
     padding:3px 5px; border-radius:10px; transition:.15s; color:var(--text); }
   .pick button:hover { transform: scale(1.25); }
@@ -77,6 +78,21 @@
   .rbar b { color:var(--accent); }
   .rbar button { background:none; border:none; color:var(--muted); cursor:pointer;
     font-size:1rem; }
+
+  /* attachment preview above the composer */
+  .fprev { display:flex; align-items:center; gap:12px; padding:9px 14px;
+    background: var(--card); border-inline:1px solid var(--card-border);
+    border-top:1px solid var(--card-border); animation: popIn .2s ease both; }
+  .fprev img { width:58px; height:58px; object-fit:cover; border-radius:10px;
+    border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .fprev .fico { font-size:1.7rem; }
+  .fprev .fmeta { flex:1; min-width:0; }
+  .fprev .fname { font-size:.8rem; font-weight:700; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .fprev .fsize { font-size:.68rem; color:var(--muted); }
+  .fprev .fx { width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;
+    background: color-mix(in srgb, var(--high) 18%, transparent); color:var(--high);
+    font-size:.95rem; flex-shrink:0; }
 
   /* deleted message + presence */
   .bub.gone { opacity:.6; font-style:italic; color:var(--muted); cursor:default; }
@@ -150,6 +166,16 @@
     <button type="button" onclick="clearReply()">✕</button>
   </div>
 
+  <div class="fprev" id="filePrev" style="display:none">
+    <img id="fpImg" alt="" style="display:none">
+    <span class="fico" id="fpIco" style="display:none">📄</span>
+    <div class="fmeta">
+      <div class="fname" id="fpName"></div>
+      <div class="fsize" id="fpSize" dir="ltr"></div>
+    </div>
+    <button type="button" class="fx" onclick="clearFile()">✕</button>
+  </div>
+
   <form class="dm-composer" method="post" enctype="multipart/form-data" id="dmForm">
     <input type="hidden" name="kind" id="dmKind" value="">
     <input type="hidden" name="reply_to" id="dmReply" value="">
@@ -164,8 +190,6 @@
               placeholder="{{ t('write_message') }}" autocomplete="off"></textarea>
     <button type="submit" class="cbtn send" title="{{ t('send') }}">➤</button>
   </form>
-  <div id="fileHint" style="display:none; font-size:.74rem; color:var(--accent);
-       padding:6px 14px">📎 <span id="fileName"></span></div>
 </div>
 
 <script>
@@ -218,12 +242,34 @@
     if (e.key === "Enter" && !e.shiftKey && !touchKb) { e.preventDefault(); sendMsg(); }
   });
 
+  /* ---------- attachment preview: see the photo before you send it ---------- */
+  let fpUrl = null;
   function fileChosen(inp) {
-    const hint = document.getElementById("fileHint");
-    if (inp.files.length) {
-      document.getElementById("fileName").textContent = inp.files[0].name;
-      hint.style.display = "block";
-    } else hint.style.display = "none";
+    const prev = document.getElementById("filePrev");
+    const img = document.getElementById("fpImg");
+    const ico = document.getElementById("fpIco");
+    if (fpUrl) { URL.revokeObjectURL(fpUrl); fpUrl = null; }
+    if (!inp.files.length) { prev.style.display = "none"; return; }
+    const f = inp.files[0];
+    document.getElementById("fpName").textContent = f.name;
+    document.getElementById("fpSize").textContent =
+      f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " MB"
+                       : Math.max(1, Math.round(f.size / 1024)) + " KB";
+    if (f.type && f.type.indexOf("image/") === 0) {
+      fpUrl = URL.createObjectURL(f);
+      img.src = fpUrl;
+      img.style.display = ""; ico.style.display = "none";
+    } else {
+      img.style.display = "none"; ico.style.display = "";
+      ico.textContent = /\.pdf$/i.test(f.name) ? "📕" :
+                        /\.(zip)$/i.test(f.name) ? "🗜️" : "📄";
+    }
+    prev.style.display = "flex";
+    ta.focus();
+  }
+  function clearFile() {
+    fileInp.value = "";
+    fileChosen(fileInp);
   }
 
   /* ---------- instant send: bubble appears the moment you tap ➤ ---------- */
@@ -318,14 +364,21 @@
     if (pick._mid === mid) { hidePick(); return; }
     pick._mid = mid; pick._bub = b;
     b.appendChild(pick);
-    const nearTop = b.getBoundingClientRect().top - box.getBoundingClientRect().top < 54;
-    pick.style.top = nearTop ? "auto" : "-46px";
-    pick.style.bottom = nearTop ? "-46px" : "auto";
     if (b.classList.contains("me")) {
       pick.style.insetInlineEnd = "0"; pick.style.insetInlineStart = "auto";
     } else {
       pick.style.insetInlineStart = "0"; pick.style.insetInlineEnd = "auto";
     }
+    pick.style.marginLeft = "";
+    const bb = box.getBoundingClientRect();
+    let pr = pick.getBoundingClientRect();     // keep the menu inside the chat box
+    if (pr.left < bb.left + 2) pick.style.marginLeft = (bb.left + 2 - pr.left) + "px";
+    else if (pr.right > bb.right - 2)
+      pick.style.marginLeft = (bb.right - 2 - pr.right) + "px";
+    const ph = pick.offsetHeight + 6;
+    const nearTop = b.getBoundingClientRect().top - bb.top < ph + 8;
+    pick.style.top = nearTop ? "auto" : -ph + "px";
+    pick.style.bottom = nearTop ? -ph + "px" : "auto";
   }
   /* hold a message (long-press) to open the options menu on touch screens */
   const coarsePtr = matchMedia("(pointer: coarse)").matches;

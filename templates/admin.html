@@ -14,7 +14,7 @@
         <th>{{ t('last_login') }}</th><th>{{ t('actions') }}</th>
       </tr>
       {% for u in users %}
-      <tr>
+      <tr {% if loop.index > 3 %}class="xtrau" style="display:none"{% endif %}>
         <td>{{ u.id }}</td>
         <td><strong>{{ u.username }}</strong>
             {% if u.id == user.id %} <span class="badge today">{{ t('you') }}</span>{% endif %}</td>
@@ -51,6 +51,23 @@
       </tr>
       {% endfor %}
     </table>
+    {% if users|length > 3 %}
+    <div style="text-align:center; margin-top:12px">
+      <button class="small" id="moreUsersBtn" type="button" onclick="toggleUsers()"
+              style="padding:9px 26px; border-color:var(--accent); color:var(--accent)">
+        ▼ {{ t('show_more') }} ({{ users|length - 3 }})</button>
+    </div>
+    <script>
+      function toggleUsers() {
+        const rows = document.querySelectorAll("tr.xtrau");
+        const btn = document.getElementById("moreUsersBtn");
+        const hidden = rows[0].style.display === "none";
+        rows.forEach((r) => { r.style.display = hidden ? "" : "none"; });
+        btn.innerHTML = hidden ? "▲ {{ t('show_less') }}"
+                               : "▼ {{ t('show_more') }} ({{ users|length - 3 }})";
+      }
+    </script>
+    {% endif %}
   </div>
 
   <!-- ===================== support inbox ===================== -->

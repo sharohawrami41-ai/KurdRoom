@@ -23,11 +23,49 @@
     align-items:center; justify-content:center; font-size:1.35rem; font-weight:800;
     background:#fff; color:#4c1d95; animation: softPulse 2.4s ease-in-out infinite; }
 
-  /* -------- chat -------- */
-  .msg { animation: popIn .34s ease both; transition: transform .18s; }
-  .msg:hover { transform: scale(1.015); }
+  /* -------- chat (same experience as private messages) -------- */
+  .msg { animation: popIn .34s ease both; display:flex; gap:8px; align-items:flex-end;
+    max-width:86%; align-self:flex-start; }
+  .msg.mine { flex-direction:row-reverse; align-self:flex-end; }
   .chatbox { scroll-behavior: smooth; }
-  .typing-input { transition: box-shadow .25s, border-color .25s; }
+  .gbub { padding:9px 14px; font-size:.9rem; position:relative;
+    border-radius:16px 16px 16px 4px; background:var(--card);
+    border:1px solid var(--card-border); cursor:pointer; min-width:0;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  .msg.mine .gbub { border-radius:16px 16px 4px 16px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent),
+                color-mix(in srgb, var(--accent) 25%, transparent)); }
+  .gbub.gone { opacity:.6; cursor:default; }
+  .gname { font-size:.68rem; font-weight:700; color:var(--accent); margin-bottom:2px; }
+  .gtxt { white-space:pre-wrap; word-break:break-word; }
+  .gmeta { font-size:.62rem; color:var(--muted); margin-top:4px; }
+  .qt { border-inline-start:3px solid var(--accent); background:rgba(0,0,0,.18);
+    padding:5px 10px; border-radius:8px; font-size:.74rem; margin-bottom:6px;
+    color:var(--muted); overflow:hidden; }
+  body.light .qt { background:rgba(0,0,0,.06); }
+  .gbub.flash { box-shadow: 0 0 0 2.5px var(--accent); transition: box-shadow .4s; }
+  .rx { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
+  .rx button { font-size:.72rem; padding:2px 8px; border-radius:999px;
+    border:1px solid var(--card-border); background:rgba(0,0,0,.15);
+    color:var(--text); cursor:pointer; line-height:1.4; }
+  body.light .rx button { background:rgba(0,0,0,.05); }
+  .rx button.mine { border-color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  .pick { position:absolute; display:flex; gap:2px; padding:5px 8px; align-items:center;
+    background:var(--card); border:1px solid var(--card-border); border-radius:999px;
+    box-shadow:0 10px 28px rgba(0,0,0,.4); z-index:6; animation:popIn .16s ease both;
+    backdrop-filter: blur(16px); flex-wrap: wrap; justify-content: center;
+    border-radius: 22px; max-width: 84vw; }
+  .pick button { background:none; border:none; font-size:1.15rem; cursor:pointer;
+    padding:3px 5px; border-radius:10px; transition:.15s; color:var(--text); }
+  .pick button:hover { transform: scale(1.25); }
+  .pick .rpl { font-size:.95rem; border-inline-start:1px solid var(--card-border);
+    padding-inline-start:9px; margin-inline-start:4px; }
+  .pick .del { color: var(--high, #ef4444); }
+  .gcomposer { display:flex; gap:8px; margin-top:10px; align-items:flex-end; }
+  .gcomposer textarea { flex:1; resize:none; min-height:44px; max-height:130px;
+    padding:11px 14px; border-radius:14px; line-height:1.4; overflow-y:auto;
+    font-size:.92rem; width:auto; margin:0; }
 
   /* -------- pinned plans glow -------- */
   .plan.gp-pinned { animation: popIn .35s ease both, glowPulse 2.6s ease-in-out infinite; }
@@ -97,68 +135,30 @@
         <div class="chatbox" id="chatbox"
              style="max-height:430px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 2px">
           {% for m in messages %}
-          <div class="msg" style="animation-delay: {{ [loop.index0 * 0.05, 0.6]|min }}s;
-               display:flex; gap:8px; align-items:flex-end;
-               flex-direction: {{ 'row-reverse' if m.user_id == cu.id else 'row' }};
-               align-self: {{ 'flex-end' if m.user_id == cu.id else 'flex-start' }}; max-width:86%">
+          <div class="msg {{ 'mine' if m.user_id == cu.id }}" data-mid="{{ m.id }}"
+               style="animation-delay: {{ [loop.index0 * 0.05, 0.6]|min }}s">
             <a href="{{ url_for('user_profile', username=m.username) }}">
               {{ avi(m.user_id, m.username, 30, '.8rem') }}</a>
-            <div style="padding:9px 14px; font-size:.9rem; position:relative;
-                 border-radius: {{ '16px 16px 4px 16px' if m.user_id == cu.id else '16px 16px 16px 4px' }};
-                 background: {{ 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--accent) 25%, transparent))' if m.user_id == cu.id else 'var(--card)' }};
-                 border:1px solid var(--card-border)">
-              <div style="font-size:.68rem; font-weight:700; color:var(--accent); margin-bottom:2px">
-                {{ m.username }}
+            <div class="gbub {{ 'gone' if m.deleted }}" data-uid="{{ m.user_id }}">
+              <div class="gname">{{ m.username }}
                 <span class="badge medium" style="font-size:.56rem; padding:1px 7px">
                   Lv {{ levels.get(m.user_id, 1) }}</span></div>
+              {% if m.deleted %}
+                <div class="gtxt" style="font-style:italic; color:var(--muted)">🚫 {{ t('msg_deleted') }}</div>
+              {% else %}
               {% if quotes.get(m.id) %}
-              <div style="border-inline-start:3px solid var(--accent); padding:4px 10px;
-                   margin-bottom:6px; border-radius:8px; font-size:.74rem;
-                   background:rgba(0,0,0,.18); color:var(--muted)">
+              <div class="qt" data-qid="{{ m.reply_to }}">
                 <strong style="color:var(--accent)">{{ quotes[m.id].username }}</strong><br>
                 {{ quotes[m.id].content }}…</div>
               {% endif %}
-              <div style="white-space:pre-wrap; word-break:break-word">{{ m.content }}</div>
-              <div style="display:flex; gap:8px; align-items:center; margin-top:4px; flex-wrap:wrap">
-                <span style="font-size:.62rem; color:var(--muted)" dir="ltr">
-                  {{ m.created_at[5:16].replace('T',' ') }}</span>
-                <button type="button" onclick="setReply({{ m.id }}, {{ m.username|tojson }})"
-                        style="background:none; border:none; cursor:pointer; font-size:.62rem;
-                        color:var(--muted); padding:0">↩ {{ t('reply') }}</button>
-                <details class="dd" style="display:inline-block">
-                  <summary style="cursor:pointer; font-size:.7rem; opacity:.6; list-style:none">🙂+</summary>
-                  <div class="panel" style="min-width:auto; display:flex; gap:2px; padding:5px">
-                    {% for e in REACTIONS %}
-                    <form method="post" action="{{ url_for('msg_react', msg_id=m.id) }}" style="display:inline">
-                      <input type="hidden" name="emoji" value="{{ e }}">
-                      <button type="submit" style="background:none; border:none; cursor:pointer;
-                              font-size:1.05rem; padding:3px">{{ e }}</button>
-                    </form>
-                    {% endfor %}
-                  </div>
-                </details>
-                {% if m.user_id == cu.id or is_owner %}
-                <form method="post" action="{{ url_for('msg_delete', msg_id=m.id) }}"
-                      style="display:inline" onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
-                  <button type="submit" style="background:none; border:none; cursor:pointer;
-                          font-size:.62rem; color:var(--high); padding:0">✕</button>
-                </form>
-                {% endif %}
-              </div>
-              {% if reactions.get(m.id) %}
-              <div style="display:flex; gap:4px; margin-top:5px; flex-wrap:wrap">
-                {% for r in reactions[m.id] %}
-                <form method="post" action="{{ url_for('msg_react', msg_id=m.id) }}" style="display:inline">
-                  <input type="hidden" name="emoji" value="{{ r.emoji }}">
-                  <button type="submit" style="cursor:pointer; font-size:.72rem; padding:2px 8px;
-                          border-radius:999px; border:1px solid
-                          {{ 'var(--accent)' if r.mine else 'var(--card-border)' }};
-                          background: {{ 'color-mix(in srgb, var(--accent) 22%, transparent)' if r.mine else 'rgba(0,0,0,.15)' }};
-                          color:var(--text)">{{ r.emoji }} {{ r.n }}</button>
-                </form>
-                {% endfor %}
+              <div class="gtxt">{{ m.content }}</div>
+              <div class="rx" data-rx="{{ m.id }}">
+                {%- for r in reactions.get(m.id, []) -%}
+                <button type="button" class="{{ 'mine' if r.mine }}" data-e="{{ r.emoji }}">{{ r.emoji }} {{ r.n }}</button>
+                {%- endfor -%}
               </div>
               {% endif %}
+              <div class="gmeta" dir="ltr">{{ m.created_at[5:16].replace('T',' ') }}</div>
             </div>
           </div>
           {% endfor %}
@@ -168,16 +168,17 @@
              border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);
              font-size:.78rem; align-items:center; gap:8px">
           ↩ {{ t('replying_to') }} <strong id="replyName"></strong>
+          <span id="replyText" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden;
+                text-overflow:ellipsis; color:var(--muted)"></span>
           <button type="button" onclick="clearReply()" style="margin-inline-start:auto;
                   background:none; border:none; color:var(--high); cursor:pointer">✕</button>
         </div>
-        <form method="post" action="{{ url_for('group_message', group_id=g.id) }}"
-              style="display:flex; gap:8px; margin-top:10px">
+        <form class="gcomposer" id="gForm" method="post"
+              action="{{ url_for('group_message', group_id=g.id) }}">
           <input type="hidden" name="reply_to" id="replyTo">
-          <input class="typing-input" name="content" id="msgInput" required maxlength="500"
-                 placeholder="{{ t('write_message') }}" style="flex:1" autocomplete="off">
-          <button class="primary" type="submit" style="width:auto; padding:11px 22px">
-            ➤ {{ t('send') }}</button>
+          <textarea name="content" id="msgInput" maxlength="500" rows="1"
+                    placeholder="{{ t('write_message') }}" autocomplete="off"></textarea>
+          <button class="primary" type="submit" style="width:auto; padding:12px 22px">➤</button>
         </form>
       </div>
 
@@ -502,21 +503,304 @@
   </div>
 
 <script>
-  // keep the chat scrolled to the newest message
+  // ==================== live group chat (same as private messages) ====================
   const box = document.getElementById("chatbox");
-  if (box) box.scrollTop = box.scrollHeight;
+  const gForm = document.getElementById("gForm");
+  const ta = document.getElementById("msgInput");
+  const replyInp = document.getElementById("replyTo");
+  const POLL_URL = {{ url_for('group_chat_poll', group_id=g.id)|tojson }};
+  const EMOJIS = {{ REACTIONS|tojson }};
+  const ME = {{ cu.id|tojson }};
+  const IS_OWNER = {{ is_owner|tojson }};
+  const MY_NAME = {{ cu.username|tojson }};
+  const MY_LEVEL = {{ levels.get(cu.id, 1)|tojson }};
+  const AVATARS = {{ avatars|tojson }};
+  const REPLY_T = {{ t('reply')|tojson }};
+  const DELETED_T = {{ t('msg_deleted')|tojson }};
+  const DELCONF_T = {{ t('del_confirm')|tojson }};
+  let lastId = {{ (messages[-1].id if messages else 0)|tojson }};
+  let temps = [];
 
-  // reply / quote
-  function setReply(id, name) {
-    document.getElementById("replyTo").value = id;
+  function scrollBottom() { if (box) box.scrollTop = box.scrollHeight; }
+  scrollBottom();
+
+  /* ---------- growing composer ---------- */
+  function autosize() {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 130) + "px";
+  }
+  ta.addEventListener("input", autosize);
+  const coarsePtr = matchMedia("(pointer: coarse)").matches;
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !coarsePtr) { e.preventDefault(); sendMsg(); }
+  });
+
+  /* ---------- reply ---------- */
+  let replyData = null;
+  function setReply(id, name, text) {
+    replyData = { id: id, name: name, text: text || "" };
+    replyInp.value = id;
     document.getElementById("replyName").textContent = name;
+    document.getElementById("replyText").textContent = text ? " — " + text : "";
     document.getElementById("replyBar").style.display = "flex";
-    document.getElementById("msgInput").focus();
+    ta.focus();
   }
   function clearReply() {
-    document.getElementById("replyTo").value = "";
+    replyData = null;
+    replyInp.value = "";
     document.getElementById("replyBar").style.display = "none";
   }
+
+  /* ---------- instant send ---------- */
+  let chain = Promise.resolve();
+  gForm.addEventListener("submit", (e) => { e.preventDefault(); sendMsg(); });
+  function nowStr() { return new Date().toISOString().slice(5, 16).replace("T", " "); }
+  function sendMsg() {
+    const content = ta.value.trim();
+    if (!content) return;
+    const fd = new FormData(gForm);
+    const tb = bubble({ id: 0, uid: ME, me: true, name: MY_NAME, level: MY_LEVEL,
+                        content: content, at: nowStr(),
+                        reply: replyData ? { ...replyData } : null });
+    tb.querySelector(".gbub").style.opacity = ".75";
+    box.appendChild(tb); temps.push(tb); scrollBottom();
+    ta.value = ""; autosize();
+    clearReply();
+    chain = chain
+      .then(() => fetch(gForm.action, { method: "POST", body: fd,
+                                        headers: { "X-Requested-With": "fetch" } }))
+      .then(() => poll()).catch(() => {});
+    ta.focus();
+  }
+
+  /* ---------- hold a message for reactions / reply / delete ---------- */
+  const pick = document.createElement("div");
+  pick.className = "pick";
+  EMOJIS.forEach((em) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = em;
+    b.onclick = (e) => { e.stopPropagation(); react(pick._mid, em); hidePick(); };
+    pick.appendChild(b);
+  });
+  const rp = document.createElement("button");
+  rp.type = "button"; rp.className = "rpl"; rp.textContent = "↩ " + REPLY_T;
+  rp.onclick = (e) => {
+    e.stopPropagation();
+    const gb = pick._bub;
+    const name = gb.querySelector(".gname").childNodes[0].textContent.trim();
+    const t = gb.querySelector(".gtxt");
+    setReply(pick._mid, name, t ? t.textContent.slice(0, 90) : "");
+    hidePick();
+  };
+  pick.appendChild(rp);
+  const dl = document.createElement("button");
+  dl.type = "button"; dl.className = "del"; dl.textContent = "🗑";
+  dl.onclick = async (e) => {
+    e.stopPropagation();
+    const mid = pick._mid;
+    hidePick();
+    if (!confirm(DELCONF_T)) return;
+    try {
+      await fetch("/msg/" + mid + "/delete", { method: "POST",
+        headers: { "X-Requested-With": "fetch" } });
+      await poll();
+    } catch (err) {}
+  };
+  pick.appendChild(dl);
+  function hidePick() { pick.remove(); pick._mid = null; }
+  function showPick(gb, mid) {
+    if (!mid || gb.classList.contains("gone")) return;
+    if (pick._mid === mid) { hidePick(); return; }
+    pick._mid = mid; pick._bub = gb;
+    dl.style.display = (+gb.dataset.uid === ME || IS_OWNER) ? "" : "none";
+    gb.appendChild(pick);
+    const mine = gb.closest(".msg").classList.contains("mine");
+    pick.style.insetInlineEnd = mine ? "0" : "auto";
+    pick.style.insetInlineStart = mine ? "auto" : "0";
+    pick.style.marginLeft = "";
+    const bb = box.getBoundingClientRect();
+    let pr = pick.getBoundingClientRect();     // keep the menu inside the chat box
+    if (pr.left < bb.left + 2) pick.style.marginLeft = (bb.left + 2 - pr.left) + "px";
+    else if (pr.right > bb.right - 2)
+      pick.style.marginLeft = (bb.right - 2 - pr.right) + "px";
+    const ph = pick.offsetHeight + 6;
+    const nearTop = gb.getBoundingClientRect().top - bb.top < ph + 8;
+    pick.style.top = nearTop ? "auto" : -ph + "px";
+    pick.style.bottom = nearTop ? -ph + "px" : "auto";
+  }
+  let lpTimer = null, lpFired = false, lpStart = null;
+  function lpCancel() { clearTimeout(lpTimer); lpTimer = null; lpStart = null; }
+  box.addEventListener("pointerdown", (e) => {
+    if (!coarsePtr) return;
+    const gb = e.target.closest(".gbub");
+    if (!gb || e.target.closest(".pick")) return;
+    lpStart = [e.clientX, e.clientY];
+    lpTimer = setTimeout(() => {
+      lpFired = true;
+      if (navigator.vibrate) navigator.vibrate(35);
+      showPick(gb, +gb.closest(".msg").dataset.mid);
+    }, 420);
+  });
+  box.addEventListener("pointermove", (e) => {
+    if (lpStart && Math.hypot(e.clientX - lpStart[0], e.clientY - lpStart[1]) > 12) lpCancel();
+  });
+  box.addEventListener("pointerup", lpCancel);
+  box.addEventListener("pointercancel", lpCancel);
+  box.addEventListener("scroll", lpCancel, { passive: true });
+  box.addEventListener("contextmenu", (e) => {
+    if (e.target.closest(".gbub")) e.preventDefault();
+  });
+  box.addEventListener("click", (e) => {
+    if (lpFired) { lpFired = false; e.preventDefault(); e.stopPropagation(); return; }
+    if (e.target.closest(".pick")) return;
+    const chip = e.target.closest(".rx button");
+    if (chip) {
+      const mid = +chip.closest(".msg").dataset.mid;
+      if (mid) react(mid, chip.dataset.e);
+      return;
+    }
+    const qt = e.target.closest(".qt");
+    if (qt) {
+      const orig = box.querySelector('.msg[data-mid="' + qt.dataset.qid + '"] .gbub');
+      if (orig) {
+        orig.scrollIntoView({ behavior: "smooth", block: "center" });
+        orig.classList.add("flash");
+        setTimeout(() => orig.classList.remove("flash"), 1300);
+      }
+      return;
+    }
+    if (e.target.closest("a")) return;
+    const gb = e.target.closest(".gbub");
+    if (gb && !coarsePtr) showPick(gb, +gb.closest(".msg").dataset.mid);
+    else if (!gb) hidePick();
+  });
+
+  async function react(mid, emoji) {
+    const fd = new FormData();
+    fd.append("emoji", emoji);
+    try {
+      await fetch("/msg/" + mid + "/react", { method: "POST", body: fd,
+        headers: { "X-Requested-With": "fetch" } });
+      await poll();
+    } catch (err) {}
+  }
+  function applyReacts(map) {
+    box.querySelectorAll(".rx").forEach((rx) => {
+      const list = map[rx.dataset.rx] || [];
+      rx.innerHTML = "";
+      list.forEach((r) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.dataset.e = r.e;
+        if (r.me) b.className = "mine";
+        b.textContent = r.e + " " + r.n;
+        rx.appendChild(b);
+      });
+    });
+  }
+
+  /* ---------- live updates ---------- */
+  function avatarEl(uid, name) {
+    const src = AVATARS[uid];
+    if (src) {
+      const img = document.createElement("img");
+      img.className = "avi"; img.src = src; img.alt = "";
+      img.style.cssText = "width:30px; height:30px";
+      return img;
+    }
+    const sp = document.createElement("span");
+    sp.className = "avi avi-letter";
+    sp.style.cssText = "width:30px; height:30px; font-size:.8rem";
+    sp.textContent = (name || "?")[0].toUpperCase();
+    return sp;
+  }
+  function makeGone(row) {
+    const gb = row.querySelector(".gbub");
+    if (!gb || gb.classList.contains("gone")) return;
+    gb.classList.add("gone");
+    const name = gb.querySelector(".gname");
+    const at = gb.querySelector(".gmeta") ? gb.querySelector(".gmeta").textContent : "";
+    gb.innerHTML = "";
+    if (name) gb.appendChild(name);
+    const t = document.createElement("div");
+    t.className = "gtxt"; t.style.cssText = "font-style:italic; color:var(--muted)";
+    t.textContent = "🚫 " + DELETED_T;
+    gb.appendChild(t);
+    const meta = document.createElement("div");
+    meta.className = "gmeta"; meta.dir = "ltr"; meta.textContent = at;
+    gb.appendChild(meta);
+  }
+  function bubble(m) {
+    const row = document.createElement("div");
+    row.className = "msg" + (m.me ? " mine" : "");
+    row.dataset.mid = m.id;
+    const a = document.createElement("a");
+    a.href = "/u/" + m.name;
+    a.appendChild(avatarEl(m.uid, m.name));
+    row.appendChild(a);
+    const gb = document.createElement("div");
+    gb.className = "gbub"; gb.dataset.uid = m.uid;
+    const nm = document.createElement("div");
+    nm.className = "gname";
+    nm.append(m.name + " ");
+    const lv = document.createElement("span");
+    lv.className = "badge medium";
+    lv.style.cssText = "font-size:.56rem; padding:1px 7px";
+    lv.textContent = "Lv " + m.level;
+    nm.appendChild(lv);
+    gb.appendChild(nm);
+    if (m.gone) {
+      const t = document.createElement("div");
+      t.className = "gtxt"; t.style.cssText = "font-style:italic; color:var(--muted)";
+      t.textContent = "🚫 " + DELETED_T;
+      gb.appendChild(t);
+    } else {
+      if (m.reply) {
+        const q = document.createElement("div");
+        q.className = "qt"; q.dataset.qid = m.reply.id;
+        const w = document.createElement("strong");
+        w.style.color = "var(--accent)"; w.textContent = m.reply.name;
+        q.appendChild(w);
+        q.appendChild(document.createElement("br"));
+        q.append((m.reply.text || "") + "…");
+        gb.appendChild(q);
+      }
+      const t = document.createElement("div");
+      t.className = "gtxt"; t.textContent = m.content;
+      gb.appendChild(t);
+      const rx = document.createElement("div");
+      rx.className = "rx"; rx.dataset.rx = m.id;
+      gb.appendChild(rx);
+    }
+    const meta = document.createElement("div");
+    meta.className = "gmeta"; meta.dir = "ltr"; meta.textContent = m.at;
+    gb.appendChild(meta);
+    row.appendChild(gb);
+    return row;
+  }
+  async function poll() {
+    try {
+      const r = await fetch(POLL_URL + "?after=" + lastId);
+      if (!r.ok) return;
+      const d = await r.json();
+      const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+      let gotNew = false;
+      for (const m of d.msgs) {
+        if (m.id <= lastId || box.querySelector('.msg[data-mid="' + m.id + '"]')) continue;
+        if (m.me && temps.length) { const t = temps.shift(); t.remove(); }
+        box.appendChild(bubble(m));
+        lastId = Math.max(lastId, m.id);
+        gotNew = true;
+      }
+      if (gotNew && (nearBottom || d.msgs.some((m) => m.me))) scrollBottom();
+      if (d.del) d.del.forEach((id) => {
+        const row = box.querySelector('.msg[data-mid="' + id + '"]');
+        if (row) makeGone(row);
+      });
+      if (d.reacts) applyReacts(d.reacts);
+    } catch (err) {}
+  }
+  setInterval(() => { if (!document.hidden) poll(); }, 2500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 
   // shared deck study
   const DECKS = {{ decks|tojson }};
