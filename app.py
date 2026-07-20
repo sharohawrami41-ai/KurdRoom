@@ -3,7 +3,10 @@ FocusPlan — Schedule planner with login system, admin panel and 3 languages.
 Run:  python app.py   →  http://127.0.0.1:5001
 """
 import os
+import json
 import sqlite3
+import threading
+import time
 from datetime import datetime, date
 from functools import wraps
 
@@ -34,7 +37,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "1.6"   # shown in the footer — bump this with each release
+APP_VERSION = "1.8"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -249,6 +252,13 @@ def init_db():
         emoji      TEXT NOT NULL,
         PRIMARY KEY (msg_id, user_id, emoji)
     );
+    CREATE TABLE IF NOT EXISTS push_subs (
+        endpoint   TEXT PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        p256dh     TEXT NOT NULL,
+        auth       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS polls (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -364,7 +374,8 @@ def init_db():
                  "ALTER TABLE dms ADD COLUMN orig_name TEXT DEFAULT ''",
                  "ALTER TABLE dms ADD COLUMN reply_to INTEGER",
                  "ALTER TABLE dms ADD COLUMN deleted INTEGER DEFAULT 0",
-                 "ALTER TABLE users ADD COLUMN last_seen TEXT DEFAULT ''"):
+                 "ALTER TABLE users ADD COLUMN last_seen TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -386,6 +397,22 @@ def init_db():
     }
     for k, v in defaults.items():
         db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
+    # generate the push-notification (VAPID) keypair once, keep it in settings
+    if not db.execute("SELECT 1 FROM settings WHERE key = 'vapid_private'").fetchone():
+        try:
+            from py_vapid import Vapid02, b64urlencode
+            from cryptography.hazmat.primitives import serialization
+            _v = Vapid02()
+            _v.generate_keys()
+            _raw = _v.public_key.public_bytes(
+                serialization.Encoding.X962,
+                serialization.PublicFormat.UncompressedPoint)
+            db.execute("INSERT INTO settings(key, value) VALUES('vapid_private', ?)",
+                       (_v.private_pem().decode(),))
+            db.execute("INSERT INTO settings(key, value) VALUES('vapid_public', ?)",
+                       (b64urlencode(_raw),))
+        except Exception:
+            pass  # push libs missing — the site still works, just without push
     # default motivational quotes
     if db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0] == 0:
         seed_quotes = [
@@ -1322,6 +1349,64 @@ V13 = {
 for _l, _d in V13.items():
     T[_l].update(_d)
 
+V14 = {
+    "en": {
+        "ntf_deadline": "Plan due today:", "ntf_overdue": "Plan overdue:",
+        "ntf_exam_soon": "Exam coming up:",
+        "enable_notifs": "Enable notifications",
+        "new_msg_toast": "New message",
+    },
+    "ar": {
+        "ntf_deadline": "خطة تستحق اليوم:", "ntf_overdue": "خطة متأخرة:",
+        "ntf_exam_soon": "امتحان قريب:",
+        "enable_notifs": "تفعيل الإشعارات",
+        "new_msg_toast": "رسالة جديدة",
+    },
+    "ku": {
+        "ntf_deadline": "پلانێک ئەمڕۆ کۆتایی دێت:", "ntf_overdue": "پلانێک دواکەوتووە:",
+        "ntf_exam_soon": "تاقیکردنەوە نزیکە:",
+        "enable_notifs": "چالاککردنی ئاگادارکردنەوەکان",
+        "new_msg_toast": "نامەی نوێ",
+    },
+}
+for _l, _d in V14.items():
+    T[_l].update(_d)
+
+V15 = {
+    "en": {
+        "inst_title": "Install the app",
+        "inst_sub": "Faster, fullscreen, with notifications — right on your home screen.",
+        "inst_b1": "Instant notifications",
+        "inst_b2": "Opens in one tap",
+        "inst_b3": "Feels like a real app",
+        "inst_btn": "Install", "inst_later": "Not now",
+        "inst_ios1": "Tap the Share button", "inst_ios2": "below, then choose",
+        "inst_ios3": "Add to Home Screen",
+    },
+    "ar": {
+        "inst_title": "ثبّت التطبيق",
+        "inst_sub": "أسرع، بملء الشاشة، مع إشعارات — مباشرة على شاشتك الرئيسية.",
+        "inst_b1": "إشعارات فورية",
+        "inst_b2": "يفتح بلمسة واحدة",
+        "inst_b3": "إحساس تطبيق حقيقي",
+        "inst_btn": "تثبيت", "inst_later": "ليس الآن",
+        "inst_ios1": "اضغط زر المشاركة", "inst_ios2": "بالأسفل، ثم اختر",
+        "inst_ios3": "إضافة إلى الشاشة الرئيسية",
+    },
+    "ku": {
+        "inst_title": "ئەپەکە دابمەزرێنە",
+        "inst_sub": "خێراتر، پڕ بە شاشە، لەگەڵ ئاگادارکردنەوەکان — ڕاستەوخۆ لەسەر شاشەی سەرەکیت.",
+        "inst_b1": "ئاگادارکردنەوەی خێرا",
+        "inst_b2": "بە یەک دەستلێدان دەکرێتەوە",
+        "inst_b3": "هەستی ئەپێکی ڕاستەقینە",
+        "inst_btn": "دامەزراندن", "inst_later": "ئێستا نا",
+        "inst_ios1": "دوگمەی هاوبەشکردن دابگرە", "inst_ios2": "لە خوارەوە، پاشان هەڵبژێرە",
+        "inst_ios3": "زیادکردن بۆ شاشەی سەرەکی",
+    },
+}
+for _l, _d in V15.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1441,6 +1526,75 @@ def admin_required(f):
     return wrapper
 
 
+NOTIF_ICONS = {"friend_req": "👥", "friend_acc": "🤝", "group_msg": "💬",
+               "group_add": "➕", "badge": "🏅", "dm": "✉️", "duel_req": "⚔️",
+               "duel_acc": "⚔️", "duel_end": "🏆", "deadline": "⏰",
+               "overdue": "🚨", "exam_soon": "📚"}
+
+
+def push_text(lang, kind, actor):
+    """Build the push body in the recipient's language (mirrors notifications page)."""
+    tt = T.get(lang) or T["en"]
+    txt = tt.get("ntf_" + kind, "")
+    if kind == "badge":
+        return f"{txt} {tt.get('badge_' + actor + '_n', actor)}"
+    if kind in ("group_msg", "group_add", "duel_end",
+                "deadline", "overdue", "exam_soon"):
+        return f"{txt} “{actor}”"
+    return f"{actor} {txt}"
+
+
+def _do_push(subs, payload, priv):
+    """Deliver one payload to many subscriptions (runs in a background thread)."""
+    try:
+        from pywebpush import webpush, WebPushException
+    except Exception:
+        return
+    dead = []
+    for s in subs:
+        try:
+            webpush({"endpoint": s["endpoint"],
+                     "keys": {"p256dh": s["p256dh"], "auth": s["auth"]}},
+                    data=json.dumps(payload), vapid_private_key=priv,
+                    vapid_claims={"sub": "mailto:admin@aikurd.org"},
+                    ttl=120, headers={"Urgency": "high"})
+        except WebPushException as e:
+            code = getattr(getattr(e, "response", None), "status_code", 0)
+            if code in (403, 404, 410):
+                dead.append(s["endpoint"])
+        except Exception:
+            pass
+    if dead:
+        try:
+            con = sqlite3.connect(DB_PATH)
+            con.executemany("DELETE FROM push_subs WHERE endpoint = ?",
+                            [(d,) for d in dead])
+            con.commit()
+            con.close()
+        except Exception:
+            pass
+
+
+def push_to_user(uid, kind, actor="", link=""):
+    """Fire a real push notification to every device this user subscribed."""
+    db = get_db()
+    subs = [dict(r) for r in db.execute(
+        "SELECT * FROM push_subs WHERE user_id = ?", (uid,))]
+    if not subs:
+        return
+    s = get_settings()
+    priv = s.get("vapid_private", "")
+    if not priv:
+        return
+    u = db.execute("SELECT lang FROM users WHERE id = ?", (uid,)).fetchone()
+    lang = (u["lang"] if u and u["lang"] else "en")
+    payload = {"title": f"{NOTIF_ICONS.get(kind, '🔔')} {s.get('site_name', 'KurdRoom')}",
+               "body": push_text(lang, kind, actor),
+               "url": link or "/", "tag": kind}
+    threading.Thread(target=_do_push, args=(subs, payload, priv),
+                     daemon=True).start()
+
+
 def notify(uid, kind, actor="", link=""):
     """Queue a notification (caller commits). Chat kinds collapse into one unread row."""
     db = get_db()
@@ -1450,6 +1604,10 @@ def notify(uid, kind, actor="", link=""):
     db.execute("INSERT INTO notifications(user_id, kind, actor, link, created_at) "
                "VALUES(?,?,?,?,?)",
                (uid, kind, actor, link, datetime.utcnow().isoformat(timespec="seconds")))
+    try:
+        push_to_user(uid, kind, actor, link)   # instant push to phone/desktop
+    except Exception:
+        pass
 
 
 BADGES = {
@@ -1692,6 +1850,11 @@ def random_quote():
 def set_lang(code):
     if code in LANGS:
         session["lang"] = code
+        if session.get("user_id"):
+            db = get_db()
+            db.execute("UPDATE users SET lang = ? WHERE id = ?",
+                       (code, session["user_id"]))
+            db.commit()
     return redirect(request.referrer or url_for("index"))
 
 
@@ -3276,6 +3439,72 @@ def dm_react(username):
     return {"ok": 1}
 
 
+# ------------------------------------------------------------ push + live pings
+@app.route("/push/subscribe", methods=["POST"])
+@login_required
+def push_subscribe():
+    sub = request.get_json(silent=True) or {}
+    ep = sub.get("endpoint", "")
+    keys = sub.get("keys", {})
+    if not ep or not keys.get("p256dh") or not keys.get("auth"):
+        return {"ok": 0}
+    db = get_db()
+    db.execute("INSERT INTO push_subs(endpoint, user_id, p256dh, auth, created_at) "
+               "VALUES(?,?,?,?,?) ON CONFLICT(endpoint) DO UPDATE SET "
+               "user_id = excluded.user_id, p256dh = excluded.p256dh, "
+               "auth = excluded.auth",
+               (ep[:500], session["user_id"], keys["p256dh"][:200],
+                keys["auth"][:100], datetime.utcnow().isoformat(timespec="seconds")))
+    db.commit()
+    return {"ok": 1}
+
+
+@app.route("/push/unsubscribe", methods=["POST"])
+@login_required
+def push_unsubscribe():
+    sub = request.get_json(silent=True) or {}
+    if sub.get("endpoint"):
+        db = get_db()
+        db.execute("DELETE FROM push_subs WHERE endpoint = ?", (sub["endpoint"],))
+        db.commit()
+    return {"ok": 1}
+
+
+@app.route("/api/pings")
+@login_required
+def api_pings():
+    """Tiny endpoint the whole app polls to feel instant: unread counts + toasts."""
+    db = get_db()
+    uid = session["user_id"]
+    lang = session.get("lang", "en")
+    unread_d = db.execute("SELECT COUNT(*) FROM dms WHERE to_id = ? AND is_read = 0",
+                          (uid,)).fetchone()[0]
+    unread_n = db.execute("SELECT COUNT(*) FROM notifications WHERE user_id = ? "
+                          "AND is_read = 0", (uid,)).fetchone()[0]
+    out = {"dm": unread_d, "notif": unread_n,
+           "dm_id": 0, "dm_text": "", "dm_link": "",
+           "notif_id": 0, "notif_text": "", "notif_link": ""}
+    if unread_d:
+        m = db.execute(
+            "SELECT d.id, u.username, u.full_name FROM dms d "
+            "JOIN users u ON u.id = d.from_id WHERE d.to_id = ? AND d.is_read = 0 "
+            "ORDER BY d.id DESC LIMIT 1", (uid,)).fetchone()
+        if m:
+            out["dm_id"] = m["id"]
+            out["dm_text"] = "✉️ " + (m["full_name"] or m["username"]) + " · " + \
+                (T.get(lang) or T["en"]).get("new_msg_toast", "New message")
+            out["dm_link"] = url_for("dm_thread", username=m["username"])
+    if unread_n:
+        n = db.execute("SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 "
+                       "AND kind != 'dm' ORDER BY id DESC LIMIT 1", (uid,)).fetchone()
+        if n:
+            out["notif_id"] = n["id"]
+            out["notif_text"] = NOTIF_ICONS.get(n["kind"], "🔔") + " " + \
+                push_text(lang, n["kind"], n["actor"])
+            out["notif_link"] = n["link"] or url_for("notifications")
+    return out
+
+
 @app.route("/dmfile/<int:msg_id>")
 @login_required
 def dm_file(msg_id):
@@ -3869,6 +4098,91 @@ def handle_error(e):
 
 # ---------------------------------------------------------------- main
 init_db()
+
+# ---------------------------------------------------------------- reminders
+def _emit_reminder(con, uid, lang, kind, actor, link, priv, site):
+    con.execute("INSERT INTO notifications(user_id, kind, actor, link, created_at) "
+                "VALUES(?,?,?,?,?)",
+                (uid, kind, actor, link,
+                 datetime.utcnow().isoformat(timespec="seconds")))
+    subs = [dict(r) for r in con.execute(
+        "SELECT * FROM push_subs WHERE user_id = ?", (uid,))]
+    if subs and priv:
+        _do_push(subs, {"title": f"{NOTIF_ICONS.get(kind, '🔔')} {site}",
+                        "body": push_text(lang or "en", kind, actor),
+                        "url": link, "tag": kind}, priv)
+
+
+def _scan_reminders(con):
+    today = date.today().isoformat()
+    tomorrow = (date.today() + _td(days=1)).isoformat()
+    s = {r["key"]: r["value"] for r in con.execute("SELECT key, value FROM settings")}
+    priv = s.get("vapid_private", "")
+    site = s.get("site_name", "KurdRoom")
+    # plans due today — one warning per plan per day
+    for p in con.execute(
+            "SELECT p.id, p.user_id, p.title, u.lang FROM plans p "
+            "JOIN users u ON u.id = p.user_id "
+            "WHERE p.done = 0 AND p.due_date = ?", (today,)):
+        link = f"/dashboard#p{p['id']}"
+        if con.execute("SELECT 1 FROM notifications WHERE user_id = ? AND "
+                       "kind = 'deadline' AND link = ? AND created_at >= ?",
+                       (p["user_id"], link, today)).fetchone():
+            continue
+        _emit_reminder(con, p["user_id"], p["lang"], "deadline", p["title"],
+                       link, priv, site)
+    # plans overdue — one warning per plan, ever
+    for p in con.execute(
+            "SELECT p.id, p.user_id, p.title, u.lang FROM plans p "
+            "JOIN users u ON u.id = p.user_id WHERE p.done = 0 "
+            "AND p.due_date IS NOT NULL AND p.due_date != '' AND p.due_date < ?",
+            (today,)):
+        link = f"/dashboard#p{p['id']}"
+        if con.execute("SELECT 1 FROM notifications WHERE user_id = ? AND "
+                       "kind = 'overdue' AND link = ?",
+                       (p["user_id"], link)).fetchone():
+            continue
+        _emit_reminder(con, p["user_id"], p["lang"], "overdue", p["title"],
+                       link, priv, site)
+    # exams today or tomorrow — one reminder per exam per day
+    for e in con.execute(
+            "SELECT e.id, e.user_id, e.subject, u.lang FROM exams e "
+            "JOIN users u ON u.id = e.user_id WHERE e.exam_date IN (?, ?)",
+            (today, tomorrow)):
+        link = f"/university#e{e['id']}"
+        if con.execute("SELECT 1 FROM notifications WHERE user_id = ? AND "
+                       "kind = 'exam_soon' AND link = ? AND created_at >= ?",
+                       (e["user_id"], link, today)).fetchone():
+            continue
+        _emit_reminder(con, e["user_id"], e["lang"], "exam_soon", e["subject"],
+                       link, priv, site)
+    con.commit()
+
+
+def _reminder_loop():
+    time.sleep(25)          # let the app finish booting first
+    while True:
+        try:
+            con = sqlite3.connect(DB_PATH)
+            con.row_factory = sqlite3.Row
+            # 10-minute slot guard so multiple gunicorn workers scan only once
+            slot = datetime.utcnow().strftime("%Y-%m-%dT%H:") + \
+                str(datetime.utcnow().minute // 10)
+            con.execute("INSERT OR IGNORE INTO settings(key, value) "
+                        "VALUES('reminder_slot', '')")
+            cur = con.execute("UPDATE settings SET value = ? WHERE "
+                              "key = 'reminder_slot' AND value != ?", (slot, slot))
+            con.commit()
+            if cur.rowcount:
+                _scan_reminders(con)
+            con.close()
+        except Exception:
+            pass
+        time.sleep(600)
+
+
+threading.Thread(target=_reminder_loop, daemon=True).start()
+
 
 if __name__ == "__main__":
     # Port 5001 by default (macOS AirPlay already occupies 5000).

@@ -402,6 +402,57 @@ body.light .tw { color: #1e1450; }
   to   { transform: rotate(24deg) translateX(85vw); } }
 body.light .beam { opacity: .5; }
 
+/* ---------- install prompt (modern bottom sheet) ---------- */
+.inst-back { position: fixed; inset: 0; z-index: 250; background: rgba(4,2,14,.55);
+  backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .3s; }
+.inst-back.show { opacity: 1; pointer-events: auto; }
+.inst { position: fixed; left: 50%; bottom: 0; z-index: 251; width: min(94vw, 430px);
+  transform: translateX(-50%) translateY(112%); border-radius: 26px 26px 0 0;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 16%, var(--card)), var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-bottom: none; box-shadow: 0 -18px 60px rgba(0,0,0,.55);
+  backdrop-filter: blur(20px); padding: 14px 22px calc(20px + env(safe-area-inset-bottom));
+  transition: transform .45s cubic-bezier(.2,.9,.3,1.05); }
+.inst.show { transform: translateX(-50%) translateY(0); }
+.inst .grab { width: 44px; height: 5px; border-radius: 999px; margin: 0 auto 14px;
+  background: color-mix(in srgb, var(--text) 25%, transparent); }
+.inst .hd { display: flex; align-items: center; gap: 14px; }
+.inst .hd img { width: 62px; height: 62px; border-radius: 16px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: instFloat 3s ease-in-out infinite alternate; }
+@keyframes instFloat { from { transform: translateY(0); } to { transform: translateY(-5px); } }
+.inst .hd .nm { font-size: 1.15rem; font-weight: 800; }
+.inst .hd .sb { font-size: .78rem; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.inst .feats { display: flex; gap: 6px; margin: 14px 0 16px; flex-wrap: wrap; }
+.inst .feats span { font-size: .7rem; font-weight: 700; padding: 6px 11px;
+  border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.inst .acts { display: flex; gap: 10px; }
+.inst .acts .go { flex: 1; padding: 13px; border: none; border-radius: 14px;
+  font-size: .95rem; font-weight: 800; cursor: pointer; color: #fff;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--accent) 50%, transparent); }
+.inst .acts .no { padding: 13px 18px; border-radius: 14px; cursor: pointer;
+  border: 1px solid var(--card-border); background: none; color: var(--muted);
+  font-size: .85rem; }
+.inst .ios-steps { font-size: .86rem; line-height: 2; margin: 4px 0 6px; }
+.inst .ios-steps .kbd { display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; border-radius: 7px; padding: 0 5px; margin: 0 3px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* ---------- live toast (Snapchat-style banner) ---------- */
+.toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-130%);
+  z-index: 300; max-width: min(92vw, 460px); display: flex; align-items: center;
+  gap: 10px; padding: 12px 18px; border-radius: 16px; cursor: pointer;
+  background: var(--card); border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 14px 40px rgba(0,0,0,.5), 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  backdrop-filter: blur(18px); font-size: .9rem; font-weight: 600;
+  transition: transform .35s cubic-bezier(.2,.9,.3,1.2); }
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- in-app photo viewer ---------- */
 .lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(4,2,14,.94);
   display: none; align-items: center; justify-content: center;
@@ -675,6 +726,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 {% macro account_rows() %}
   <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
     {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
+  <a href="#" class="pushBtn" style="display:none"
+     onclick="krPushSub(false); return false">📲 {{ t('enable_notifs') }}</a>
   <a href="{{ url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
@@ -731,10 +784,11 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 
   <div class="top-actions">
     <a class="icon-btn {{ 'active' if request.endpoint in ('messages','dm_thread') }}"
-       href="{{ url_for('messages') }}" title="{{ t('messages_t') }}">✉️
+       id="dmBtn" href="{{ url_for('messages') }}" title="{{ t('messages_t') }}">✉️
       {% if unread_dms %}<span class="dot-count">{{ unread_dms }}</span>{% endif %}</a>
     <details class="dd">
-      <summary style="cursor:pointer; display:inline-flex; position:relative" title="{{ t('account') }}">
+      <summary style="cursor:pointer; display:inline-flex; position:relative" id="avSum"
+               title="{{ t('account') }}">
         {% if unread_notifs %}<span class="dot-count" style="z-index:2">{{ unread_notifs }}</span>{% endif %}
         {% set purl = av(cu.id) %}
         {% if purl %}
@@ -796,10 +850,36 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a class="{{ 'active' if request.endpoint == 'focus' }}" href="{{ url_for('focus') }}">⏱<span class="lbl">{{ t('focus') }}</span></a>
   <a class="{{ 'active' if request.endpoint == 'university' }}" href="{{ url_for('university') }}">🎓<span class="lbl">{{ t('university') }}</span></a>
   <a class="{{ 'active' if request.endpoint in ('groups','group_page') }}" href="{{ url_for('groups') }}">💬<span class="lbl">{{ t('groups') }}</span></a>
-  <a class="{{ 'active' if request.endpoint == 'notifications' }}" href="{{ url_for('notifications') }}" style="position:relative">🔔<span class="lbl">{{ t('notifications') }}</span>
+  <a class="{{ 'active' if request.endpoint == 'notifications' }}" id="bellBtn" href="{{ url_for('notifications') }}" style="position:relative">🔔<span class="lbl">{{ t('notifications') }}</span>
     {% if unread_notifs %}<span class="dot-count">{{ unread_notifs }}</span>{% endif %}</a>
 </div>
 {% endif %}
+
+{# ============================ install sheet ============================ #}
+<div class="inst-back" id="instBack"></div>
+<div class="inst" id="instSheet" dir="{{ 'rtl' if is_rtl else 'ltr' }}">
+  <div class="grab"></div>
+  <div class="hd">
+    <img src="{{ url_for('static', filename='icon-192.png') }}" alt="">
+    <div>
+      <div class="nm">{{ t('inst_title') }}</div>
+      <div class="sb">{{ t('inst_sub') }}</div>
+    </div>
+  </div>
+  <div class="feats">
+    <span>🔔 {{ t('inst_b1') }}</span>
+    <span>⚡ {{ t('inst_b2') }}</span>
+    <span>📱 {{ t('inst_b3') }}</span>
+  </div>
+  <div class="ios-steps" id="iosSteps" style="display:none">
+    1️⃣ {{ t('inst_ios1') }} <span class="kbd">⬆️</span> {{ t('inst_ios2') }}<br>
+    2️⃣ <span class="kbd">➕</span> <strong>{{ t('inst_ios3') }}</strong>
+  </div>
+  <div class="acts">
+    <button class="go" id="instGo" type="button">⬇️ {{ t('inst_btn') }}</button>
+    <button class="no" id="instNo" type="button">{{ t('inst_later') }}</button>
+  </div>
+</div>
 
 <div class="container">
 
@@ -904,6 +984,132 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     e.preventDefault();
     openLb(img.currentSrc || src);
   });
+
+  // ---------- modern install invitation ----------
+  (function () {
+    const sheet = document.getElementById("instSheet");
+    const back = document.getElementById("instBack");
+    if (!sheet) return;
+    const standalone = matchMedia("(display-mode: standalone)").matches ||
+                       navigator.standalone === true;
+    if (standalone) { localStorage.setItem("kr_inst", "-1"); return; }
+    const seen = +(localStorage.getItem("kr_inst") || 0);
+    if (seen === -1 || (seen && Date.now() - seen < 7 * 864e5)) return;  // snooze 7 days
+    let deferred = null;
+    const show = () => { sheet.classList.add("show"); back.classList.add("show"); };
+    const hide = (forever) => {
+      sheet.classList.remove("show"); back.classList.remove("show");
+      localStorage.setItem("kr_inst", forever ? "-1" : String(Date.now()));
+    };
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferred = e;
+      setTimeout(show, 2200);            // let the page breathe first
+    });
+    window.addEventListener("appinstalled", () => hide(true));
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      // iPhone: no automatic prompt exists — show the 2-step guide instead
+      document.getElementById("iosSteps").style.display = "";
+      document.getElementById("instGo").style.display = "none";
+      setTimeout(show, 2200);
+    }
+    document.getElementById("instGo").addEventListener("click", async () => {
+      if (!deferred) { hide(false); return; }
+      deferred.prompt();
+      const c = await deferred.userChoice;
+      deferred = null;
+      hide(c.outcome === "accepted");
+    });
+    document.getElementById("instNo").addEventListener("click", () => hide(false));
+    back.addEventListener("click", () => hide(false));
+  })();
+
+{% if cu %}
+  // ================= instant notifications =================
+  const VAPID_PUB = {{ settings.get('vapid_public', '')|tojson }};
+
+  // ---- push subscription (real notifications, even with the app closed) ----
+  function b64ToU8(s) {
+    const pad = "=".repeat((4 - (s.length % 4)) % 4);
+    const raw = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+  }
+  async function krPushSub(silent) {
+    try {
+      if (!VAPID_PUB || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (Notification.permission !== "granted") {
+        if (silent) return;
+        if ((await Notification.requestPermission()) !== "granted") return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe(
+        { userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID_PUB) });
+      await fetch("/push/subscribe", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub) });
+      document.querySelectorAll(".pushBtn").forEach((b) => b.style.display = "none");
+    } catch (err) {}
+  }
+  if ("Notification" in window && "PushManager" in window && VAPID_PUB) {
+    if (Notification.permission === "granted") krPushSub(true);
+    else if (Notification.permission === "default")
+      document.querySelectorAll(".pushBtn").forEach((b) => b.style.display = "");
+  }
+
+  // ---- in-app toast + live badge updates ----
+  const krToast = document.createElement("div");
+  krToast.className = "toast";
+  krToast.innerHTML = '<span class="tic" style="font-size:1.3rem"></span><span class="tx"></span>';
+  document.body.appendChild(krToast);
+  let toastTimer = null, toastLink = "/";
+  krToast.addEventListener("click", () => { location.href = toastLink; });
+  function showToast(text, link) {
+    krToast.querySelector(".tx").textContent = text;
+    toastLink = link || "/";
+    krToast.classList.add("show");
+    if (navigator.vibrate) navigator.vibrate(60);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => krToast.classList.remove("show"), 4500);
+  }
+  function setDot(hostId, n) {
+    const host = document.getElementById(hostId);
+    if (!host) return;
+    let dot = host.querySelector(".dot-count");
+    if (!n) { if (dot) dot.remove(); return; }
+    if (!dot) {
+      dot = document.createElement("span");
+      dot.className = "dot-count";
+      if (hostId === "avSum") dot.style.zIndex = "2";
+      host.appendChild(dot);
+    }
+    dot.textContent = n;
+  }
+  let krSeen = {
+    d: +(localStorage.getItem("kr_seen_d") || 0),
+    n: +(localStorage.getItem("kr_seen_n") || 0),
+  };
+  async function krPings() {
+    try {
+      const r = await fetch("/api/pings");
+      if (!r.ok) return;
+      const d = await r.json();
+      setDot("dmBtn", d.dm);
+      setDot("avSum", d.notif);
+      setDot("bellBtn", d.notif);
+      if (d.dm_id > krSeen.d) {
+        krSeen.d = d.dm_id; localStorage.setItem("kr_seen_d", d.dm_id);
+        if (location.pathname !== d.dm_link) showToast(d.dm_text, d.dm_link);
+      }
+      else if (d.notif_id > krSeen.n) {
+        krSeen.n = d.notif_id; localStorage.setItem("kr_seen_n", d.notif_id);
+        showToast(d.notif_text, d.notif_link);
+      }
+    } catch (err) {}
+  }
+  setTimeout(krPings, 2500);
+  setInterval(() => { if (!document.hidden) krPings(); }, 12000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) krPings(); });
+{% endif %}
 </script>
 </body>
 </html>
