@@ -531,6 +531,21 @@ body.light .beam { opacity: .5; }
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
 
+/* ---------- notification permission sheet ---------- */
+.ntf-bell { width: 62px; height: 62px; border-radius: 18px; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 40%, transparent),
+              color-mix(in srgb, var(--accent) 15%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 40%, transparent); }
+.ntf-bell span { display: inline-block; transform-origin: top center;
+  animation: bellRing 2.2s ease-in-out infinite; }
+@keyframes bellRing {
+  0%, 55%, 100% { transform: rotate(0); }
+  60% { transform: rotate(16deg); } 66% { transform: rotate(-14deg); }
+  72% { transform: rotate(10deg); } 78% { transform: rotate(-7deg); }
+  84% { transform: rotate(3deg); } }
+
 /* ---------- live toast (Snapchat-style banner) ---------- */
 .toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-130%);
   z-index: 300; max-width: min(92vw, 460px); display: flex; align-items: center;
@@ -952,6 +967,30 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 </div>
 {% endif %}
 
+{% if cu %}
+{# ============================ notification ask sheet ============================ #}
+<div class="inst-back" id="ntfBack"></div>
+<div class="inst" id="ntfSheet" dir="{{ 'rtl' if is_rtl else 'ltr' }}">
+  <div class="grab"></div>
+  <div class="hd">
+    <div class="ntf-bell"><span>🔔</span></div>
+    <div>
+      <div class="nm">{{ t('ntfask_title') }}</div>
+      <div class="sb">{{ t('ntfask_sub') }}</div>
+    </div>
+  </div>
+  <div class="feats">
+    <span>✉️ {{ t('ntfask_b1') }}</span>
+    <span>⏰ {{ t('ntfask_b2') }}</span>
+    <span>📚 {{ t('ntfask_b3') }}</span>
+  </div>
+  <div class="acts">
+    <button class="go" id="ntfGo" type="button">🔔 {{ t('ntfask_btn') }}</button>
+    <button class="no" id="ntfNo" type="button">{{ t('inst_later') }}</button>
+  </div>
+</div>
+{% endif %}
+
 {# ============================ install sheet ============================ #}
 <div class="inst-back" id="instBack"></div>
 <div class="inst" id="instSheet" dir="{{ 'rtl' if is_rtl else 'ltr' }}">
@@ -1276,27 +1315,66 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     const raw = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
     return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
   }
+  function krSwReg() {
+    // never hang forever on serviceWorker.ready — fall back to the registration
+    return Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((res) => setTimeout(async () => {
+        res(await navigator.serviceWorker.getRegistration("/"));
+      }, 4000)),
+    ]);
+  }
   async function krPushSub(silent) {
     try {
-      if (!VAPID_PUB || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (!VAPID_PUB || !("serviceWorker" in navigator) || !("PushManager" in window))
+        return false;
       if (Notification.permission !== "granted") {
-        if (silent) return;
-        if ((await Notification.requestPermission()) !== "granted") return;
+        if (silent) return false;
+        if ((await Notification.requestPermission()) !== "granted") return false;
       }
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await krSwReg();
+      if (!reg) return false;
       let sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe(
         { userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID_PUB) });
       await fetch("/push/subscribe", { method: "POST",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub) });
       document.querySelectorAll(".pushBtn").forEach((b) => b.style.display = "none");
-    } catch (err) {}
+      if (!silent) fetch("/push/test", { method: "POST" });  // instant proof on the lock screen
+      return true;
+    } catch (err) { return false; }
   }
   if ("Notification" in window && "PushManager" in window && VAPID_PUB) {
     if (Notification.permission === "granted") krPushSub(true);
     else if (Notification.permission === "default")
       document.querySelectorAll(".pushBtn").forEach((b) => b.style.display = "");
   }
+
+  // ---- modern permission ask: shows in the installed app (or right after install) ----
+  (function () {
+    const sheet = document.getElementById("ntfSheet");
+    const back = document.getElementById("ntfBack");
+    if (!sheet || !VAPID_PUB || !("Notification" in window) ||
+        !("PushManager" in window)) return;
+    if (Notification.permission !== "default") return;
+    const seen = +(localStorage.getItem("kr_ntfask") || 0);
+    if (seen === -1 || (seen && Date.now() - seen < 3 * 864e5)) return;  // snooze 3 days
+    const standalone = matchMedia("(display-mode: standalone)").matches ||
+                       navigator.standalone === true;
+    const open = () => { sheet.classList.add("show"); back.classList.add("show"); };
+    const close = (forever) => {
+      sheet.classList.remove("show"); back.classList.remove("show");
+      localStorage.setItem("kr_ntfask", forever ? "-1" : String(Date.now()));
+    };
+    if (standalone) setTimeout(open, 2600);                    // first runs of the app
+    window.addEventListener("appinstalled", () => setTimeout(open, 3500));
+    document.getElementById("ntfGo").addEventListener("click", async () => {
+      const ok = await krPushSub(false);
+      close(ok);
+    });
+    document.getElementById("ntfNo").addEventListener("click", () => close(false));
+    back.addEventListener("click", () => close(false));
+  })();
 
   // ---- in-app toast + live badge updates ----
   const krToast = document.createElement("div");

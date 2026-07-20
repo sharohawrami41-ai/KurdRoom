@@ -37,7 +37,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "2.3"   # shown in the footer — bump this with each release
+APP_VERSION = "2.4"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1431,6 +1431,32 @@ V16 = {
     "ku": {"show_more": "زیاتر پیشان بدە", "show_less": "کەمتر پیشان بدە"},
 }
 for _l, _d in V16.items():
+    T[_l].update(_d)
+
+V17 = {
+    "en": {
+        "ntfask_title": "Turn on notifications",
+        "ntfask_sub": "So you never miss a message, a deadline, or an exam — even when the app is closed.",
+        "ntfask_b1": "New messages", "ntfask_b2": "Deadline warnings", "ntfask_b3": "Exam reminders",
+        "ntfask_btn": "Allow notifications",
+        "push_test_ok": "Notifications are working! You're all set 🎉",
+    },
+    "ar": {
+        "ntfask_title": "فعّل الإشعارات",
+        "ntfask_sub": "حتى لا تفوتك رسالة أو موعد نهائي أو امتحان — حتى عندما يكون التطبيق مغلقًا.",
+        "ntfask_b1": "رسائل جديدة", "ntfask_b2": "تنبيهات المواعيد", "ntfask_b3": "تذكير الامتحانات",
+        "ntfask_btn": "السماح بالإشعارات",
+        "push_test_ok": "الإشعارات تعمل! كل شيء جاهز 🎉",
+    },
+    "ku": {
+        "ntfask_title": "ئاگادارکردنەوەکان چالاک بکە",
+        "ntfask_sub": "بۆ ئەوەی هیچ نامەیەک، کۆتا وادەیەک یان تاقیکردنەوەیەکت لە دەست نەچێت — تەنانەت کاتێک ئەپەکە داخراوە.",
+        "ntfask_b1": "نامەی نوێ", "ntfask_b2": "ئاگاداری کۆتا وادە", "ntfask_b3": "بیرخەرەوەی تاقیکردنەوە",
+        "ntfask_btn": "ڕێگە بە ئاگادارکردنەوەکان بدە",
+        "push_test_ok": "ئاگادارکردنەوەکان کار دەکەن! هەموو شتێک ئامادەیە 🎉",
+    },
+}
+for _l, _d in V17.items():
     T[_l].update(_d)
 
 
@@ -3542,6 +3568,25 @@ def push_subscribe():
                 keys["auth"][:100], datetime.utcnow().isoformat(timespec="seconds")))
     db.commit()
     return {"ok": 1}
+
+
+@app.route("/push/test", methods=["POST"])
+@login_required
+def push_test():
+    """Fire a real push at yourself so you SEE it working on the lock screen."""
+    db = get_db()
+    subs = [dict(r) for r in db.execute(
+        "SELECT * FROM push_subs WHERE user_id = ?", (session["user_id"],))]
+    s = get_settings()
+    if not subs or not s.get("vapid_private"):
+        return {"ok": 0, "subs": len(subs)}
+    tt = T.get(session.get("lang", "en")) or T["en"]
+    payload = {"title": "🎉 " + s.get("site_name", "KurdRoom"),
+               "body": tt.get("push_test_ok", "Notifications are working!"),
+               "url": "/", "tag": "test"}
+    threading.Thread(target=_do_push,
+                     args=(subs, payload, s["vapid_private"]), daemon=True).start()
+    return {"ok": 1, "subs": len(subs)}
 
 
 @app.route("/push/unsubscribe", methods=["POST"])
