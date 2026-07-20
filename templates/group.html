@@ -158,7 +158,7 @@
                 {%- endfor -%}
               </div>
               {% endif %}
-              <div class="gmeta" dir="ltr">{{ m.created_at[5:16].replace('T',' ') }}</div>
+              <div class="gmeta" dir="ltr"><time data-ts="{{ m.created_at }}">{{ m.created_at[5:16].replace('T',' ') }}</time></div>
             </div>
           </div>
           {% endfor %}
@@ -554,7 +554,7 @@
   /* ---------- instant send ---------- */
   let chain = Promise.resolve();
   gForm.addEventListener("submit", (e) => { e.preventDefault(); sendMsg(); });
-  function nowStr() { return new Date().toISOString().slice(5, 16).replace("T", " "); }
+  function nowStr() { return krFmt(new Date()); }   // device-local time
   function sendMsg() {
     const content = ta.value.trim();
     if (!content) return;
@@ -772,7 +772,8 @@
       gb.appendChild(rx);
     }
     const meta = document.createElement("div");
-    meta.className = "gmeta"; meta.dir = "ltr"; meta.textContent = m.at;
+    meta.className = "gmeta"; meta.dir = "ltr";
+    meta.textContent = m.ts ? krFmt(new Date(m.ts + "Z")) : m.at;
     gb.appendChild(meta);
     row.appendChild(gb);
     return row;

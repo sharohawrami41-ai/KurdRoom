@@ -52,7 +52,7 @@
         <strong>{{ p.full_name or p.username }}</strong>
         <span class="badge medium" style="font-size:.56rem">Lv {{ p.level }}</span>
         <div style="font-size:.7rem; color:var(--muted)" dir="ltr">
-          {{ p.created_at[:16].replace('T', ' · ') }}</div>
+          <time data-ts="{{ p.created_at }}" data-fmt="dot">{{ p.created_at[:16].replace('T', ' · ') }}</time></div>
       </div>
       <span class="badge medium">
         {{ {'research':'🔬','science':'🧪','tech':'💻','ai':'🤖','other':'✨'}[p.category] }}

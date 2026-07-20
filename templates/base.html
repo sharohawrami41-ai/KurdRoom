@@ -1056,6 +1056,26 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       location.reload();
     });
   }
+  // ---------- show every timestamp in the device's own timezone ----------
+  function krFmt(d, fmt) {
+    const p = (n) => String(n).padStart(2, "0");
+    const md = p(d.getMonth() + 1) + "-" + p(d.getDate());
+    const hm = p(d.getHours()) + ":" + p(d.getMinutes());
+    if (fmt === "full") return d.getFullYear() + "-" + md + " " + hm;
+    if (fmt === "dot") return d.getFullYear() + "-" + md + " · " + hm;
+    return md + " " + hm;
+  }
+  function krLocalTimes(root) {
+    (root || document).querySelectorAll("time[data-ts]").forEach((el) => {
+      const d = new Date(el.getAttribute("data-ts") + "Z");   // stored in UTC
+      if (!isNaN(d)) el.textContent = krFmt(d, el.getAttribute("data-fmt") || "");
+      el.removeAttribute("data-ts");
+    });
+  }
+  krLocalTimes();
+  window.krFmt = krFmt;
+  window.krLocalTimes = krLocalTimes;
+
   // close open dropdowns when clicking anywhere else
   document.addEventListener("click", (e) => {
     document.querySelectorAll("details.dd[open]").forEach((d) => {

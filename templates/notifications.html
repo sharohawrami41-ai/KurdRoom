@@ -42,7 +42,7 @@
             <strong>{{ n.actor }}</strong> {{ t('ntf_' + n.kind) }}
           {% endif %}
           <div style="font-size:.72rem; color:var(--muted)" dir="ltr">
-            {{ n.created_at[5:16].replace('T',' ') }}</div>
+            <time data-ts="{{ n.created_at }}">{{ n.created_at[5:16].replace('T',' ') }}</time></div>
         </div>
       </div>
     </a>

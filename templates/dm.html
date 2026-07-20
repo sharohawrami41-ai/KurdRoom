@@ -155,7 +155,7 @@
         {%- endfor -%}
       </div>
       {% endif %}
-      <div class="meta" dir="ltr">{{ m.created_at[5:16].replace('T',' ') }}
+      <div class="meta" dir="ltr"><time data-ts="{{ m.created_at }}">{{ m.created_at[5:16].replace('T',' ') }}</time>
         {% if m.from_id == cu.id and not m.deleted %}<span class="tick">{{ '✓✓' if m.is_read else '✓' }}</span>{% endif %}</div>
     </div>
     {% endfor %}
@@ -275,9 +275,7 @@
   /* ---------- instant send: bubble appears the moment you tap ➤ ---------- */
   let chain = Promise.resolve();
   form.addEventListener("submit", (e) => { e.preventDefault(); sendMsg(); });
-  function nowStr() {
-    return new Date().toISOString().slice(5, 16).replace("T", " ");
-  }
+  function nowStr() { return krFmt(new Date()); }   // device-local time
   function sendMsg() {
     const content = ta.value.trim();
     const hasFile = fileInp.files.length > 0;
@@ -530,7 +528,7 @@
     b.appendChild(rx);
     const meta = document.createElement("div");
     meta.className = "meta"; meta.dir = "ltr";
-    meta.textContent = m.at + " ";
+    meta.textContent = (m.ts ? krFmt(new Date(m.ts + "Z")) : m.at) + " ";
     if (m.me) {
       const tick = document.createElement("span");
       tick.className = "tick"; tick.textContent = m.read ? "✓✓" : "✓";

@@ -24,7 +24,8 @@
             {% else %}<span class="badge low">{{ t('user') }}</span>{% endif %}</td>
         <td>{{ u.plan_count }}</td>
         <td style="font-size:.78rem; color:var(--muted)">{{ (u.created_at or '')[:10] }}</td>
-        <td style="font-size:.78rem; color:var(--muted)">{{ (u.last_login or t('never'))[:16].replace('T',' ') }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">
+          {% if u.last_login %}<time data-ts="{{ u.last_login }}" data-fmt="full">{{ u.last_login[:16].replace('T',' ') }}</time>{% else %}{{ t('never') }}{% endif %}</td>
         <td>
           {% if u.id != user.id %}
           <div style="display:flex; gap:6px; flex-wrap:wrap">
@@ -83,7 +84,7 @@
         <strong>{{ f.username }}
           {% if f.rating %}<span class="badge medium" dir="ltr">{{ '⭐' * f.rating }}</span>{% endif %}</strong>
         <span style="display:flex; gap:8px; align-items:center">
-          <span style="font-size:.7rem; color:var(--muted)" dir="ltr">{{ f.created_at[:16].replace('T',' ') }}</span>
+          <span style="font-size:.7rem; color:var(--muted)" dir="ltr"><time data-ts="{{ f.created_at }}" data-fmt="full">{{ f.created_at[:16].replace('T',' ') }}</time></span>
           <form method="post" action="{{ url_for('admin_feedback_resolve', fb_id=f.id) }}">
             <button class="small" type="submit"
                     style="{{ 'border-color:var(--ok); color:var(--ok)' if not f.resolved }}">

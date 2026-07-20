@@ -37,7 +37,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "2.4"   # shown in the footer — bump this with each release
+APP_VERSION = "2.5"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1647,6 +1647,26 @@ def push_to_user(uid, kind, actor="", link=""):
                      daemon=True).start()
 
 
+def clear_notifs(*kinds, prefix=None):
+    """Mark notifications read once the user has actually seen the thing
+    they point at (opened the chat, the dashboard, the exams page…)."""
+    uid = session.get("user_id")
+    if uid is None:
+        return
+    q = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0"
+    args = [uid]
+    if kinds:
+        q += " AND kind IN (%s)" % ",".join("?" * len(kinds))
+        args += list(kinds)
+    if prefix:
+        q += " AND link LIKE ?"
+        args.append(prefix + "%")
+    db = get_db()
+    cur = db.execute(q, args)
+    if cur.rowcount:
+        db.commit()
+
+
 def notify(uid, kind, actor="", link=""):
     """Queue a notification (caller commits). Chat kinds collapse into one unread row."""
     db = get_db()
@@ -1986,6 +2006,7 @@ PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 @login_required
 def dashboard():
     user = current_user()
+    clear_notifs("deadline", "overdue")   # seen the plans -> warnings are done
     rows = get_db().execute(
         "SELECT * FROM plans WHERE user_id = ? ORDER BY done ASC, "
         "CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, "
@@ -2278,6 +2299,7 @@ DAY_KEYS = ["day_sat", "day_sun", "day_mon", "day_tue", "day_wed", "day_thu", "d
 def university():
     db = get_db()
     uid = session["user_id"]
+    clear_notifs("exam_soon")             # seen the exams page -> reminders done
     exams = db.execute("SELECT * FROM exams WHERE user_id = ? ORDER BY exam_date",
                        (uid,)).fetchall()
     today_d = date.today()
@@ -2489,6 +2511,7 @@ def user_profile(username):
 def friends():
     db = get_db()
     uid = session["user_id"]
+    clear_notifs("friend_req", "friend_acc", "duel_req", "duel_acc", "duel_end")
     finish_due_duels(uid)
     # duels involving me
     duels = []
@@ -2649,6 +2672,7 @@ def group_create():
 def group_page(group_id):
     g_row = member_group_or_403(group_id)
     db = get_db()
+    clear_notifs("group_msg", "group_add", prefix=request.path)
     members = db.execute(
         "SELECT u.id, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id "
         "WHERE gm.group_id = ? ORDER BY u.username", (group_id,)).fetchall()
@@ -2781,6 +2805,7 @@ def group_chat_poll(group_id):
     db = get_db()
     uid = session["user_id"]
     after = request.args.get("after", 0, type=int)
+    clear_notifs("group_msg", prefix=url_for("group_page", group_id=group_id))
     rows = db.execute(
         "SELECT m.*, u.username, r.content AS r_content, ru.username AS r_username "
         "FROM group_messages m JOIN users u ON u.id = m.user_id "
@@ -2815,6 +2840,7 @@ def group_chat_poll(group_id):
                       "name": m["username"], "level": lv(m["user_id"]),
                       "content": m["content"] or "",
                       "at": (m["created_at"] or "")[5:16].replace("T", " "),
+                      "ts": m["created_at"] or "",
                       "gone": bool(m["deleted"]),
                       "reply": ({"id": m["reply_to"], "name": m["r_username"] or "",
                                  "text": (m["r_content"] or "")[:90]}
@@ -3397,6 +3423,7 @@ def dm_thread(username):
     db.execute("UPDATE dms SET is_read = 1 WHERE from_id = ? AND to_id = ?",
                (friend["id"], uid))
     db.commit()
+    clear_notifs("dm", prefix=request.path)   # chat opened -> its notification is done
     thread = db.execute(
         "SELECT m.*, r.content AS r_content, r.kind AS r_kind, r.from_id AS r_from, "
         "r.orig_name AS r_orig FROM dms m LEFT JOIN dms r ON r.id = m.reply_to "
@@ -3443,6 +3470,7 @@ def dm_poll(username):
     db.execute("UPDATE dms SET is_read = 1 WHERE from_id = ? AND to_id = ? "
                "AND is_read = 0", (friend["id"], uid))
     db.commit()
+    clear_notifs("dm", prefix=url_for("dm_thread", username=username))
     rows = db.execute(
         "SELECT m.*, r.content AS r_content, r.kind AS r_kind, r.from_id AS r_from, "
         "r.orig_name AS r_orig FROM dms m LEFT JOIN dms r ON r.id = m.reply_to "
@@ -3489,6 +3517,7 @@ def dm_poll(username):
                       "kind": m["kind"] or "text", "content": m["content"] or "",
                       "orig": m["orig_name"] or "", "stored": bool(m["stored"]),
                       "at": (m["created_at"] or "")[5:16].replace("T", " "),
+                      "ts": m["created_at"] or "",
                       "read": bool(m["is_read"]), "reply": snip(m),
                       "gone": bool(m["deleted"])} for m in rows],
             "read_max": read_max, "reacts": reacts, "del": dels,
