@@ -39,7 +39,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "3.5"   # shown in the footer — bump this with each release
+APP_VERSION = "3.8"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1697,6 +1697,8 @@ V22 = {
         "fp_link_l": "FastPay payment link (optional)",
         "fib_qr_l": "FIB QR code image (share/save 'My QR' from the FIB app, upload it here)",
         "scan_qr": "…or scan this QR with the FIB app:",
+        "plus_phone_l": "Payment phone number",
+        "del_img": "🗑 Delete current image",
         "contact_t": "Find us",
     },
     "ar": {
@@ -1713,6 +1715,8 @@ V22 = {
         "fp_link_l": "رابط دفع FastPay (اختياري)",
         "fib_qr_l": "صورة رمز QR لـ FIB (شارك/احفظ 'رمزي' من التطبيق وارفعه هنا)",
         "scan_qr": "…أو امسح هذا الرمز بتطبيق FIB:",
+        "plus_phone_l": "رقم هاتف الدفع",
+        "del_img": "🗑 حذف الصورة الحالية",
         "contact_t": "تواصل معنا",
     },
     "ku": {
@@ -1729,6 +1733,8 @@ V22 = {
         "fp_link_l": "لینکی پارەدانی FastPay (ئارەزوومەندانە)",
         "fib_qr_l": "وێنەی کۆدی QR ی FIB (لە ئەپەکە 'My QR' هاوبەش بکە/پاشەکەوتی بکە و لێرە باری بکە)",
         "scan_qr": "…یان ئەم کۆدە بە ئەپی FIB سکان بکە:",
+        "plus_phone_l": "ژمارەی تەلەفۆنی پارەدان",
+        "del_img": "🗑 سڕینەوەی وێنەی ئێستا",
         "contact_t": "بمانبیننەوە",
     },
 }
@@ -1797,12 +1803,18 @@ def inject_globals():
     if os.path.exists(sp_path):
         sponsor_img = url_for("static", filename="avatars/sponsor.png",
                               v=int(os.path.getmtime(sp_path)))
+    fib_qr_img = None
+    qr_path = os.path.join(BASE_DIR, "static", "avatars", "fibqr.png")
+    if os.path.exists(qr_path):
+        fib_qr_img = url_for("static", filename="avatars/fibqr.png",
+                             v=int(os.path.getmtime(qr_path)))
     return dict(t=tr, lang=lang, is_rtl=lang in RTL_LANGS, langs=LANGS,
                 settings=s, tagline=tagline, today=date.today().isoformat(),
                 cu=cu, theme=theme, accent=accent, pending_requests=pending,
                 unread_notifs=unread_n, unread_dms=unread_d,
                 av=avatar_url, BADGES=BADGES, site_logo=logo,
-                sponsor_img=sponsor_img, app_version=APP_VERSION)
+                sponsor_img=sponsor_img, fib_qr_img=fib_qr_img,
+                app_version=APP_VERSION)
 
 
 # ---------------------------------------------------------------- helpers
@@ -2682,7 +2694,8 @@ def plus_page():
     if os.path.exists(qr_path):
         fib_qr = url_for("static", filename="avatars/fibqr.png",
                          v=int(os.path.getmtime(qr_path)))
-    return render_template("plus.html", user=current_user(), phone=PLUS_PHONE,
+    phone = (get_settings().get("plus_phone") or "").strip() or PLUS_PHONE
+    return render_template("plus.html", user=current_user(), phone=phone,
                            fib_qr=fib_qr)
 
 
@@ -2697,7 +2710,8 @@ def plus_paid():
     db.execute("INSERT INTO feedback(user_id, message, rating, created_at) "
                "VALUES(?,?,?,?)",
                (session["user_id"],
-                f"💳⭐ PLUS PAYMENT — {plan_label} via {method} to {PLUS_PHONE}. "
+                f"💳⭐ PLUS PAYMENT — {plan_label} via {method} to "
+                f"{(get_settings().get('plus_phone') or '').strip() or PLUS_PHONE}. "
                 "Please check and activate!", None,
                 datetime.utcnow().isoformat(timespec="seconds")))
     notify(session["user_id"], "plus_wait", actor=f"{plan_label} · {method}",
@@ -4869,8 +4883,9 @@ def admin_settings():
     db = get_db()
     fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
               "ai_api_key", "ai_model", "sponsor_name", "sponsor_url", "plus_price",
-              "fib_link", "fastpay_link", "about_text", "social_instagram",
-              "social_facebook", "social_website", "social_email"]
+              "fib_link", "fastpay_link", "about_text", "about_en", "about_ar",
+              "about_ku", "social_instagram",
+              "social_facebook", "social_website", "social_email", "plus_phone"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
@@ -4890,6 +4905,17 @@ def admin_settings():
         ext = qr.filename.rsplit(".", 1)[-1].lower() if "." in qr.filename else ""
         if ext in ("png", "jpg", "jpeg", "webp"):
             qr.save(os.path.join(BASE_DIR, "static", "avatars", "fibqr.png"))
+    # delete uploaded images when the admin ticks the boxes
+    if request.form.get("del_fib_qr"):
+        try:
+            os.remove(os.path.join(BASE_DIR, "static", "avatars", "fibqr.png"))
+        except OSError:
+            pass
+    if request.form.get("del_sponsor_img"):
+        try:
+            os.remove(os.path.join(BASE_DIR, "static", "avatars", "sponsor.png"))
+        except OSError:
+            pass
     db.commit()
     flash(tr("ok_saved"), "ok")
     return redirect(url_for("admin"))

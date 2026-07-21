@@ -140,6 +140,15 @@
         <input name="sponsor_url" maxlength="200" value="{{ settings.get('sponsor_url','') }}" dir="ltr">
         <label>{{ t('sponsor_img_l') }}</label>
         <input type="file" name="sponsor_img" accept=".png,.jpg,.jpeg,.webp,.gif">
+        {% if sponsor_img %}
+        <div style="display:flex; align-items:center; gap:12px; margin-top:8px">
+          <img src="{{ sponsor_img }}" alt="" style="height:40px; border-radius:8px">
+          <label style="display:flex; align-items:center; gap:7px; font-size:.85rem;
+                 color:var(--high); cursor:pointer">
+            <input type="checkbox" name="del_sponsor_img" style="width:auto"> {{ t('del_img') }}
+          </label>
+        </div>
+        {% endif %}
         <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:.9rem; color:var(--text)">
           <input type="checkbox" name="sponsor_enabled" style="width:auto"
                  {{ 'checked' if settings.get('sponsor_enabled') == '1' }}>
@@ -150,6 +159,9 @@
         <input name="plus_price" maxlength="80"
                value="{{ settings.get('plus_price','') }}"
                placeholder="{{ t('plus_price') }}">
+        <label>📞 {{ t('plus_phone_l') }}</label>
+        <input name="plus_phone" maxlength="20" dir="ltr"
+               value="{{ settings.get('plus_phone','') }}" placeholder="+9647518962161">
         <label>🏦 {{ t('fib_link_l') }}</label>
         <input name="fib_link" maxlength="200" dir="ltr"
                value="{{ settings.get('fib_link','') }}" placeholder="https://fib.me/…">
@@ -158,11 +170,25 @@
                value="{{ settings.get('fastpay_link','') }}" placeholder="https://…">
         <label>📷 {{ t('fib_qr_l') }}</label>
         <input type="file" name="fib_qr" accept=".png,.jpg,.jpeg,.webp">
+        {% if fib_qr_img %}
+        <div style="display:flex; align-items:center; gap:12px; margin-top:8px">
+          <img src="{{ fib_qr_img }}" alt="QR" style="height:64px; border-radius:10px;
+               background:#fff; padding:4px">
+          <label style="display:flex; align-items:center; gap:7px; font-size:.85rem;
+                 color:var(--high); cursor:pointer">
+            <input type="checkbox" name="del_fib_qr" style="width:auto"> {{ t('del_img') }}
+          </label>
+        </div>
+        {% endif %}
 
         <hr style="margin:18px 0; border-color:var(--card-border)">
         <h2 style="font-size:1rem">ℹ️ {{ t('about_t') }}</h2>
-        <label>{{ t('about_l') }}</label>
-        <textarea name="about_text" rows="5" maxlength="3000">{{ settings.get('about_text','') }}</textarea>
+        <label>{{ t('about_l') }} (English)</label>
+        <textarea name="about_en" rows="4" maxlength="3000">{{ settings.get('about_en','') or settings.get('about_text','') }}</textarea>
+        <label>{{ t('about_l') }} (العربية)</label>
+        <textarea name="about_ar" rows="4" maxlength="3000" dir="rtl">{{ settings.get('about_ar','') }}</textarea>
+        <label>{{ t('about_l') }} (کوردی)</label>
+        <textarea name="about_ku" rows="4" maxlength="3000" dir="rtl">{{ settings.get('about_ku','') }}</textarea>
         <label>{{ t('social_l') }}</label>
         <input name="social_instagram" maxlength="200" dir="ltr"
                value="{{ settings.get('social_instagram','') }}" placeholder="https://instagram.com/…">
