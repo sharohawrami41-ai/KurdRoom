@@ -156,6 +156,8 @@
         <label>⚡ {{ t('fp_link_l') }}</label>
         <input name="fastpay_link" maxlength="200" dir="ltr"
                value="{{ settings.get('fastpay_link','') }}" placeholder="https://…">
+        <label>📷 {{ t('fib_qr_l') }}</label>
+        <input type="file" name="fib_qr" accept=".png,.jpg,.jpeg,.webp">
 
         <hr style="margin:18px 0; border-color:var(--card-border)">
         <h2 style="font-size:1rem">ℹ️ {{ t('about_t') }}</h2>

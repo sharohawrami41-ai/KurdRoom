@@ -39,7 +39,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "3.4"   # shown in the footer — bump this with each release
+APP_VERSION = "3.5"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1695,6 +1695,8 @@ V22 = {
         "social_l": "Links (Instagram · Facebook · Website · Email)",
         "fib_link_l": "FIB payment link (from your FIB app: Request → Share link)",
         "fp_link_l": "FastPay payment link (optional)",
+        "fib_qr_l": "FIB QR code image (share/save 'My QR' from the FIB app, upload it here)",
+        "scan_qr": "…or scan this QR with the FIB app:",
         "contact_t": "Find us",
     },
     "ar": {
@@ -1709,6 +1711,8 @@ V22 = {
         "social_l": "الروابط (إنستغرام · فيسبوك · الموقع · البريد)",
         "fib_link_l": "رابط دفع FIB (من تطبيقك: طلب → مشاركة الرابط)",
         "fp_link_l": "رابط دفع FastPay (اختياري)",
+        "fib_qr_l": "صورة رمز QR لـ FIB (شارك/احفظ 'رمزي' من التطبيق وارفعه هنا)",
+        "scan_qr": "…أو امسح هذا الرمز بتطبيق FIB:",
         "contact_t": "تواصل معنا",
     },
     "ku": {
@@ -1723,6 +1727,8 @@ V22 = {
         "social_l": "لینکەکان (ئینستاگرام · فەیسبووک · ماڵپەڕ · ئیمەیڵ)",
         "fib_link_l": "لینکی پارەدانی FIB (لە ئەپەکەتەوە: داواکردن → هاوبەشکردنی لینک)",
         "fp_link_l": "لینکی پارەدانی FastPay (ئارەزوومەندانە)",
+        "fib_qr_l": "وێنەی کۆدی QR ی FIB (لە ئەپەکە 'My QR' هاوبەش بکە/پاشەکەوتی بکە و لێرە باری بکە)",
+        "scan_qr": "…یان ئەم کۆدە بە ئەپی FIB سکان بکە:",
         "contact_t": "بمانبیننەوە",
     },
 }
@@ -2671,7 +2677,13 @@ PLUS_PHONE = "+9647518962161"
 @app.route("/plus")
 @login_required
 def plus_page():
-    return render_template("plus.html", user=current_user(), phone=PLUS_PHONE)
+    qr_path = os.path.join(BASE_DIR, "static", "avatars", "fibqr.png")
+    fib_qr = None
+    if os.path.exists(qr_path):
+        fib_qr = url_for("static", filename="avatars/fibqr.png",
+                         v=int(os.path.getmtime(qr_path)))
+    return render_template("plus.html", user=current_user(), phone=PLUS_PHONE,
+                           fib_qr=fib_qr)
 
 
 @app.route("/plus/paid", methods=["POST"])
@@ -4873,6 +4885,11 @@ def admin_settings():
         ext = logo.filename.rsplit(".", 1)[-1].lower() if "." in logo.filename else ""
         if ext in ("png", "jpg", "jpeg", "webp", "gif"):
             logo.save(os.path.join(BASE_DIR, "static", "avatars", "sponsor.png"))
+    qr = request.files.get("fib_qr")
+    if qr and qr.filename:
+        ext = qr.filename.rsplit(".", 1)[-1].lower() if "." in qr.filename else ""
+        if ext in ("png", "jpg", "jpeg", "webp"):
+            qr.save(os.path.join(BASE_DIR, "static", "avatars", "fibqr.png"))
     db.commit()
     flash(tr("ok_saved"), "ok")
     return redirect(url_for("admin"))

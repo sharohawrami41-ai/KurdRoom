@@ -78,6 +78,12 @@
     <button class="paybtn fib" type="button" onclick="openPay('fib')">🏦 FIB</button>
     <button class="paybtn fp" type="button" onclick="openPay('fastpay')">⚡ FastPay</button>
   </div>
+  {% if fib_qr %}
+  <div class="steps">{{ t('scan_qr') }}</div>
+  <img src="{{ fib_qr }}" alt="FIB QR"
+       style="width:190px; border-radius:16px; background:#fff; padding:10px;
+       border:1px solid var(--card-border)">
+  {% endif %}
   <div class="steps">3️⃣ {{ t('pay_step3') }}</div>
   <form method="post" action="{{ url_for('plus_paid') }}" style="margin-top:8px;
         max-width:400px; margin-inline:auto; text-align:start">
