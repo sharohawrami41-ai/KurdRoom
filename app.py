@@ -28,7 +28,9 @@ if DATA_DIR:
     DB_PATH = os.path.join(DATA_DIR, "planner.db")
     for sub, target in (("avatars", os.path.join(BASE_DIR, "static", "avatars")),
                         ("fonts", os.path.join(BASE_DIR, "static", "fonts")),
-                        ("groupfiles", os.path.join(BASE_DIR, "groupfiles"))):
+                        ("groupfiles", os.path.join(BASE_DIR, "groupfiles")),
+                        ("dmfiles", os.path.join(BASE_DIR, "dmfiles")),
+                        ("postfiles", os.path.join(BASE_DIR, "postfiles"))):
         real = os.path.join(DATA_DIR, sub)
         os.makedirs(real, exist_ok=True)
         if not os.path.islink(target):
@@ -39,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "3.9"   # shown in the footer — bump this with each release
+APP_VERSION = "4.0"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -4254,36 +4256,44 @@ def api_pings():
     return out
 
 
+_transcode_lock = threading.Lock()
+
+
 def transcode_voice(stored):
     """Convert a webm voice file to mp3 so iPhones can play it.
     Returns the new stored filename, or None if conversion failed."""
     if not stored.lower().endswith(".webm"):
         return None
-    src = os.path.join(BASE_DIR, "dmfiles", stored)
-    if not os.path.exists(src):
-        return None
     dst_name = stored.rsplit(".", 1)[0] + ".mp3"
+    src = os.path.join(BASE_DIR, "dmfiles", stored)
     dst = os.path.join(BASE_DIR, "dmfiles", dst_name)
-    try:
-        import subprocess
-        import imageio_ffmpeg
-        ff = imageio_ffmpeg.get_ffmpeg_exe()
-        r = subprocess.run([ff, "-y", "-i", src, "-vn", "-acodec", "libmp3lame",
-                            "-b:a", "64k", dst], capture_output=True, timeout=60)
-        if r.returncode == 0 and os.path.exists(dst) and os.path.getsize(dst) > 0:
-            try:
-                os.remove(src)
-            except OSError:
-                pass
-            return dst_name
-    except Exception:
-        pass
-    try:
-        if os.path.exists(dst):
-            os.remove(dst)
-    except OSError:
-        pass
-    return None
+    with _transcode_lock:
+        if os.path.exists(dst) and os.path.getsize(dst) > 0:
+            return dst_name          # another request already converted it
+        if not os.path.exists(src):
+            return None
+        try:
+            import subprocess
+            import imageio_ffmpeg
+            ff = imageio_ffmpeg.get_ffmpeg_exe()
+            r = subprocess.run([ff, "-y", "-i", src, "-vn",
+                                "-acodec", "libmp3lame", "-b:a", "64k", dst],
+                               capture_output=True, timeout=60,
+                               stdin=subprocess.DEVNULL)
+            if r.returncode == 0 and os.path.exists(dst) and os.path.getsize(dst) > 0:
+                try:
+                    os.remove(src)
+                except OSError:
+                    pass
+                return dst_name
+        except Exception:
+            pass
+        try:
+            if os.path.exists(dst):
+                os.remove(dst)
+        except OSError:
+            pass
+        return None
 
 
 @app.route("/dmfile/<int:msg_id>")
@@ -4303,9 +4313,14 @@ def dm_file(msg_id):
             db.commit()
             m = db.execute("SELECT * FROM dms WHERE id = ?", (msg_id,)).fetchone()
     inline = m["kind"] in ("image", "voice")
+    import mimetypes as _mt
+    ext = m["stored"].rsplit(".", 1)[-1].lower() if "." in m["stored"] else ""
+    mime = {"mp3": "audio/mpeg", "m4a": "audio/mp4", "webm": "audio/webm",
+            "ogg": "audio/ogg", "wav": "audio/wav"}.get(ext) if m["kind"] == "voice"         else _mt.guess_type(m["stored"])[0]
     return send_from_directory(os.path.join(BASE_DIR, "dmfiles"), m["stored"],
-                               as_attachment=not inline,
-                               download_name=m["orig_name"] or m["stored"])
+                               as_attachment=not inline, mimetype=mime,
+                               download_name=(m["stored"] if m["kind"] == "voice"
+                                              else (m["orig_name"] or m["stored"])))
 
 
 # ---------------------------------------------------------------- posts
