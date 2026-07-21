@@ -2,10 +2,60 @@
 {% block content %}
   <div class="quote">{{ quote }}</div>
 
-  <!-- ============================ exams ============================ -->
   <div style="display:flex; justify-content:flex-end; margin-bottom:12px">
     <a class="pill" href="{{ url_for('grades') }}">📊 {{ t('grade_book') }} {{ '←' if is_rtl else '→' }}</a>
   </div>
+
+  <!-- ============================ homework ============================ -->
+  <div class="card" id="homework" style="margin-bottom:22px">
+    <h2>📝 {{ t('hw_t') }}
+      {% set hw_open = homework|rejectattr('done')|list|length %}
+      {% if hw_open %}<span class="badge high" style="font-size:.72rem">{{ hw_open }}</span>{% endif %}</h2>
+    <div class="hint">{{ t('no_hw') if not homework else '' }}</div>
+
+    {% for h in homework %}
+    <div class="plan {{ 'low' if h.done else ('high' if h.overdue or h.due_today else 'medium') }}">
+      <form method="post" action="{{ url_for('homework_toggle', hw_id=h.id) }}">
+        <button type="submit" class="checkbox {{ 'checked' if h.done }}"
+                style="width:26px; height:26px; border-radius:8px; cursor:pointer;
+                border:2px solid {{ 'var(--ok)' if h.done else 'var(--card-border)' }};
+                background: {{ 'var(--ok)' if h.done else 'transparent' }};
+                color:#fff; font-size:.9rem">{{ '✓' if h.done }}</button>
+      </form>
+      <div class="plan-body">
+        <div class="plan-title" style="{{ 'text-decoration:line-through; opacity:.55' if h.done }}">
+          {{ h.title }}</div>
+        {% if h.details %}<div class="plan-details">{{ h.details }}</div>{% endif %}
+        <div class="plan-meta">
+          {% if h.subject %}<span class="badge medium">📘 {{ h.subject }}</span>{% endif %}
+          {% if h.overdue %}<span class="badge overdue">🚨 {{ t('overdue') }}</span>
+          {% elif h.due_today %}<span class="badge today">⚠ {{ t('today') }}!</span>
+          {% elif h.due_date %}<span>📅 {{ h.due_date }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="plan-actions">
+        <form method="post" action="{{ url_for('homework_delete', hw_id=h.id) }}">
+          <button class="small warn" type="submit">✕</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+
+    <form method="post" action="{{ url_for('homework_add') }}"
+          style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-top:12px">
+      <div style="flex:2; min-width:180px"><label>{{ t('hw_title_l') }}</label>
+        <input name="title" required maxlength="120"></div>
+      <div style="flex:1; min-width:130px"><label>{{ t('hw_subject') }}</label>
+        <input name="subject" maxlength="60"></div>
+      <div><label>{{ t('hw_due') }}</label><input type="date" name="due_date"></div>
+      <div style="flex:2; min-width:160px"><label>{{ t('hw_details') }}</label>
+        <input name="details" maxlength="300"></div>
+      <button class="primary" type="submit" style="width:auto; padding:11px 22px">
+        ➕ {{ t('hw_add') }}</button>
+    </form>
+  </div>
+
+  <!-- ============================ exams ============================ -->
   <div class="card" style="margin-bottom:22px">
     <h2>⏳ {{ t('exams') }}</h2>
     <div class="hint">{{ t('empty_exams') if not exams else '' }}</div>

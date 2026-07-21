@@ -591,6 +591,10 @@ button, .pill, .tab, .icon-btn, .bottombar a { position: relative; overflow: hid
 
 /* ---------- smooth cross-page transitions (modern browsers) ---------- */
 @view-transition { navigation: auto; }
+::view-transition-old(root) { animation: vtOut .14s ease both; }
+::view-transition-new(root) { animation: vtIn .22s cubic-bezier(.22,.9,.36,1) both; }
+@keyframes vtOut { to { opacity: 0; transform: translateY(8px) scale(.995); } }
+@keyframes vtIn { from { opacity: 0; transform: translateY(-8px) scale(.995); } }
 
 /* ---------- app launch splash ---------- */
 #splash {
@@ -1083,6 +1087,31 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   krLocalTimes();
   window.krFmt = krFmt;
   window.krLocalTimes = krLocalTimes;
+
+  // ---------- instant page switches: prefetch links the finger is heading for ----------
+  const krPre = new Set();
+  const PRE_SKIP = ["/lang/", "/logout", "/dmfile/", "/postimg/", "/gfile", "/avatar",
+                    "/static/", "/push/", "/api/"];
+  function krPrefetch(a) {
+    const href = a.getAttribute("href") || "";
+    if (!href.startsWith("/") || href.startsWith("//")) return;
+    if (PRE_SKIP.some((s) => href.startsWith(s))) return;
+    const clean = href.split("#")[0];
+    if (!clean || krPre.has(clean)) return;
+    krPre.add(clean);
+    const l = document.createElement("link");
+    l.rel = "prefetch";
+    l.href = clean;
+    document.head.appendChild(l);
+  }
+  document.addEventListener("mouseover", (e) => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (a) krPrefetch(a);
+  }, { passive: true });
+  document.addEventListener("touchstart", (e) => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (a) krPrefetch(a);
+  }, { passive: true });
 
   // close open dropdowns when clicking anywhere else
   document.addEventListener("click", (e) => {

@@ -37,7 +37,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "2.5"   # shown in the footer — bump this with each release
+APP_VERSION = "2.6"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -128,6 +128,16 @@ def init_db():
         title      TEXT DEFAULT '',
         content    TEXT DEFAULT '',
         updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS homework (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject    TEXT DEFAULT '',
+        title      TEXT NOT NULL,
+        details    TEXT DEFAULT '',
+        due_date   TEXT DEFAULT '',
+        done       INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS exams (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1459,6 +1469,29 @@ V17 = {
 for _l, _d in V17.items():
     T[_l].update(_d)
 
+V18 = {
+    "en": {
+        "hw_t": "Homework", "hw_add": "Add homework", "hw_subject": "Subject",
+        "hw_title_l": "What do you have to do?", "hw_details": "Notes (optional)",
+        "hw_due": "Due date", "no_hw": "No homework yet — lucky you! 🎉",
+        "hw_left": "left", "ntf_homework": "Homework waiting:",
+    },
+    "ar": {
+        "hw_t": "الواجبات", "hw_add": "أضف واجبًا", "hw_subject": "المادة",
+        "hw_title_l": "ما الذي عليك فعله؟", "hw_details": "ملاحظات (اختياري)",
+        "hw_due": "موعد التسليم", "no_hw": "لا واجبات بعد — محظوظ! 🎉",
+        "hw_left": "متبقٍ", "ntf_homework": "واجبات بانتظارك:",
+    },
+    "ku": {
+        "hw_t": "ئەرکەکان", "hw_add": "ئەرک زیاد بکە", "hw_subject": "بابەت",
+        "hw_title_l": "چی دەبێت بکەیت؟", "hw_details": "تێبینی (ئارەزوومەندانە)",
+        "hw_due": "کۆتا وادە", "no_hw": "هێشتا ئەرک نییە — بەختەوەری! 🎉",
+        "hw_left": "ماوە", "ntf_homework": "ئەرکەکان چاوەڕێتن:",
+    },
+}
+for _l, _d in V18.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1581,7 +1614,7 @@ def admin_required(f):
 NOTIF_ICONS = {"friend_req": "👥", "friend_acc": "🤝", "group_msg": "💬",
                "group_add": "➕", "badge": "🏅", "dm": "✉️", "duel_req": "⚔️",
                "duel_acc": "⚔️", "duel_end": "🏆", "deadline": "⏰",
-               "overdue": "🚨", "exam_soon": "📚"}
+               "overdue": "🚨", "exam_soon": "📚", "homework": "📝"}
 
 
 def push_text(lang, kind, actor):
@@ -1591,7 +1624,7 @@ def push_text(lang, kind, actor):
     if kind == "badge":
         return f"{txt} {tt.get('badge_' + actor + '_n', actor)}"
     if kind in ("group_msg", "group_add", "duel_end",
-                "deadline", "overdue", "exam_soon"):
+                "deadline", "overdue", "exam_soon", "homework"):
         return f"{txt} “{actor}”"
     return f"{actor} {txt}"
 
@@ -2299,7 +2332,16 @@ DAY_KEYS = ["day_sat", "day_sun", "day_mon", "day_tue", "day_wed", "day_thu", "d
 def university():
     db = get_db()
     uid = session["user_id"]
-    clear_notifs("exam_soon")             # seen the exams page -> reminders done
+    clear_notifs("exam_soon", "homework")  # seen the page -> reminders done
+    hw_rows = db.execute(
+        "SELECT * FROM homework WHERE user_id = ? ORDER BY done ASC, "
+        "CASE WHEN due_date = '' THEN 1 ELSE 0 END, due_date ASC, id DESC",
+        (uid,)).fetchall()
+    today_iso = date.today().isoformat()
+    homework = [dict(h, overdue=(h["due_date"] and h["due_date"] < today_iso
+                                 and not h["done"]),
+                     due_today=(h["due_date"] == today_iso and not h["done"]))
+                for h in hw_rows]
     exams = db.execute("SELECT * FROM exams WHERE user_id = ? ORDER BY exam_date",
                        (uid,)).fetchall()
     today_d = date.today()
@@ -2321,7 +2363,45 @@ def university():
     fc_data = [dict(s=c["subject"], q=c["question"], a=c["answer"]) for c in cards]
     return render_template("university.html", user=current_user(), exams=exam_items,
                            grid=grid, day_keys=DAY_KEYS, cards=cards,
-                           subjects=subjects, fc_data=fc_data, quote=random_quote())
+                           subjects=subjects, fc_data=fc_data, homework=homework,
+                           quote=random_quote())
+
+
+# ---------------------------------------------------------------- homework
+@app.route("/homework/add", methods=["POST"])
+@login_required
+def homework_add():
+    title = request.form.get("title", "").strip()
+    if title:
+        db = get_db()
+        db.execute("INSERT INTO homework(user_id, subject, title, details, due_date, "
+                   "created_at) VALUES(?,?,?,?,?,?)",
+                   (session["user_id"], request.form.get("subject", "").strip()[:60],
+                    title[:120], request.form.get("details", "").strip()[:300],
+                    request.form.get("due_date", "").strip()[:10],
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(url_for("university") + "#homework")
+
+
+@app.route("/homework/<int:hw_id>/toggle", methods=["POST"])
+@login_required
+def homework_toggle(hw_id):
+    db = get_db()
+    db.execute("UPDATE homework SET done = 1 - done WHERE id = ? AND user_id = ?",
+               (hw_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("university") + "#homework")
+
+
+@app.route("/homework/<int:hw_id>/delete", methods=["POST"])
+@login_required
+def homework_delete(hw_id):
+    db = get_db()
+    db.execute("DELETE FROM homework WHERE id = ? AND user_id = ?",
+               (hw_id, session["user_id"]))
+    db.commit()
+    return redirect(url_for("university") + "#homework")
 
 
 def group_extras(group_id):
@@ -4331,6 +4411,24 @@ def _scan_reminders(con):
             continue
         _emit_reminder(con, p["user_id"], p["lang"], "overdue", p["title"],
                        link, priv, site)
+    # pending homework — a nudge every 2 hours until it's done
+    two_h_ago = (datetime.utcnow() - _td(hours=2)).isoformat(timespec="seconds")
+    for u in con.execute(
+            "SELECT h.user_id, u.lang, COUNT(*) AS n, "
+            "GROUP_CONCAT(h.title, ', ') AS titles FROM homework h "
+            "JOIN users u ON u.id = h.user_id WHERE h.done = 0 "
+            "GROUP BY h.user_id"):
+        if con.execute("SELECT 1 FROM notifications WHERE user_id = ? AND "
+                       "kind = 'homework' AND created_at > ?",
+                       (u["user_id"], two_h_ago)).fetchone():
+            continue
+        titles = (u["titles"] or "")[:75]
+        actor = f"{u['n']} · {titles}" if u["n"] > 1 else titles
+        # collapse older unread homework nudges so they never pile up
+        con.execute("DELETE FROM notifications WHERE user_id = ? AND "
+                    "kind = 'homework' AND is_read = 0", (u["user_id"],))
+        _emit_reminder(con, u["user_id"], u["lang"], "homework", actor,
+                       "/university#homework", priv, site)
     # exams today or tomorrow — one reminder per exam per day
     for e in con.execute(
             "SELECT e.id, e.user_id, e.subject, u.lang FROM exams e "
