@@ -3,7 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ settings.site_name }}</title>
+<title>{{ settings.site_name }} — {{ tagline }}</title>
+<meta name="description" content="{{ settings.site_name }}: {{ tagline }} Plans, habits, study tools, groups, and messaging for students — in English, العربية, and کوردی.">
+<meta property="og:title" content="{{ settings.site_name }}">
+<meta property="og:description" content="{{ tagline }}">
+<meta property="og:type" content="website">
+<meta property="og:image" content="{{ url_for('static', filename='icon-512.png', _external=True) }}">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}">
+<link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon-512.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
 <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
 <meta name="theme-color" content="#0d0b1e">
 <link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}">

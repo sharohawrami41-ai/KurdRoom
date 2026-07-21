@@ -4119,6 +4119,34 @@ def tool_ai():
                            result=result, error=error, text=text, task=task)
 
 
+# ---------------------------------------------------------------- SEO
+@app.route("/favicon.ico")
+def favicon():
+    # browsers and Google that ask for the classic path get the app icon
+    return redirect(url_for("static", filename="icon-192.png"))
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    from flask import Response
+    return Response("User-agent: *\nAllow: /\nSitemap: " +
+                    request.url_root.rstrip("/") + "/sitemap.xml\n",
+                    mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    from flask import Response
+    base = request.url_root.rstrip("/")
+    pages = ["/", "/login", "/register"]
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for p in pages:
+        xml.append(f"<url><loc>{base}{p}</loc><changefreq>weekly</changefreq></url>")
+    xml.append("</urlset>")
+    return Response("\n".join(xml), mimetype="application/xml")
+
+
 # ---------------------------------------------------------------- PWA
 @app.route("/sw.js")
 def service_worker():
