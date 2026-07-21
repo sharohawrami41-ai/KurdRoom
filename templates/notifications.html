@@ -30,13 +30,14 @@
         <span style="font-size:1.3rem">
           {{ {'friend_req':'👥','friend_acc':'🤝','group_msg':'💬','group_add':'➕',
               'badge':'🏅','dm':'✉️','duel_req':'⚔️','duel_acc':'⚔️','duel_end':'🏆',
-              'deadline':'⏰','overdue':'🚨','exam_soon':'📚','homework':'📝'}.get(n.kind, '🔔') }}</span>
+              'deadline':'⏰','overdue':'🚨','exam_soon':'📚','homework':'📝',
+              'weekly':'🏆','mention':'📣'}.get(n.kind, '🔔') }}</span>
         <div class="plan-body">
           {% if n.kind == 'badge' %}
             <strong>{{ t('ntf_badge') }} {{ BADGES.get(n.actor, '🏅') }}
               {{ t('badge_' + n.actor + '_n') }}</strong>
           {% elif n.kind in ('group_msg', 'group_add', 'duel_end',
-                             'deadline', 'overdue', 'exam_soon', 'homework') %}
+                             'deadline', 'overdue', 'exam_soon', 'homework', 'weekly') %}
             <strong>{{ t('ntf_' + n.kind) }} “{{ n.actor }}”</strong>
           {% else %}
             <strong>{{ n.actor }}</strong> {{ t('ntf_' + n.kind) }}

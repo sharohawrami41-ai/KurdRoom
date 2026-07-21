@@ -5,11 +5,11 @@
     <div style="display:flex; justify-content:center; margin-bottom:14px">
       {{ avi(person.id, person.username, 120, '2.8rem') }}
     </div>
-    <div style="font-size:1.45rem; font-weight:800">{{ person.full_name or person.username }}
+    <div style="font-size:1.45rem; font-weight:800">{{ person.full_name or person.username }}{% if person.plus %} ⭐{% endif %}
       <span class="badge high" style="font-size:.68rem; vertical-align:middle">
         {{ t('level') }} {{ xpinfo.level }}</span></div>
     <div style="color:var(--accent); font-weight:600; font-size:1.02rem">@{{ person.username }}</div>
-    {% if person.email %}
+    {% if person.email and status == 'friends' %}
       <div style="color:var(--muted); font-size:.88rem; margin-top:6px">✉ {{ person.email }}</div>
     {% endif %}
     {% if person.bio %}
@@ -51,6 +51,17 @@
             style="display:inline">
         <button class="pill" type="submit" style="cursor:pointer">{{ t('duel_btn') }}</button>
       </form>
+    </div>
+    {% endif %}
+
+    {% if not cu %}
+    <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--card-border)">
+      <div style="font-size:.85rem; color:var(--muted); margin-bottom:10px">
+        @{{ person.username }} {{ t('on_kurdroom') }} <strong>{{ settings.site_name }}</strong> ✨</div>
+      <a class="primary" href="{{ url_for('register') }}"
+         style="display:inline-block; padding:12px 34px; border-radius:14px;
+         background:linear-gradient(135deg, var(--accent), #a855f7); color:#fff;
+         font-weight:800; text-decoration:none">🚀 {{ t('join_now') }}</a>
     </div>
     {% endif %}
 

@@ -32,6 +32,110 @@
 {% endmacro %}
 
 {% block content %}
+{% from "_widgets.html" import avi with context %}
+
+  <!-- ============================ stories (24h) ============================ -->
+  <style>
+    .sbar { display:flex; gap:14px; overflow-x:auto; padding:6px 2px 10px;
+      scrollbar-width:none; }
+    .sbar::-webkit-scrollbar { display:none; }
+    .sitem { display:flex; flex-direction:column; align-items:center; gap:5px;
+      flex-shrink:0; cursor:pointer; background:none; border:none; width:64px; }
+    .sring { width:58px; height:58px; border-radius:50%; padding:3px;
+      display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(45deg, var(--accent), #e879f9, #38bdf8); }
+    .sring.seen { background: var(--card-border); }
+    .sring.none { background: var(--card-border); opacity:.7; }
+    .sring > * { border:2.5px solid var(--bg, #0d0b1e); }
+    .sname { font-size:.64rem; color:var(--muted); max-width:64px; overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap; }
+    .splus { position:absolute; bottom:-1px; inset-inline-end:-1px; width:20px;
+      height:20px; border-radius:50%; background:var(--accent); color:#fff;
+      font-size:.85rem; display:flex; align-items:center; justify-content:center;
+      border:2px solid var(--card); }
+    .sview { position:fixed; inset:0; z-index:400; display:none;
+      align-items:center; justify-content:center; background:rgba(3,2,10,.96); }
+    .sview.open { display:flex; }
+    .scard { width:min(94vw, 420px); height:min(80vh, 640px); border-radius:22px;
+      position:relative; display:flex; align-items:center; justify-content:center;
+      padding:34px 26px; overflow:hidden; animation: popIn .25s ease both; }
+    .scard .stxt { font-size:1.35rem; font-weight:700; line-height:1.6; color:#fff;
+      text-align:center; white-space:pre-wrap; word-break:break-word;
+      text-shadow:0 2px 14px rgba(0,0,0,.4); }
+    .sbg1 { background:linear-gradient(135deg,#7c5cff,#a855f7); }
+    .sbg2 { background:linear-gradient(135deg,#ec4899,#f97316); }
+    .sbg3 { background:linear-gradient(135deg,#0ea5e9,#22d3ee); }
+    .sbg4 { background:linear-gradient(135deg,#22c55e,#84cc16); }
+    .sbg5 { background:linear-gradient(135deg,#f43f5e,#fb7185); }
+    .sbg6 { background:linear-gradient(135deg,#1e1b4b,#4c1d95); }
+    .sbars { position:absolute; top:12px; left:14px; right:14px; display:flex; gap:5px; }
+    .sbars span { flex:1; height:3.5px; border-radius:99px; background:rgba(255,255,255,.3); }
+    .sbars span.done { background:#fff; }
+    .shead { position:absolute; top:26px; left:16px; right:16px; display:flex;
+      align-items:center; gap:9px; color:#fff; font-size:.85rem; }
+    .sclose { position:absolute; top:24px; inset-inline-end:14px; z-index:2;
+      background:rgba(0,0,0,.3); border:none; color:#fff; width:34px; height:34px;
+      border-radius:50%; cursor:pointer; font-size:1rem; }
+    .sfoot { position:absolute; bottom:14px; left:16px; right:16px; display:flex;
+      justify-content:space-between; align-items:center; color:rgba(255,255,255,.85);
+      font-size:.76rem; }
+    .snav { position:absolute; inset:0; display:flex; }
+    .snav div { flex:1; }
+    .scompose { display:none; margin-top:10px; }
+    .scompose.open { display:block; animation: fadeUp .25s ease both; }
+    .sdots { display:flex; gap:8px; margin:10px 0; }
+    .sdots button { width:30px; height:30px; border-radius:50%; border:2px solid
+      transparent; cursor:pointer; }
+    .sdots button.sel { border-color:#fff; box-shadow:0 0 0 2px var(--accent); }
+  </style>
+
+  <div class="card" style="padding:14px 16px; margin-bottom:16px">
+    <div class="sbar">
+      {% for p in stories %}
+      <button type="button" class="sitem"
+              onclick="{{ 'storyCompose()' if p.me and p.n == 0 else 'storyOpen(' + p.id|string + ')' }}">
+        <span class="sring {{ 'none' if p.n == 0 else ('' if p.unseen else 'seen') }}"
+              style="position:relative">
+          {{ avi(p.id, p.username, 50, '1.2rem') }}
+          {% if p.me %}<span class="splus">＋</span>{% endif %}
+        </span>
+        <span class="sname">{{ t('story_add') if p.me else p.name }}</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="scompose" id="scompose">
+      <form method="post" action="{{ url_for('story_add') }}">
+        <textarea name="content" rows="2" maxlength="220" required
+                  placeholder="{{ t('story_write') }}"></textarea>
+        <input type="hidden" name="bg" id="sbgInput" value="1">
+        <div class="sdots">
+          {% for i in range(1, 7) %}
+          <button type="button" class="sbg{{ i }} {{ 'sel' if i == 1 }}"
+                  onclick="sbgPick(this, {{ i }})"></button>
+          {% endfor %}
+        </div>
+        <button class="primary" type="submit" style="width:auto; padding:10px 26px">
+          ✨ {{ t('story_post') }}</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- fullscreen story viewer -->
+  <div class="sview" id="sview">
+    <div class="scard sbg1" id="scard">
+      <div class="sbars" id="sbars"></div>
+      <div class="shead" id="shead"></div>
+      <button class="sclose" onclick="storyClose()">✕</button>
+      <div class="stxt" id="stxt"></div>
+      <div class="sfoot" id="sfoot"></div>
+      <div class="snav">
+        <div onclick="storyStep(-1)"></div>
+        <div onclick="storyStep(1)"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="quote">{{ quote }}</div>
 
   {% if streak > 0 %}
@@ -284,5 +388,84 @@
     if (++frames < 260) requestAnimationFrame(draw); else cv.remove();
   })();
 })();
+</script>
+
+<script>
+// ============================ stories ============================
+let sPeople = null, sPi = 0, sSi = 0, sTimer = null;
+const VIEWS_T = {{ t('story_views')|tojson }};
+const DEL_T = {{ t('delete')|tojson }};
+
+function sbgPick(btn, i) {
+  document.getElementById("sbgInput").value = i;
+  document.querySelectorAll(".sdots button").forEach((b) => b.classList.remove("sel"));
+  btn.classList.add("sel");
+}
+function storyCompose() {
+  document.getElementById("scompose").classList.toggle("open");
+}
+async function storyLoad() {
+  if (sPeople) return sPeople;
+  const r = await fetch("/stories");
+  sPeople = (await r.json()).people;
+  return sPeople;
+}
+async function storyOpen(uid) {
+  await storyLoad();
+  sPi = Math.max(0, sPeople.findIndex((p) => p.uid === uid));
+  if (!sPeople.length) { storyCompose(); return; }
+  if (sPeople[sPi] === undefined || !sPeople[sPi].stories.length) { storyCompose(); return; }
+  sSi = 0;
+  document.getElementById("sview").classList.add("open");
+  history.pushState({ story: 1 }, "");
+  storyShow();
+}
+function storyClose(fromPop) {
+  clearTimeout(sTimer);
+  document.getElementById("sview").classList.remove("open");
+  if (!fromPop && history.state && history.state.story) history.back();
+}
+window.addEventListener("popstate", () => storyClose(true));
+function storyStep(d) {
+  const p = sPeople[sPi];
+  if (sSi + d >= p.stories.length || sSi + d < 0) {
+    // move to next / previous person
+    if (sPi + d >= 0 && sPi + d < sPeople.length) { sPi += d; sSi = 0; storyShow(); }
+    else storyClose();
+    return;
+  }
+  sSi += d;
+  storyShow();
+}
+function storyShow() {
+  clearTimeout(sTimer);
+  const p = sPeople[sPi], s = p.stories[sSi];
+  const card = document.getElementById("scard");
+  card.className = "scard sbg" + (s.bg || 1);
+  document.getElementById("stxt").textContent = s.content;
+  document.getElementById("sbars").innerHTML = p.stories.map((x, i) =>
+    '<span class="' + (i <= sSi ? "done" : "") + '"></span>').join("");
+  const when = window.krFmt ? krFmt(new Date(s.ts + "Z")) : "";
+  document.getElementById("shead").innerHTML =
+    '<strong>' + (p.me ? "{{ t('story_add') }}" : p.name) + "</strong>" +
+    ' <span style="opacity:.75">' + when + "</span>";
+  const foot = document.getElementById("sfoot");
+  if (p.me) {
+    foot.innerHTML = '<span>👁 ' + (s.views || 0) + " " + VIEWS_T + "</span>" +
+      '<button onclick="storyDel(' + s.id + ')" style="background:rgba(0,0,0,.3); ' +
+      'border:none; color:#fff; border-radius:9px; padding:5px 12px; cursor:pointer">🗑 ' +
+      DEL_T + "</button>";
+  } else {
+    foot.innerHTML = "<span>@" + p.username + "</span>";
+    fetch("/story/" + s.id + "/seen", { method: "POST" }).catch(() => {});
+  }
+  sTimer = setTimeout(() => storyStep(1), 5200);
+}
+async function storyDel(id) {
+  await fetch("/story/" + id + "/delete", { method: "POST" });
+  sPeople = null;
+  storyClose();
+  location.reload();
+}
 </script>
 {% endblock %}

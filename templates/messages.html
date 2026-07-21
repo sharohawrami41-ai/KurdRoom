@@ -3,6 +3,11 @@
 {% block content %}
   <h2 style="font-size:1.4rem; margin:8px 0 18px">✉️ {{ t('messages_t') }}</h2>
   <div class="card">
+    <input type="search" placeholder="{{ t('search_msgs') }}" style="margin-bottom:12px"
+           oninput="const q=this.value.trim().toLowerCase();
+                    document.querySelectorAll('.card a > .plan').forEach((r)=>{
+                      r.parentElement.style.display = !q ||
+                        r.textContent.toLowerCase().includes(q) ? '' : 'none';})">
     <div class="hint">{{ t('no_convos') if not convos else '' }}</div>
     {% for c in convos %}
     <a href="{{ url_for('dm_thread', username=c.friend.username) }}" style="color:inherit">
@@ -16,7 +21,7 @@
           {% endif %}
         </span>
         <div class="plan-body">
-          <strong>{{ c.friend.full_name or c.friend.username }}</strong>
+          <strong>{{ c.friend.full_name or c.friend.username }}{% if c.friend.plus %} ⭐{% endif %}</strong>
           {% if c.online %}<span style="font-size:.66rem; color:#22c55e; font-weight:700">
             ● {{ t('online') }}</span>{% endif %}
           <div style="font-size:.8rem; color:var(--muted); overflow:hidden;

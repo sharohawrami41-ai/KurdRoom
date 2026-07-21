@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_widgets.html" import avi with context %}
 {% block content %}
   <div class="quote">{{ quote }}</div>
 
@@ -33,6 +34,24 @@
     <div style="margin-top:18px; color:var(--muted); font-size:.86rem">
       🍅 <span id="count">0</span> {{ t('sessions_done') }}
     </div>
+  </div>
+
+  <!-- ============== study together: friends focusing right now ============== -->
+  <div class="card" style="max-width:520px; margin:20px auto 0">
+    <h2>📖 {{ t('study_together') }}</h2>
+    <div class="hint">{{ t('nobody_studying') if not studying else '' }}</div>
+    {% for s in studying %}
+    <div class="plan medium" style="align-items:center">
+      {{ avi(s.id, s.username, 38, '1rem') }}
+      <div class="plan-body">
+        <strong>{{ s.full_name or s.username }}</strong>
+        <div style="font-size:.76rem; color:var(--ok)">
+          ⏱ {{ t('studying_now') }}{% if s.studying_label %} · {{ s.studying_label }}{% endif %}</div>
+      </div>
+      <span style="width:10px; height:10px; border-radius:50%; background:#22c55e;
+            animation: softPulse 1.6s ease-in-out infinite"></span>
+    </div>
+    {% endfor %}
   </div>
 
 <script>
@@ -71,12 +90,20 @@
     }
     show();
   }
+  // tell friends we're studying (they see it in "Study together")
+  function ping(mins) {
+    const fd = new FormData();
+    fd.append("minutes", mins);
+    fd.append("label", isFocus ? "🎯 Pomodoro" : "☕");
+    fetch("/focus/ping", { method: "POST", body: fd }).catch(() => {});
+  }
   startBtn.onclick = () => {
-    if (timer) { clearInterval(timer); timer = null; startBtn.textContent = startLabel; }
-    else { if (left <= 0) left = total; timer = setInterval(tick, 1000); startBtn.textContent = pauseLabel; }
+    if (timer) { clearInterval(timer); timer = null; startBtn.textContent = startLabel; ping(0); }
+    else { if (left <= 0) left = total; timer = setInterval(tick, 1000);
+           startBtn.textContent = pauseLabel; if (isFocus) ping(Math.ceil(left / 60)); }
   };
   document.getElementById("resetBtn").onclick = () => {
-    clearInterval(timer); timer = null; left = total; startBtn.textContent = startLabel; show();
+    clearInterval(timer); timer = null; left = total; startBtn.textContent = startLabel; show(); ping(0);
   };
   document.querySelectorAll(".mode-btn").forEach(b => b.onclick = () => {
     clearInterval(timer); timer = null;

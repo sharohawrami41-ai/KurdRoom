@@ -3,7 +3,9 @@ FocusPlan — Schedule planner with login system, admin panel and 3 languages.
 Run:  python app.py   →  http://127.0.0.1:5001
 """
 import os
+import re
 import json
+import secrets
 import sqlite3
 import threading
 import time
@@ -37,7 +39,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "2.6"   # shown in the footer — bump this with each release
+APP_VERSION = "3.0"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -128,6 +130,23 @@ def init_db():
         title      TEXT DEFAULT '',
         content    TEXT DEFAULT '',
         updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS stories (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content    TEXT NOT NULL,
+        bg         INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS story_views (
+        story_id   INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (story_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS tt_shares (
+        code       TEXT PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS homework (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -386,7 +405,10 @@ def init_db():
                  "ALTER TABLE dms ADD COLUMN deleted INTEGER DEFAULT 0",
                  "ALTER TABLE users ADD COLUMN last_seen TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'",
-                 "ALTER TABLE group_messages ADD COLUMN deleted INTEGER DEFAULT 0"):
+                 "ALTER TABLE group_messages ADD COLUMN deleted INTEGER DEFAULT 0",
+                 "ALTER TABLE users ADD COLUMN plus INTEGER DEFAULT 0",
+                 "ALTER TABLE users ADD COLUMN studying_until TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN studying_label TEXT DEFAULT ''"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -1492,6 +1514,65 @@ V18 = {
 for _l, _d in V18.items():
     T[_l].update(_d)
 
+V19 = {
+    "en": {
+        "stories_t": "Stories", "story_add": "Your story", "story_new": "New story",
+        "story_write": "Share what you're studying, a win, or a thought…",
+        "story_post": "Post story", "story_views": "views", "story_gone": "24h",
+        "studying_now": "Studying now", "study_together": "Study together",
+        "nobody_studying": "No friends studying right now — be the first! ⏱",
+        "tt_share": "Share timetable", "tt_code": "Class code",
+        "tt_import_btn": "Import", "tt_imported": "Timetable imported! 🎉",
+        "tt_badcode": "Code not found.",
+        "tt_share_hint": "Give this code to your classmates — they type it below and get your exact timetable:",
+        "sponsor_by": "Sponsored by", "sponsor_t": "Sponsor banner",
+        "sponsor_name_l": "Sponsor name", "sponsor_url_l": "Sponsor link (https://…)",
+        "sponsor_img_l": "Sponsor logo", "sponsor_on": "Show sponsor banner",
+        "make_plus": "Give ⭐ Plus", "remove_plus": "Remove ⭐ Plus",
+        "ntf_weekly": "Your weekly report:", "ntf_mention": "mentioned you 📣",
+        "search_msgs": "Search messages…", "search_none": "No matches",
+        "join_now": "Join now", "on_kurdroom": "is on",
+    },
+    "ar": {
+        "stories_t": "القصص", "story_add": "قصتك", "story_new": "قصة جديدة",
+        "story_write": "شارك ما تدرسه أو إنجازًا أو فكرة…",
+        "story_post": "نشر القصة", "story_views": "مشاهدة", "story_gone": "٢٤س",
+        "studying_now": "يدرس الآن", "study_together": "ادرسوا معًا",
+        "nobody_studying": "لا أصدقاء يدرسون الآن — كن الأول! ⏱",
+        "tt_share": "مشاركة الجدول", "tt_code": "رمز الصف",
+        "tt_import_btn": "استيراد", "tt_imported": "تم استيراد الجدول! 🎉",
+        "tt_badcode": "الرمز غير موجود.",
+        "tt_share_hint": "أعطِ هذا الرمز لزملائك — يكتبونه بالأسفل ويحصلون على جدولك نفسه:",
+        "sponsor_by": "برعاية", "sponsor_t": "لافتة الراعي",
+        "sponsor_name_l": "اسم الراعي", "sponsor_url_l": "رابط الراعي (https://…)",
+        "sponsor_img_l": "شعار الراعي", "sponsor_on": "إظهار لافتة الراعي",
+        "make_plus": "منح ⭐ بلس", "remove_plus": "إزالة ⭐ بلس",
+        "ntf_weekly": "تقريرك الأسبوعي:", "ntf_mention": "أشار إليك 📣",
+        "search_msgs": "ابحث في الرسائل…", "search_none": "لا نتائج",
+        "join_now": "انضم الآن", "on_kurdroom": "موجود على",
+    },
+    "ku": {
+        "stories_t": "چیرۆکەکان", "story_add": "چیرۆکەکەت", "story_new": "چیرۆکی نوێ",
+        "story_write": "ئەوەی دەیخوێنیت، سەرکەوتنێک یان بیرۆکەیەک بڵاو بکەرەوە…",
+        "story_post": "بڵاوکردنەوە", "story_views": "بینین", "story_gone": "٢٤ک",
+        "studying_now": "ئێستا دەخوێنێت", "study_together": "پێکەوە بخوێنن",
+        "nobody_studying": "هیچ هاوڕێیەک ئێستا ناخوێنێت — تۆ یەکەم بە! ⏱",
+        "tt_share": "هاوبەشکردنی خشتە", "tt_code": "کۆدی پۆل",
+        "tt_import_btn": "هێنان", "tt_imported": "خشتەکە هێنرا! 🎉",
+        "tt_badcode": "کۆدەکە نەدۆزرایەوە.",
+        "tt_share_hint": "ئەم کۆدە بدە بە هاوپۆلەکانت — لە خوارەوە دەینووسن و هەمان خشتەی تۆیان بۆ دێت:",
+        "sponsor_by": "بە پاڵپشتی", "sponsor_t": "بانەری پاڵپشت",
+        "sponsor_name_l": "ناوی پاڵپشت", "sponsor_url_l": "لینکی پاڵپشت (https://…)",
+        "sponsor_img_l": "لۆگۆی پاڵپشت", "sponsor_on": "پیشاندانی بانەری پاڵپشت",
+        "make_plus": "پێدانی ⭐ پڵەس", "remove_plus": "لابردنی ⭐ پڵەس",
+        "ntf_weekly": "ڕاپۆرتی هەفتانەت:", "ntf_mention": "ئاماژەی پێکردیت 📣",
+        "search_msgs": "لە نامەکاندا بگەڕێ…", "search_none": "هیچ نەدۆزرایەوە",
+        "join_now": "ئێستا بەشدار بە", "on_kurdroom": "لەسەر",
+    },
+}
+for _l, _d in V19.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1549,12 +1630,17 @@ def inject_globals():
     if os.path.exists(logo_path):
         logo = url_for("static", filename="aikurd-logo.png",
                        v=int(os.path.getmtime(logo_path)))
+    sponsor_img = None
+    sp_path = os.path.join(BASE_DIR, "static", "avatars", "sponsor.png")
+    if os.path.exists(sp_path):
+        sponsor_img = url_for("static", filename="avatars/sponsor.png",
+                              v=int(os.path.getmtime(sp_path)))
     return dict(t=tr, lang=lang, is_rtl=lang in RTL_LANGS, langs=LANGS,
                 settings=s, tagline=tagline, today=date.today().isoformat(),
                 cu=cu, theme=theme, accent=accent, pending_requests=pending,
                 unread_notifs=unread_n, unread_dms=unread_d,
                 av=avatar_url, BADGES=BADGES, site_logo=logo,
-                app_version=APP_VERSION)
+                sponsor_img=sponsor_img, app_version=APP_VERSION)
 
 
 # ---------------------------------------------------------------- helpers
@@ -1611,10 +1697,21 @@ def admin_required(f):
     return wrapper
 
 
+@app.template_filter("mentions")
+def mentions_filter(text):
+    """Escape, then paint @usernames in the accent color."""
+    from markupsafe import Markup, escape
+    esc = str(escape(text or ""))
+    esc = re.sub(r"@([A-Za-z0-9_.]{3,20})",
+                 r'<span class="mention">@\1</span>', esc)
+    return Markup(esc)
+
+
 NOTIF_ICONS = {"friend_req": "👥", "friend_acc": "🤝", "group_msg": "💬",
                "group_add": "➕", "badge": "🏅", "dm": "✉️", "duel_req": "⚔️",
                "duel_acc": "⚔️", "duel_end": "🏆", "deadline": "⏰",
-               "overdue": "🚨", "exam_soon": "📚", "homework": "📝"}
+               "overdue": "🚨", "exam_soon": "📚", "homework": "📝",
+               "weekly": "🏆", "mention": "📣"}
 
 
 def push_text(lang, kind, actor):
@@ -1624,7 +1721,7 @@ def push_text(lang, kind, actor):
     if kind == "badge":
         return f"{txt} {tt.get('badge_' + actor + '_n', actor)}"
     if kind in ("group_msg", "group_add", "duel_end",
-                "deadline", "overdue", "exam_soon", "homework"):
+                "deadline", "overdue", "exam_soon", "homework", "weekly"):
         return f"{txt} “{actor}”"
     return f"{actor} {txt}"
 
@@ -2085,7 +2182,8 @@ def dashboard():
                            wk=dict(plans=wp, habits=wh),
                            lastwk=dict(plans=lp, habits=lh),
                            xpinfo=user_xp(user["id"]),
-                           pchallenges=my_challenges(user["id"]))
+                           pchallenges=my_challenges(user["id"]),
+                           stories=story_strip(user["id"]))
 
 
 @app.route("/plan/add", methods=["POST"])
@@ -2191,7 +2289,8 @@ def prefs_accent():
 @app.route("/focus")
 @login_required
 def focus():
-    return render_template("focus.html", user=current_user(), quote=random_quote())
+    return render_template("focus.html", user=current_user(), quote=random_quote(),
+                           studying=studying_friends(session["user_id"]))
 
 
 # ---------------------------------------------------------------- habits
@@ -2404,6 +2503,171 @@ def homework_delete(hw_id):
     return redirect(url_for("university") + "#homework")
 
 
+# ---------------------------------------------------------------- stories (24h)
+STORY_CUTOFF_H = 24
+
+
+def _story_cutoff():
+    return (datetime.utcnow() - _td(hours=STORY_CUTOFF_H)).isoformat(timespec="seconds")
+
+
+def story_strip(uid):
+    """People to show in the stories bar: me first, then friends with stories."""
+    db = get_db()
+    cutoff = _story_cutoff()
+    out = []
+    for fid in [uid] + sorted(get_friend_ids(uid)):
+        ids = [r[0] for r in db.execute(
+            "SELECT id FROM stories WHERE user_id = ? AND created_at > ?",
+            (fid, cutoff))]
+        if not ids and fid != uid:
+            continue
+        unseen = False
+        if ids:
+            ph = ",".join("?" * len(ids))
+            seen = {r[0] for r in db.execute(
+                f"SELECT story_id FROM story_views WHERE user_id = ? "
+                f"AND story_id IN ({ph})", [uid] + ids)}
+            unseen = any(i not in seen for i in ids)
+        u = db.execute("SELECT id, username, full_name FROM users WHERE id = ?",
+                       (fid,)).fetchone()
+        out.append(dict(id=fid, username=u["username"],
+                        name=u["full_name"] or u["username"],
+                        n=len(ids), unseen=unseen, me=(fid == uid)))
+    return out
+
+
+@app.route("/story/add", methods=["POST"])
+@login_required
+def story_add():
+    content = request.form.get("content", "").strip()
+    bg = request.form.get("bg", type=int) or 1
+    if content:
+        db = get_db()
+        db.execute("INSERT INTO stories(user_id, content, bg, created_at) "
+                   "VALUES(?,?,?,?)",
+                   (session["user_id"], content[:220], min(max(bg, 1), 6),
+                    datetime.utcnow().isoformat(timespec="seconds")))
+        db.commit()
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/stories")
+@login_required
+def stories_json():
+    db = get_db()
+    uid = session["user_id"]
+    cutoff = _story_cutoff()
+    out = []
+    for p in story_strip(uid):
+        rows = db.execute(
+            "SELECT * FROM stories WHERE user_id = ? AND created_at > ? "
+            "ORDER BY id ASC", (p["id"], cutoff)).fetchall()
+        if not rows:
+            continue
+        items = []
+        for s in rows:
+            item = {"id": s["id"], "content": s["content"], "bg": s["bg"],
+                    "ts": s["created_at"]}
+            if p["me"]:
+                item["views"] = db.execute(
+                    "SELECT COUNT(*) FROM story_views WHERE story_id = ?",
+                    (s["id"],)).fetchone()[0]
+            items.append(item)
+        out.append({"uid": p["id"], "username": p["username"], "name": p["name"],
+                    "me": p["me"], "stories": items})
+    return {"people": out}
+
+
+@app.route("/story/<int:story_id>/seen", methods=["POST"])
+@login_required
+def story_seen(story_id):
+    db = get_db()
+    s = db.execute("SELECT user_id FROM stories WHERE id = ?", (story_id,)).fetchone()
+    if s and s["user_id"] != session["user_id"] \
+            and are_friends(session["user_id"], s["user_id"]):
+        db.execute("INSERT OR IGNORE INTO story_views(story_id, user_id) VALUES(?,?)",
+                   (story_id, session["user_id"]))
+        db.commit()
+    return {"ok": 1}
+
+
+@app.route("/story/<int:story_id>/delete", methods=["POST"])
+@login_required
+def story_delete(story_id):
+    db = get_db()
+    db.execute("DELETE FROM stories WHERE id = ? AND user_id = ?",
+               (story_id, session["user_id"]))
+    db.commit()
+    return {"ok": 1}
+
+
+# ---------------------------------------------------------------- live studying
+@app.route("/focus/ping", methods=["POST"])
+@login_required
+def focus_ping():
+    minutes = request.form.get("minutes", 0, type=int)
+    label = request.form.get("label", "").strip()[:40]
+    until = "" if minutes <= 0 else \
+        (datetime.utcnow() + _td(minutes=min(minutes, 240))).isoformat(timespec="seconds")
+    db = get_db()
+    db.execute("UPDATE users SET studying_until = ?, studying_label = ? WHERE id = ?",
+               (until, label if until else "", session["user_id"]))
+    db.commit()
+    return {"ok": 1}
+
+
+def studying_friends(uid):
+    db = get_db()
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    out = []
+    for fid in sorted(get_friend_ids(uid)):
+        u = db.execute("SELECT id, username, full_name, studying_until, "
+                       "studying_label FROM users WHERE id = ?", (fid,)).fetchone()
+        if u and u["studying_until"] and u["studying_until"] > now:
+            out.append(u)
+    return out
+
+
+# ---------------------------------------------------------------- timetable share
+@app.route("/timetable/share", methods=["POST"])
+@login_required
+def timetable_share():
+    db = get_db()
+    uid = session["user_id"]
+    if not db.execute("SELECT 1 FROM timetable WHERE user_id = ?", (uid,)).fetchone():
+        return redirect(url_for("university"))
+    db.execute("DELETE FROM tt_shares WHERE user_id = ?", (uid,))
+    code = secrets.token_hex(3).upper()
+    db.execute("INSERT INTO tt_shares(code, user_id, created_at) VALUES(?,?,?)",
+               (code, uid, datetime.utcnow().isoformat(timespec="seconds")))
+    db.commit()
+    flash(tr("tt_share_hint") + "  📋 " + code, "ok")
+    return redirect(url_for("university") + "#timetable")
+
+
+@app.route("/timetable/import", methods=["POST"])
+@login_required
+def timetable_import():
+    code = request.form.get("code", "").strip().upper()
+    db = get_db()
+    uid = session["user_id"]
+    share = db.execute("SELECT * FROM tt_shares WHERE code = ?", (code,)).fetchone()
+    if not share or share["user_id"] == uid:
+        flash(tr("tt_badcode"), "error")
+    else:
+        db.execute("DELETE FROM timetable WHERE user_id = ?", (uid,))
+        for c in db.execute("SELECT * FROM timetable WHERE user_id = ?",
+                            (share["user_id"],)).fetchall():
+            db.execute("INSERT INTO timetable(user_id, day, subject, room, "
+                       "start_time, end_time) VALUES(?,?,?,?,?,?)",
+                       (uid, c["day"], c["subject"], c["room"],
+                        c["start_time"], c["end_time"]))
+        db.commit()
+        flash(tr("tt_imported"), "ok")
+    return redirect(url_for("university") + "#timetable")
+
+
 def group_extras(group_id):
     """Files and shared decks for a group page."""
     db = get_db()
@@ -2569,14 +2833,17 @@ def profile():
 
 
 @app.route("/u/<username>")
-@login_required
 def user_profile(username):
+    # PUBLIC page — students can share kurdroom.aikurd.org/u/name anywhere
     db = get_db()
     person = db.execute("SELECT * FROM users WHERE username = ?",
                         (username,)).fetchone()
     if person is None:
         abort(404)
-    status, fid = friendship_status(session["user_id"], person["id"])
+    if session.get("user_id"):
+        status, fid = friendship_status(session["user_id"], person["id"])
+    else:
+        status, fid = None, None
     done_count = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1",
                             (person["id"],)).fetchone()[0]
     return render_template("user_profile.html", user=current_user(), person=person,
@@ -2752,12 +3019,13 @@ def group_create():
 def group_page(group_id):
     g_row = member_group_or_403(group_id)
     db = get_db()
-    clear_notifs("group_msg", "group_add", prefix=request.path)
+    clear_notifs("group_msg", "group_add", "mention", prefix=request.path)
     members = db.execute(
         "SELECT u.id, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id "
         "WHERE gm.group_id = ? ORDER BY u.username", (group_id,)).fetchall()
     messages = db.execute(
-        "SELECT m.*, u.username FROM group_messages m JOIN users u ON u.id = m.user_id "
+        "SELECT m.*, u.username, u.plus AS uplus FROM group_messages m "
+        "JOIN users u ON u.id = m.user_id "
         "WHERE m.group_id = ? ORDER BY m.id DESC LIMIT 100", (group_id,)).fetchall()
     gplans = db.execute(
         "SELECT p.*, u.username FROM group_plans p JOIN users u ON u.id = p.user_id "
@@ -2868,9 +3136,21 @@ def group_message(group_id):
                     datetime.utcnow().isoformat(timespec="seconds"), reply_to))
         g_row = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
         link = url_for("group_page", group_id=group_id)
+        # @mentions ping the mentioned member directly
+        mentioned = set()
+        for mu in set(re.findall(r"@([A-Za-z0-9_.]{3,20})", content)):
+            row = db.execute(
+                "SELECT u.id FROM users u JOIN group_members gm ON "
+                "gm.user_id = u.id AND gm.group_id = ? WHERE u.username = ?",
+                (group_id, mu)).fetchone()
+            if row and row["id"] != session["user_id"]:
+                mentioned.add(row["id"])
+                notify(row["id"], "mention",
+                       actor=current_user()["username"], link=link)
         for m in db.execute("SELECT user_id FROM group_members WHERE group_id = ? "
                             "AND user_id != ?", (group_id, session["user_id"])):
-            notify(m["user_id"], "group_msg", actor=g_row["name"], link=link)
+            if m["user_id"] not in mentioned:
+                notify(m["user_id"], "group_msg", actor=g_row["name"], link=link)
         db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
         return {"ok": 1}
@@ -2887,7 +3167,8 @@ def group_chat_poll(group_id):
     after = request.args.get("after", 0, type=int)
     clear_notifs("group_msg", prefix=url_for("group_page", group_id=group_id))
     rows = db.execute(
-        "SELECT m.*, u.username, r.content AS r_content, ru.username AS r_username "
+        "SELECT m.*, u.username, u.plus AS uplus, "
+        "r.content AS r_content, ru.username AS r_username "
         "FROM group_messages m JOIN users u ON u.id = m.user_id "
         "LEFT JOIN group_messages r ON r.id = m.reply_to "
         "LEFT JOIN users ru ON ru.id = r.user_id "
@@ -2917,7 +3198,8 @@ def group_chat_poll(group_id):
             lv_cache[u] = user_xp(u)["level"]
         return lv_cache[u]
     return {"msgs": [{"id": m["id"], "uid": m["user_id"], "me": m["user_id"] == uid,
-                      "name": m["username"], "level": lv(m["user_id"]),
+                      "name": m["username"] + (" ⭐" if m["uplus"] else ""),
+                      "level": lv(m["user_id"]),
                       "content": m["content"] or "",
                       "at": (m["created_at"] or "")[5:16].replace("T", " "),
                       "ts": m["created_at"] or "",
@@ -3420,7 +3702,7 @@ def messages():
     uid = session["user_id"]
     convos = []
     for fid in sorted(get_friend_ids(uid)):
-        friend = db.execute("SELECT id, username, full_name, last_seen "
+        friend = db.execute("SELECT id, username, full_name, last_seen, plus "
                             "FROM users WHERE id = ?", (fid,)).fetchone()
         if friend is None:
             continue
@@ -4260,17 +4542,36 @@ def admin():
 def admin_settings():
     db = get_db()
     fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
-              "ai_api_key", "ai_model"]
+              "ai_api_key", "ai_model", "sponsor_name", "sponsor_url"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                        (f, request.form[f].strip()))
-    db.execute("INSERT INTO settings(key,value) VALUES('allow_registration',?) "
-               "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-               ("1" if request.form.get("allow_registration") else "0",))
+    for flag in ("allow_registration", "sponsor_enabled"):
+        db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
+                   "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                   (flag, "1" if request.form.get(flag) else "0"))
+    logo = request.files.get("sponsor_img")
+    if logo and logo.filename:
+        ext = logo.filename.rsplit(".", 1)[-1].lower() if "." in logo.filename else ""
+        if ext in ("png", "jpg", "jpeg", "webp", "gif"):
+            logo.save(os.path.join(BASE_DIR, "static", "avatars", "sponsor.png"))
     db.commit()
     flash(tr("ok_saved"), "ok")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/user/<int:user_id>/plus", methods=["POST"])
+@admin_required
+def admin_toggle_plus(user_id):
+    db = get_db()
+    row = db.execute("SELECT plus FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row:
+        db.execute("UPDATE users SET plus = ? WHERE id = ?",
+                   (0 if row["plus"] else 1, user_id))
+        db.commit()
+        flash(tr("ok_saved"), "ok")
     return redirect(url_for("admin"))
 
 
@@ -4429,6 +4730,29 @@ def _scan_reminders(con):
                     "kind = 'homework' AND is_read = 0", (u["user_id"],))
         _emit_reminder(con, u["user_id"], u["lang"], "homework", actor,
                        "/university#homework", priv, site)
+    # Friday weekly report — once per week per user
+    if date.today().weekday() == 4:
+        wk_start = (date.today() - _td(days=date.today().weekday())).isoformat()
+        six_days_ago = (datetime.utcnow() - _td(days=6)).isoformat(timespec="seconds")
+        for u in con.execute("SELECT id, lang FROM users"):
+            if con.execute("SELECT 1 FROM notifications WHERE user_id = ? AND "
+                           "kind = 'weekly' AND created_at > ?",
+                           (u["id"], six_days_ago)).fetchone():
+                continue
+            p_n = con.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND "
+                              "done = 1 AND done_at >= ?",
+                              (u["id"], wk_start)).fetchone()[0]
+            h_n = con.execute("SELECT COUNT(*) FROM habit_checks hc JOIN habits ha "
+                              "ON ha.id = hc.habit_id WHERE ha.user_id = ? AND "
+                              "hc.day >= ?", (u["id"], wk_start)).fetchone()[0]
+            hw_n = con.execute("SELECT COUNT(*) FROM homework WHERE user_id = ? AND "
+                               "done = 1 AND created_at >= ?",
+                               (u["id"], wk_start)).fetchone()[0]
+            if p_n + h_n + hw_n == 0:
+                continue           # nothing to brag about — skip quiet accounts
+            actor = f"✓ {p_n} · 📊 {h_n} · 📝 {hw_n}"
+            _emit_reminder(con, u["id"], u["lang"], "weekly", actor,
+                           "/dashboard", priv, site)
     # exams today or tomorrow — one reminder per exam per day
     for e in con.execute(
             "SELECT e.id, e.user_id, e.subject, u.lang FROM exams e "

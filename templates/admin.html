@@ -33,6 +33,11 @@
               <button class="small" type="submit">
                 {{ t('remove_admin') if u.is_admin else t('make_admin') }}</button>
             </form>
+            <form method="post" action="{{ url_for('admin_toggle_plus', user_id=u.id) }}">
+              <button class="small" type="submit"
+                      style="{{ 'border-color:gold; color:gold' if u.plus }}">
+                {{ t('remove_plus') if u.plus else t('make_plus') }}</button>
+            </form>
             <form method="post" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
                   onsubmit="return confirm('{{ t('confirm_del_user') }}')">
               <button class="small warn" type="submit">✕ {{ t('delete_user') }}</button>
@@ -102,7 +107,8 @@
     <div class="card">
       <h2>⚙️ {{ t('settings') }}</h2>
       <div class="hint"></div>
-      <form method="post" action="{{ url_for('admin_settings') }}">
+      <form method="post" action="{{ url_for('admin_settings') }}"
+            enctype="multipart/form-data">
         <label>{{ t('site_name') }}</label>
         <input name="site_name" value="{{ settings.site_name }}" required maxlength="40">
         <label>{{ t('tagline') }} (English)</label>
@@ -124,6 +130,20 @@
           <input type="checkbox" name="allow_registration" style="width:auto"
                  {{ 'checked' if settings.allow_registration == '1' }}>
           {{ t('allow_reg') }}
+        </label>
+
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        <h2 style="font-size:1rem">💜 {{ t('sponsor_t') }}</h2>
+        <label>{{ t('sponsor_name_l') }}</label>
+        <input name="sponsor_name" maxlength="60" value="{{ settings.get('sponsor_name','') }}">
+        <label>{{ t('sponsor_url_l') }}</label>
+        <input name="sponsor_url" maxlength="200" value="{{ settings.get('sponsor_url','') }}" dir="ltr">
+        <label>{{ t('sponsor_img_l') }}</label>
+        <input type="file" name="sponsor_img" accept=".png,.jpg,.jpeg,.webp,.gif">
+        <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:.9rem; color:var(--text)">
+          <input type="checkbox" name="sponsor_enabled" style="width:auto"
+                 {{ 'checked' if settings.get('sponsor_enabled') == '1' }}>
+          {{ t('sponsor_on') }}
         </label>
         <div style="margin-top:16px">
           <button class="primary" type="submit">{{ t('save') }}</button>

@@ -130,7 +130,11 @@
     <div>
       <!-- ==================== discussion ==================== -->
       <div class="card" id="chat" style="margin-bottom:20px">
-        <h2>💬 {{ t('discussion') }}</h2>
+        <h2 style="display:flex; align-items:center">💬 {{ t('discussion') }}
+          <button type="button" class="icon-btn" style="margin-inline-start:auto"
+                  onclick="gSearchToggle()">🔍</button></h2>
+        <input id="gSearch" type="search" placeholder="{{ t('search_msgs') }}"
+               style="display:none; margin-bottom:10px" oninput="gSearchRun(this.value)">
         <div class="hint">{{ t('no_messages') if not messages else '' }}</div>
         <div class="chatbox" id="chatbox"
              style="max-height:430px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 2px">
@@ -140,7 +144,7 @@
             <a href="{{ url_for('user_profile', username=m.username) }}">
               {{ avi(m.user_id, m.username, 30, '.8rem') }}</a>
             <div class="gbub {{ 'gone' if m.deleted }}" data-uid="{{ m.user_id }}">
-              <div class="gname">{{ m.username }}
+              <div class="gname">{{ m.username }}{% if m.uplus %} ⭐{% endif %}
                 <span class="badge medium" style="font-size:.56rem; padding:1px 7px">
                   Lv {{ levels.get(m.user_id, 1) }}</span></div>
               {% if m.deleted %}
@@ -151,7 +155,7 @@
                 <strong style="color:var(--accent)">{{ quotes[m.id].username }}</strong><br>
                 {{ quotes[m.id].content }}…</div>
               {% endif %}
-              <div class="gtxt">{{ m.content }}</div>
+              <div class="gtxt">{{ m.content|mentions }}</div>
               <div class="rx" data-rx="{{ m.id }}">
                 {%- for r in reactions.get(m.id, []) -%}
                 <button type="button" class="{{ 'mine' if r.mine }}" data-e="{{ r.emoji }}">{{ r.emoji }} {{ r.n }}</button>
@@ -765,7 +769,11 @@
         gb.appendChild(q);
       }
       const t = document.createElement("div");
-      t.className = "gtxt"; t.textContent = m.content;
+      t.className = "gtxt";
+      const esc = document.createElement("span");
+      esc.textContent = m.content;
+      t.innerHTML = esc.innerHTML.replace(/@([A-Za-z0-9_.]{3,20})/g,
+        '<span class="mention">@$1</span>');
       gb.appendChild(t);
       const rx = document.createElement("div");
       rx.className = "rx"; rx.dataset.rx = m.id;
@@ -802,6 +810,22 @@
   }
   setInterval(() => { if (!document.hidden) poll(); }, 2500);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+  /* ---------- search inside the chat ---------- */
+  function gSearchToggle() {
+    const f = document.getElementById("gSearch");
+    const on = f.style.display === "none";
+    f.style.display = on ? "" : "none";
+    if (on) f.focus(); else { f.value = ""; gSearchRun(""); }
+  }
+  function gSearchRun(q) {
+    q = q.trim().toLowerCase();
+    box.querySelectorAll(".msg").forEach((row) => {
+      row.style.display = !q ||
+        row.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+    if (!q) scrollBottom();
+  }
 
   // shared deck study
   const DECKS = {{ decks|tojson }};

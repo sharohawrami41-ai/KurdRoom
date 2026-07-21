@@ -565,6 +565,15 @@ body.light .beam { opacity: .5; }
 .toast.show { transform: translateX(-50%) translateY(0); }
 .toast .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- @mentions + sponsor bar ---------- */
+.mention { color: var(--accent); font-weight: 700; }
+.sponsor-bar { display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin: 30px auto 0; padding: 10px 20px; max-width: 420px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--card-border); font-size: .8rem;
+  color: var(--muted); text-decoration: none; }
+.sponsor-bar img { height: 26px; border-radius: 6px; }
+.sponsor-bar strong { color: var(--text); }
+
 /* ---------- in-app photo viewer ---------- */
 .lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(4,2,14,.94);
   display: none; align-items: center; justify-content: center;
@@ -1038,6 +1047,14 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   {% endwith %}
 
   {% block content %}{% endblock %}
+
+  {% if settings.get('sponsor_enabled') == '1' and settings.get('sponsor_name') %}
+  <a class="sponsor-bar" href="{{ settings.get('sponsor_url') or '#' }}"
+     target="_blank" rel="noopener">
+    {% if sponsor_img %}<img src="{{ sponsor_img }}" alt="">{% endif %}
+    💜 {{ t('sponsor_by') }} <strong>{{ settings.get('sponsor_name') }}</strong>
+  </a>
+  {% endif %}
 
   <footer style="margin-top:48px; text-align:center; font-size:.8rem; color:var(--muted);
           display:flex; align-items:center; justify-content:center; gap:8px">

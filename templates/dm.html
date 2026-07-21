@@ -108,14 +108,18 @@
     <a href="{{ url_for('user_profile', username=friend.username) }}">
       {{ avi(friend.id, friend.username, 44, '1.1rem') }}</a>
     <div style="flex:1; min-width:0">
-      <strong style="font-size:1.02rem">{{ friend.full_name or friend.username }}</strong>
+      <strong style="font-size:1.02rem">{{ friend.full_name or friend.username }}{% if friend.plus %} ⭐{% endif %}</strong>
       <div style="font-size:.72rem; color:var(--accent)">@{{ friend.username }}</div>
       <div id="pstat" style="font-size:.7rem; color:var(--muted)"></div>
     </div>
+    <button class="icon-btn" type="button" onclick="dmSearchToggle()">🔍</button>
     <form method="post" action="{{ url_for('duel_challenge', username=friend.username) }}">
       <button class="icon-btn" type="submit" title="{{ t('duel_btn') }}">⚔️</button>
     </form>
   </div>
+  <input id="dmSearch" type="search" placeholder="{{ t('search_msgs') }}"
+         style="display:none; border-radius:0; border-inline:1px solid var(--card-border);
+         margin:0; width:100%" oninput="dmSearchRun(this.value)">
 
   <div class="dm-box" id="chatbox">
     {% for m in thread %}
@@ -572,6 +576,21 @@
   }
   setInterval(() => { if (!document.hidden) poll(); }, 2500);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+  /* ---------- search inside the chat ---------- */
+  function dmSearchToggle() {
+    const f = document.getElementById("dmSearch");
+    const on = f.style.display === "none";
+    f.style.display = on ? "" : "none";
+    if (on) f.focus(); else { f.value = ""; dmSearchRun(""); }
+  }
+  function dmSearchRun(q) {
+    q = q.trim().toLowerCase();
+    box.querySelectorAll(".bub").forEach((b) => {
+      b.style.display = !q || b.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+    if (!q) scrollBottom();
+  }
 
   /* ---------- voice messages ---------- */
   let rec = null, chunks = [];

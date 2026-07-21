@@ -101,8 +101,22 @@
   </div>
 
   <!-- ============================ timetable ============================ -->
-  <div class="card" style="margin-bottom:22px; overflow-x:auto">
-    <h2>🗓 {{ t('timetable') }}</h2>
+  <div class="card" id="timetable" style="margin-bottom:22px; overflow-x:auto">
+    <h2 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">🗓 {{ t('timetable') }}
+      <span style="display:inline-flex; gap:8px; margin-inline-start:auto; align-items:center">
+        <form method="post" action="{{ url_for('timetable_share') }}" style="display:inline">
+          <button class="small" type="submit">📤 {{ t('tt_share') }}</button>
+        </form>
+        <form method="post" action="{{ url_for('timetable_import') }}"
+              style="display:inline-flex; gap:6px" class="inline-form">
+          <input name="code" maxlength="6" placeholder="{{ t('tt_code') }}"
+                 style="width:110px; text-transform:uppercase" dir="ltr">
+          <button class="small" type="submit"
+                  style="border-color:var(--accent); color:var(--accent)">
+            📥 {{ t('tt_import_btn') }}</button>
+        </form>
+      </span>
+    </h2>
     <div class="hint"></div>
     <div style="display:grid; grid-template-columns: repeat({{ grid|length }}, minmax(150px, 1fr)); gap:10px">
       {% for d, classes in grid.items() %}
