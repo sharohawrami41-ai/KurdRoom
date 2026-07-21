@@ -39,7 +39,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "3.0"   # shown in the footer — bump this with each release
+APP_VERSION = "3.3"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1573,6 +1573,115 @@ V19 = {
 for _l, _d in V19.items():
     T[_l].update(_d)
 
+V20 = {
+    "en": {
+        "plus_t": "KurdRoom Plus", "plus_hero": "Go Plus. Shine everywhere. ⭐",
+        "plus_sub": "One small payment — a golden experience across the whole app.",
+        "plus_active": "You are a Plus member! Enjoy your gold star ⭐",
+        "perk1_t": "Gold star badge", "perk1_d": "A ⭐ next to your name in chats, groups, messages, and your profile — everyone sees it.",
+        "perk2_t": "Double XP", "perk2_d": "Every plan, habit, and badge counts twice. Level up 2× faster than everyone else.",
+        "perk3_t": "Exclusive story styles", "perk3_d": "3 premium story backgrounds nobody else can post with.",
+        "perk4_t": "Priority support", "perk4_d": "Your support messages jump to the top of the admin's inbox.",
+        "perk5_t": "Early access", "perk5_d": "New features reach Plus members first.",
+        "perk6_t": "Support KurdRoom", "perk6_d": "You keep the platform free for thousands of students. 💜",
+        "pay_how": "How to get Plus", "pay_step1": "Send the amount to this number with FIB or FastPay:",
+        "pay_step2": "Tap the app you use — the number is copied automatically:",
+        "pay_step3": "After sending, tap the button below — the admin activates your ⭐ (usually within hours):",
+        "i_paid": "✅ I sent the payment", "paid_sent": "Got it! The admin was notified — your ⭐ is coming soon.",
+        "copy_num": "Copy number", "copied": "Copied!",
+        "plus_price": "5,000 IQD / month · or 45,000 IQD / year (save 25%)",
+    },
+    "ar": {
+        "plus_t": "كوردروم بلس", "plus_hero": "انتقل إلى بلس. تألّق في كل مكان. ⭐",
+        "plus_sub": "دفعة صغيرة واحدة — تجربة ذهبية في التطبيق كله.",
+        "plus_active": "أنت عضو بلس! استمتع بنجمتك الذهبية ⭐",
+        "perk1_t": "شارة النجمة الذهبية", "perk1_d": "⭐ بجانب اسمك في الدردشات والمجموعات والرسائل وملفك — يراها الجميع.",
+        "perk2_t": "نقاط خبرة مضاعفة", "perk2_d": "كل خطة وعادة وشارة تُحسب مرتين. ارتقِ بمستواك أسرع مرتين من الجميع.",
+        "perk3_t": "خلفيات قصص حصرية", "perk3_d": "3 خلفيات قصص مميزة لا يستطيع غيرك النشر بها.",
+        "perk4_t": "دعم بأولوية", "perk4_d": "رسائل دعمك تقفز إلى أعلى صندوق الإدارة.",
+        "perk5_t": "وصول مبكر", "perk5_d": "الميزات الجديدة تصل أعضاء بلس أولًا.",
+        "perk6_t": "ادعم كوردروم", "perk6_d": "أنت تُبقي المنصة مجانية لآلاف الطلاب. 💜",
+        "pay_how": "كيف تحصل على بلس", "pay_step1": "أرسل المبلغ إلى هذا الرقم عبر FIB أو FastPay:",
+        "pay_step2": "اضغط على التطبيق الذي تستخدمه — يُنسخ الرقم تلقائيًا:",
+        "pay_step3": "بعد الإرسال اضغط الزر بالأسفل — تفعّل الإدارة نجمتك ⭐ (عادة خلال ساعات):",
+        "i_paid": "✅ أرسلت المبلغ", "paid_sent": "وصلنا! تم إشعار الإدارة — نجمتك ⭐ قادمة قريبًا.",
+        "copy_num": "نسخ الرقم", "copied": "تم النسخ!",
+        "plus_price": "5,000 دينار / شهر · أو 45,000 دينار / سنة (وفّر 25٪)",
+    },
+    "ku": {
+        "plus_t": "کوردڕووم پڵەس", "plus_hero": "بڕۆ بۆ پڵەس. لە هەموو شوێنێک بدرەوشێوە. ⭐",
+        "plus_sub": "یەک پارەدانی بچووک — ئەزموونێکی ئاڵتوونی لە هەموو ئەپەکەدا.",
+        "plus_active": "تۆ ئەندامی پڵەسیت! چێژ لە ئەستێرە ئاڵتوونیەکەت وەربگرە ⭐",
+        "perk1_t": "نیشانەی ئەستێرەی ئاڵتوونی", "perk1_d": "⭐ لەتەنیشت ناوت لە چات و گروپ و نامەکان و پرۆفایلەکەت — هەمووان دەیبینن.",
+        "perk2_t": "دوو هێندە XP", "perk2_d": "هەر پلان و خوو و نیشانەیەک دوو جار دەژمێردرێت. دوو هێندە خێراتر پلە بەرز بکەرەوە.",
+        "perk3_t": "شێوازی چیرۆکی تایبەت", "perk3_d": "3 پاشبنەمای چیرۆکی پرێمیۆم کە کەسی تر ناتوانێت پۆستیان بکات.",
+        "perk4_t": "پشتگیری بە پێشینە", "perk4_d": "نامەکانی پشتگیریت دەچنە سەرەوەی سندوقی بەڕێوەبەر.",
+        "perk5_t": "دەستپێگەیشتنی زوو", "perk5_d": "تایبەتمەندییە نوێیەکان یەکەمجار دەگەنە ئەندامانی پڵەس.",
+        "perk6_t": "پشتگیری کوردڕووم بکە", "perk6_d": "تۆ پلاتفۆرمەکە بەخۆڕایی دەهێڵیتەوە بۆ هەزاران خوێندکار. 💜",
+        "pay_how": "چۆن پڵەس بەدەست بهێنیت", "pay_step1": "بڕەکە بنێرە بۆ ئەم ژمارەیە بە FIB یان FastPay:",
+        "pay_step2": "ئەو ئەپە دابگرە کە بەکاریدەهێنیت — ژمارەکە خۆکارانە کۆپی دەبێت:",
+        "pay_step3": "دوای ناردن دوگمەکەی خوارەوە دابگرە — بەڕێوەبەر ئەستێرەکەت چالاک دەکات ⭐ (زۆربەی کات لە چەند کاتژمێرێکدا):",
+        "i_paid": "✅ پارەکەم نارد", "paid_sent": "گەیشت! بەڕێوەبەر ئاگادار کرایەوە — ئەستێرەکەت ⭐ بەم زووانە دێت.",
+        "copy_num": "کۆپیکردنی ژمارە", "copied": "کۆپی کرا!",
+        "plus_price": "5,000 دینار / مانگ · یان 45,000 دینار / ساڵ (25٪ کەمتر)",
+    },
+}
+for _l, _d in V20.items():
+    T[_l].update(_d)
+
+V21 = {
+    "en": {
+        "tool_studyplan": "Study Plan Generator", "tool_sum2": "AI Summarizer",
+        "tool_present": "Presentation Builder", "tool_translate": "Academic Translator",
+        "tool_predict": "Exam Question Predictor",
+        "gate_t": "This is a Plus tool", "gate_sub": "Exclusive to ⭐ Plus members — unlock it and 4 more premium tools, double XP, the gold badge, and everything else.",
+        "gate_cta": "Get Plus ⭐",
+        "sp_perday": "Subjects per day", "sp_gen": "✨ Generate my plan",
+        "sp_save": "✅ Add to my planner", "sp_preview": "Your revision schedule",
+        "sp_none": "Add your upcoming exams in University first — the plan is built from them.",
+        "sp_revise": "Revise", "sp_created": "revision sessions added to your planner! 🎉",
+        "sum2_ph": "Paste the lecture, chapter, or article here…",
+        "present_ph": "Write your presentation topic (e.g. Renewable energy in Kurdistan)…",
+        "translate_ph": "Paste the text to translate and polish…",
+        "predict_ph": "Paste the chapter or your notes — get the questions your teacher is most likely to ask…",
+        "translate_to": "Translate to", "run_t": "Run ✨", "result_t": "Result",
+    },
+    "ar": {
+        "tool_studyplan": "مولّد خطة المذاكرة", "tool_sum2": "الملخّص الذكي",
+        "tool_present": "منشئ العروض التقديمية", "tool_translate": "المترجم الأكاديمي",
+        "tool_predict": "متنبّئ أسئلة الامتحان",
+        "gate_t": "هذه أداة بلس", "gate_sub": "حصرية لأعضاء ⭐ بلس — افتحها مع 4 أدوات مميزة أخرى ونقاط مضاعفة والشارة الذهبية وكل شيء آخر.",
+        "gate_cta": "احصل على بلس ⭐",
+        "sp_perday": "مواد في اليوم", "sp_gen": "✨ أنشئ خطتي",
+        "sp_save": "✅ أضِف إلى مخططي", "sp_preview": "جدول مراجعتك",
+        "sp_none": "أضف امتحاناتك القادمة في صفحة الجامعة أولًا — الخطة تُبنى منها.",
+        "sp_revise": "مراجعة", "sp_created": "جلسة مراجعة أُضيفت إلى مخططك! 🎉",
+        "sum2_ph": "الصق المحاضرة أو الفصل أو المقال هنا…",
+        "present_ph": "اكتب موضوع عرضك التقديمي…",
+        "translate_ph": "الصق النص للترجمة والتحسين…",
+        "predict_ph": "الصق الفصل أو ملاحظاتك — واحصل على الأسئلة الأكثر احتمالًا…",
+        "translate_to": "ترجم إلى", "run_t": "شغّل ✨", "result_t": "النتيجة",
+    },
+    "ku": {
+        "tool_studyplan": "دروستکەری پلانی خوێندن", "tool_sum2": "کورتکەرەوەی زیرەک",
+        "tool_present": "دروستکەری پرێزەنتەیشن", "tool_translate": "وەرگێڕی ئەکادیمی",
+        "tool_predict": "پێشبینیکەری پرسیاری تاقیکردنەوە",
+        "gate_t": "ئەمە ئامرازێکی پڵەسە", "gate_sub": "تایبەتە بە ئەندامانی ⭐ پڵەس — بیکەرەوە لەگەڵ 4 ئامرازی پرێمیۆمی تر و XP ی دووهێندە و نیشانە ئاڵتوونیەکە و هەموو شتێکی تر.",
+        "gate_cta": "پڵەس وەربگرە ⭐",
+        "sp_perday": "بابەت لە ڕۆژێکدا", "sp_gen": "✨ پلانەکەم دروست بکە",
+        "sp_save": "✅ زیادی بکە بۆ پلانەکانم", "sp_preview": "خشتەی پێداچوونەوەکەت",
+        "sp_none": "سەرەتا تاقیکردنەوە داهاتووەکانت لە پەڕەی زانکۆ زیاد بکە — پلانەکە لەوانەوە دروست دەبێت.",
+        "sp_revise": "پێداچوونەوە", "sp_created": "دانیشتنی پێداچوونەوە زیادکرا بۆ پلانەکانت! 🎉",
+        "sum2_ph": "وانەکە یان بەشەکە یان وتارەکە لێرە دابنێ…",
+        "present_ph": "بابەتی پرێزەنتەیشنەکەت بنووسە…",
+        "translate_ph": "دەقەکە دابنێ بۆ وەرگێڕان و جوانکردن…",
+        "predict_ph": "بەشەکە یان تێبینیەکانت دابنێ — ئەو پرسیارانە وەربگرە کە زۆرترین ئەگەری هاتنیان هەیە…",
+        "translate_to": "وەربگێڕە بۆ", "run_t": "کاری پێبکە ✨", "result_t": "ئەنجام",
+    },
+}
+for _l, _d in V21.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1868,6 +1977,9 @@ def user_xp(uid):
                         (uid,)).fetchone()[0]
     pch_done = sum(1 for c in my_challenges(uid) if c["done"])
     xp = plans * 20 + habits * 10 + bcount * 50 + user_streak(uid) * 5 + pch_done * 100
+    plus_row = db.execute("SELECT plus FROM users WHERE id = ?", (uid,)).fetchone()
+    if plus_row and plus_row["plus"]:
+        xp *= 2                     # ⭐ Plus perk: double XP
     level = int((xp / 100) ** 0.5) + 1
     floor_xp = 100 * (level - 1) ** 2
     next_xp = 100 * level ** 2
@@ -2503,6 +2615,32 @@ def homework_delete(hw_id):
     return redirect(url_for("university") + "#homework")
 
 
+# ---------------------------------------------------------------- KurdRoom Plus
+PLUS_PHONE = "+9647518962161"
+
+
+@app.route("/plus")
+@login_required
+def plus_page():
+    return render_template("plus.html", user=current_user(), phone=PLUS_PHONE)
+
+
+@app.route("/plus/paid", methods=["POST"])
+@login_required
+def plus_paid():
+    method = request.form.get("method", "")[:20]
+    db = get_db()
+    db.execute("INSERT INTO feedback(user_id, message, rating, created_at) "
+               "VALUES(?,?,?,?)",
+               (session["user_id"],
+                f"💳⭐ PLUS PAYMENT — sent via {method or '?'} to {PLUS_PHONE}. "
+                "Please activate my Plus!", None,
+                datetime.utcnow().isoformat(timespec="seconds")))
+    db.commit()
+    flash(tr("paid_sent"), "ok")
+    return redirect(url_for("plus_page"))
+
+
 # ---------------------------------------------------------------- stories (24h)
 STORY_CUTOFF_H = 24
 
@@ -2544,9 +2682,10 @@ def story_add():
     bg = request.form.get("bg", type=int) or 1
     if content:
         db = get_db()
+        max_bg = 9 if current_user()["plus"] else 6   # ⭐ Plus: 3 exclusive styles
         db.execute("INSERT INTO stories(user_id, content, bg, created_at) "
                    "VALUES(?,?,?,?)",
-                   (session["user_id"], content[:220], min(max(bg, 1), 6),
+                   (session["user_id"], content[:220], min(max(bg, 1), max_bg),
                     datetime.utcnow().isoformat(timespec="seconds")))
         db.commit()
     return redirect(request.referrer or url_for("dashboard"))
@@ -4425,7 +4564,7 @@ def tool_quiz():
 
 
 # ---------------------------------------------------------------- AI assistant
-def call_ai(task, text, lang):
+def call_ai(task, text, lang, system_override=None):
     import json as _json
     import urllib.request
     import urllib.error
@@ -4444,7 +4583,7 @@ def call_ai(task, text, lang):
         "improve": "Rewrite the text with better clarity, grammar, and flow. Keep the "
                    "author's voice and meaning. Then list the main changes you made.",
     }
-    system = (tasks.get(task, tasks["explain"])
+    system = ((system_override or tasks.get(task, tasks["explain"]))
               + f" Respond in {lang_name}. Be concise and practical.")
     body = _json.dumps({"model": model, "max_tokens": 1500, "system": system,
                         "messages": [{"role": "user", "content": text[:12000]}]}).encode()
@@ -4479,6 +4618,121 @@ def tool_ai():
             configured, error = False, None
     return render_template("tools_ai.html", user=current_user(), configured=configured,
                            result=result, error=error, text=text, task=task)
+
+
+# ---------------------------------------------------------------- Plus tools
+def plus_gate_or_none(icon, name_key):
+    """Free users see a beautiful upgrade screen instead of the tool."""
+    if not current_user()["plus"]:
+        return render_template("plus_gate.html", user=current_user(),
+                               tool_icon=icon, tool_key=name_key)
+    return None
+
+
+@app.route("/tools/studyplan", methods=["GET", "POST"])
+@login_required
+def tool_studyplan():
+    gate = plus_gate_or_none("🗓", "tool_studyplan")
+    if gate:
+        return gate
+    db = get_db()
+    uid = session["user_id"]
+    today_d = date.today()
+    exams = [e for e in db.execute("SELECT * FROM exams WHERE user_id = ? "
+                                   "ORDER BY exam_date", (uid,))
+             if (e["exam_date"] or "") > today_d.isoformat()]
+    plan, created = None, 0
+    if request.method == "POST" and exams:
+        per_day = min(4, max(1, request.form.get("per_day", 2, type=int)))
+        sched = {}
+        horizon = max(date.fromisoformat(e["exam_date"]) for e in exams)
+        d = today_d
+        while d < horizon:
+            todays = []
+            for e in sorted(exams, key=lambda x: x["exam_date"]):
+                if len(todays) >= per_day:
+                    break
+                ed = date.fromisoformat(e["exam_date"])
+                if d >= ed or e["subject"] in todays:
+                    continue
+                days_left = (ed - today_d).days
+                gap = 1 if days_left <= 7 else (2 if days_left <= 14 else 3)
+                if (d - today_d).days % gap == 0:
+                    todays.append(e["subject"])
+            if todays:
+                sched[d.isoformat()] = todays
+            d += _td(days=1)
+        if request.form.get("save") and sched:
+            now = datetime.utcnow().isoformat(timespec="seconds")
+            for day_iso, subs in sched.items():
+                for subj in subs:
+                    db.execute("INSERT INTO plans(user_id, title, plan_type, "
+                               "priority, due_date, created_at) VALUES(?,?,?,?,?,?)",
+                               (uid, f"📖 {tr('sp_revise')}: {subj}", "short",
+                                "medium", day_iso, now))
+                    created += 1
+            db.commit()
+            flash(f"{created} {tr('sp_created')}", "ok")
+            return redirect(url_for("dashboard"))
+        plan = sorted(sched.items())
+    return render_template("tools_studyplan.html", user=current_user(),
+                           exams=exams, plan=plan,
+                           per_day=request.form.get("per_day", 2, type=int) or 2)
+
+
+PLUS_AI_TOOLS = {
+    "summarizer": dict(
+        icon="📄", key="tool_sum2", ph="sum2_ph",
+        system="You are an expert study assistant. Summarize the material into: "
+               "1) a five-line summary, 2) the key points to memorize as short "
+               "bullets, 3) three likely exam focus areas."),
+    "present": dict(
+        icon="🎤", key="tool_present", ph="present_ph",
+        system="You are a presentation coach. Create a slide-by-slide outline "
+               "(6–10 slides) for the topic: a title per slide, three short bullet "
+               "points each, brief speaker notes, plus a strong opening and "
+               "closing line."),
+    "translate": dict(icon="🔤", key="tool_translate", ph="translate_ph",
+                      system=None),   # built per direction below
+    "predict": dict(
+        icon="❓", key="tool_predict", ph="predict_ph",
+        system="You are an experienced university examiner. From the material, "
+               "predict the most likely exam questions: six short-answer and two "
+               "essay questions, each with a model answer outline. Order by "
+               "likelihood."),
+}
+
+
+@app.route("/tools/plus/<tool>", methods=["GET", "POST"])
+@login_required
+def tool_plus(tool):
+    cfg = PLUS_AI_TOOLS.get(tool)
+    if cfg is None:
+        abort(404)
+    gate = plus_gate_or_none(cfg["icon"], cfg["key"])
+    if gate:
+        return gate
+    configured = bool((get_settings().get("ai_api_key") or "").strip())
+    result = error = None
+    text = request.form.get("text", "")
+    target = request.form.get("target", "en")
+    if request.method == "POST" and configured and text.strip():
+        system = cfg["system"]
+        if tool == "translate":
+            tn = {"en": "English", "ar": "Arabic",
+                  "ku": "Kurdish (Sorani)"}.get(target, "English")
+            system = (f"You are an academic translator. Translate the text into "
+                      f"{tn} with a clear academic tone and polished style. After "
+                      f"the translation, add 2–3 short notes about important word "
+                      f"choices. Always answer in {tn}, regardless of any other "
+                      f"language instruction.")
+        result, error = call_ai("custom", text.strip(),
+                                session.get("lang", "en"), system_override=system)
+        if error == "not_configured":
+            configured, error = False, None
+    return render_template("tools_plusai.html", user=current_user(), tool=tool,
+                           cfg=cfg, configured=configured, result=result,
+                           error=error, text=text, target=target)
 
 
 # ---------------------------------------------------------------- SEO
@@ -4527,8 +4781,9 @@ def admin():
         FROM users u LEFT JOIN plans p ON p.user_id = u.id
         GROUP BY u.id ORDER BY u.created_at ASC""").fetchall()
     quotes = db.execute("SELECT * FROM quotes ORDER BY id").fetchall()
-    fb = db.execute("SELECT f.*, u.username FROM feedback f JOIN users u ON "
-                    "u.id = f.user_id ORDER BY f.resolved ASC, f.id DESC LIMIT 40").fetchall()
+    fb = db.execute("SELECT f.*, u.username, u.plus AS uplus FROM feedback f "
+                    "JOIN users u ON u.id = f.user_id "
+                    "ORDER BY f.resolved ASC, u.plus DESC, f.id DESC LIMIT 40").fetchall()
     avg_rating = db.execute("SELECT AVG(rating), COUNT(rating) FROM feedback "
                             "WHERE rating IS NOT NULL").fetchone()
     return render_template("admin.html", user=current_user(), users=users,
@@ -4542,7 +4797,7 @@ def admin():
 def admin_settings():
     db = get_db()
     fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
-              "ai_api_key", "ai_model", "sponsor_name", "sponsor_url"]
+              "ai_api_key", "ai_model", "sponsor_name", "sponsor_url", "plus_price"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "

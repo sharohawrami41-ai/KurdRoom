@@ -37,7 +37,11 @@
   .bub img { max-width:230px; max-height:280px; border-radius:12px; display:block;
     cursor:pointer; }
   .bub audio { max-width:220px; height:38px; }
-  .meta { font-size:.6rem; color:var(--muted); margin-top:3px; }
+  .meta { font-size:.6rem; color:var(--muted); margin-top:3px;
+    display:flex; align-items:center; gap:6px; }
+  .mmenu { background:none; border:none; color:var(--muted); cursor:pointer;
+    font-size:1rem; line-height:1; padding:0 4px; margin-inline-start:auto;
+    opacity:.75; }
   .bub-text { white-space:pre-wrap; word-break:break-word; }
   .bub.temp { opacity:.75; }
 
@@ -161,7 +165,8 @@
       </div>
       {% endif %}
       <div class="meta" dir="ltr"><time data-ts="{{ m.created_at }}">{{ m.created_at[5:16].replace('T',' ') }}</time>
-        {% if m.from_id == cu.id and not m.deleted %}<span class="tick">{{ '✓✓' if m.is_read else '✓' }}</span>{% endif %}</div>
+        {% if m.from_id == cu.id and not m.deleted %}<span class="tick">{{ '✓✓' if m.is_read else '✓' }}</span>{% endif %}
+        {% if not m.deleted %}<button type="button" class="mmenu">⋯</button>{% endif %}</div>
     </div>
     {% endfor %}
   </div>
@@ -417,6 +422,8 @@
       return;
     }
     if (e.target.closest(".pick")) return;
+    const mm = e.target.closest(".mmenu");
+    if (mm) { showPick(mm.closest(".bub")); return; }
     const chip = e.target.closest(".rx button");
     if (chip) {
       const b = chip.closest(".bub");
@@ -538,6 +545,11 @@
       const tick = document.createElement("span");
       tick.className = "tick"; tick.textContent = m.read ? "✓✓" : "✓";
       meta.appendChild(tick);
+    }
+    if (!m.gone) {
+      const mm = document.createElement("button");
+      mm.type = "button"; mm.className = "mmenu"; mm.textContent = "⋯";
+      meta.appendChild(mm);
     }
     b.appendChild(meta);
     return b;

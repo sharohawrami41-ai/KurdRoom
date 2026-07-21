@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:460px; margin:8vh auto 0; text-align:center;
+     padding:40px 30px; border-color:rgba(255,215,90,.45); position:relative;
+     overflow:hidden">
+  <div style="position:absolute; inset:0; background:radial-gradient(300px 160px at
+       50% -20%, rgba(255,215,90,.18), transparent 70%); pointer-events:none"></div>
+  <div style="font-size:3rem">{{ tool_icon }}</div>
+  <div style="font-size:1.7rem; margin-top:-6px">🔒</div>
+  <h2 style="font-size:1.3rem; margin-top:10px">{{ t(tool_key) }}</h2>
+  <div style="color:gold; font-weight:800; margin-top:4px">⭐ {{ t('gate_t') }}</div>
+  <p style="color:var(--muted); font-size:.9rem; line-height:1.7; margin-top:12px">
+    {{ t('gate_sub') }}</p>
+  <div style="margin-top:8px; font-size:.85rem; color:var(--muted)">
+    💎 {{ settings.get('plus_price') or t('plus_price') }}</div>
+  <a href="{{ url_for('plus_page') }}#order"
+     style="display:inline-block; margin-top:18px; padding:14px 40px; border-radius:16px;
+     background:linear-gradient(135deg, #facc15, #f97316); color:#1e1b4b;
+     font-weight:800; font-size:1.05rem; text-decoration:none;
+     box-shadow:0 10px 30px rgba(250,204,21,.35)">{{ t('gate_cta') }}</a>
+</div>
+{% endblock %}

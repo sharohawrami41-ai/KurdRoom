@@ -847,12 +847,18 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('tool_citations') }}">🔖 {{ t('citations_t') }}</a>
   <a href="{{ url_for('tool_quiz') }}">❓ {{ t('quiz_mode') }}</a>
   <a href="{{ url_for('tool_ai') }}">🤖 {{ t('ai_assistant') }}</a>
+  <a href="{{ url_for('tool_studyplan') }}">🗓 {{ t('tool_studyplan') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_plus', tool='summarizer') }}">📄 {{ t('tool_sum2') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_plus', tool='present') }}">🎤 {{ t('tool_present') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_plus', tool='translate') }}">🔤 {{ t('tool_translate') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_plus', tool='predict') }}">❓ {{ t('tool_predict') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
 {% endmacro %}
 {% macro account_rows() %}
   <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
     {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
   <a href="#" class="pushBtn" style="display:none"
      onclick="krPushSub(false); return false">📲 {{ t('enable_notifs') }}</a>
+  <a href="{{ url_for('plus_page') }}" style="{{ 'color:gold' if not cu.plus }}">⭐ {{ t('plus_t') }}</a>
   <a href="{{ url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
@@ -1048,7 +1054,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 
   {% block content %}{% endblock %}
 
-  {% if settings.get('sponsor_enabled') == '1' and settings.get('sponsor_name') %}
+  {% if settings.get('sponsor_enabled') == '1' and settings.get('sponsor_name')
+        and not (cu and cu.plus) %}{# ⭐ Plus = ad-free #}
   <a class="sponsor-bar" href="{{ settings.get('sponsor_url') or '#' }}"
      target="_blank" rel="noopener">
     {% if sponsor_img %}<img src="{{ sponsor_img }}" alt="">{% endif %}

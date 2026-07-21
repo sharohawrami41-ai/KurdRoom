@@ -7,7 +7,7 @@
       <div style="display:flex; justify-content:center; margin-bottom:14px">
         {{ avi(cu.id, cu.username, 110, '2.6rem') }}
       </div>
-      <div style="font-size:1.3rem; font-weight:800">{{ cu.full_name or cu.username }}
+      <div style="font-size:1.3rem; font-weight:800">{{ cu.full_name or cu.username }}{% if cu.plus %} ⭐{% endif %}
         <span class="badge high" style="font-size:.66rem; vertical-align:middle">
           {{ t('level') }} {{ xpinfo.level }}</span></div>
       <div style="color:var(--accent); font-weight:600">@{{ cu.username }}</div>

@@ -38,7 +38,11 @@
   .gbub.gone { opacity:.6; cursor:default; }
   .gname { font-size:.68rem; font-weight:700; color:var(--accent); margin-bottom:2px; }
   .gtxt { white-space:pre-wrap; word-break:break-word; }
-  .gmeta { font-size:.62rem; color:var(--muted); margin-top:4px; }
+  .gmeta { font-size:.62rem; color:var(--muted); margin-top:4px;
+    display:flex; align-items:center; gap:6px; }
+  .mmenu { background:none; border:none; color:var(--muted); cursor:pointer;
+    font-size:1rem; line-height:1; padding:0 4px; margin-inline-start:auto;
+    opacity:.75; }
   .qt { border-inline-start:3px solid var(--accent); background:rgba(0,0,0,.18);
     padding:5px 10px; border-radius:8px; font-size:.74rem; margin-bottom:6px;
     color:var(--muted); overflow:hidden; }
@@ -162,7 +166,7 @@
                 {%- endfor -%}
               </div>
               {% endif %}
-              <div class="gmeta" dir="ltr"><time data-ts="{{ m.created_at }}">{{ m.created_at[5:16].replace('T',' ') }}</time></div>
+              <div class="gmeta" dir="ltr"><time data-ts="{{ m.created_at }}">{{ m.created_at[5:16].replace('T',' ') }}</time>{% if not m.deleted %}<button type="button" class="mmenu">⋯</button>{% endif %}</div>
             </div>
           </div>
           {% endfor %}
@@ -657,6 +661,12 @@
   box.addEventListener("click", (e) => {
     if (lpFired) { lpFired = false; e.preventDefault(); e.stopPropagation(); return; }
     if (e.target.closest(".pick")) return;
+    const mm = e.target.closest(".mmenu");
+    if (mm) {
+      const gb2 = mm.closest(".gbub");
+      showPick(gb2, +gb2.closest(".msg").dataset.mid);
+      return;
+    }
     const chip = e.target.closest(".rx button");
     if (chip) {
       const mid = +chip.closest(".msg").dataset.mid;
@@ -782,6 +792,11 @@
     const meta = document.createElement("div");
     meta.className = "gmeta"; meta.dir = "ltr";
     meta.textContent = m.ts ? krFmt(new Date(m.ts + "Z")) : m.at;
+    if (!m.gone) {
+      const mm = document.createElement("button");
+      mm.type = "button"; mm.className = "mmenu"; mm.textContent = "⋯";
+      meta.appendChild(mm);
+    }
     gb.appendChild(meta);
     row.appendChild(gb);
     return row;

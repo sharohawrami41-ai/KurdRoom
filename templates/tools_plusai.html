@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="max-width:680px; margin:0 auto">
+    <h2>{{ cfg.icon }} {{ t(cfg.key) }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <div class="hint"></div>
+
+    {% if not configured %}
+      <div class="flash error" style="margin-top:10px">🤖 {{ t('ai_key_hint') }}</div>
+    {% endif %}
+
+    <form method="post">
+      {% if tool == 'translate' %}
+      <label>{{ t('translate_to') }}</label>
+      <div style="display:flex; gap:8px; margin-bottom:10px">
+        {% for code, name in [('en','English'), ('ar','العربية'), ('ku','کوردی')] %}
+        <label class="pill" style="cursor:pointer;
+               {{ 'border-color:var(--accent); color:var(--accent)' if target == code }}">
+          <input type="radio" name="target" value="{{ code }}" style="display:none"
+                 {{ 'checked' if target == code }} onchange="this.form.submit && null">
+          {{ name }}</label>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <label>{{ t(cfg.ph) }}</label>
+      <textarea name="text" rows="7" required maxlength="12000"
+                placeholder="{{ t(cfg.ph) }}">{{ text }}</textarea>
+      <div style="margin-top:14px">
+        <button class="primary" type="submit" style="width:auto; padding:12px 30px"
+                {{ 'disabled' if not configured }}>{{ t('run_t') }}</button>
+      </div>
+    </form>
+
+    {% if error %}<div class="flash error" style="margin-top:14px">{{ error }}</div>{% endif %}
+    {% if result %}
+    <h2 style="margin-top:20px; font-size:1.05rem">✨ {{ t('result_t') }}</h2>
+    <div class="plan medium" style="white-space:pre-wrap; word-break:break-word;
+         font-size:.92rem; line-height:1.75; display:block">{{ result }}</div>
+    {% endif %}
+  </div>
+{% endblock %}

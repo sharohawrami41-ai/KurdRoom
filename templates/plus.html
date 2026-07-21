@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .plus-hero { text-align:center; padding:44px 24px 34px; border-radius:24px;
+    margin-bottom:22px; position:relative; overflow:hidden; color:#fff;
+    background: linear-gradient(135deg, #1e1b4b, #4c1d95 45%, #7c5cff);
+    box-shadow: 0 18px 60px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .plus-hero::after { content:""; position:absolute; inset:0;
+    background: radial-gradient(500px 200px at 50% -40%, rgba(255,215,90,.35), transparent 70%); }
+  .plus-hero * { position:relative; z-index:1; }
+  .plus-star { font-size:3.4rem; display:inline-block;
+    filter: drop-shadow(0 6px 18px rgba(255,200,60,.55));
+    animation: starFloat 3s ease-in-out infinite alternate; }
+  @keyframes starFloat { from { transform: translateY(0) rotate(-6deg); }
+    to { transform: translateY(-8px) rotate(6deg); } }
+  .perks { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+    gap:14px; margin-bottom:22px; }
+  .perk { background:var(--card); border:1px solid var(--card-border);
+    border-radius:18px; padding:18px; animation: fadeUp .4s ease both; }
+  .perk .pe { font-size:1.8rem; }
+  .perk h3 { font-size:1rem; margin:8px 0 4px; }
+  .perk p { font-size:.82rem; color:var(--muted); line-height:1.6; }
+  .price-tag { display:inline-block; margin-top:14px; padding:10px 26px;
+    border-radius:999px; background:rgba(255,215,90,.18); font-weight:800;
+    border:1px solid rgba(255,215,90,.5); color:#ffe9a8; font-size:.95rem; }
+  .paynum { display:flex; align-items:center; justify-content:center; gap:10px;
+    font-size:1.35rem; font-weight:800; letter-spacing:1px; margin:12px 0;
+    padding:14px; border-radius:14px; background:var(--input-bg);
+    border:1px dashed color-mix(in srgb, var(--accent) 55%, transparent); }
+  .paybtns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:16px 0; }
+  .paybtn { display:inline-flex; align-items:center; gap:10px; padding:15px 30px;
+    border-radius:16px; border:none; cursor:pointer; font-size:1.05rem; font-weight:800;
+    color:#fff; transition:.2s; }
+  .paybtn:hover { transform: translateY(-3px); }
+  .paybtn.fib { background: linear-gradient(135deg, #00b3a4, #007a6f);
+    box-shadow: 0 10px 26px rgba(0,179,164,.4); }
+  .paybtn.fp { background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 10px 26px rgba(239,68,68,.4); }
+  .steps { font-size:.88rem; color:var(--muted); margin:14px 0 6px; }
+</style>
+
+<div class="plus-hero">
+  <span class="plus-star">⭐</span>
+  <h2 style="font-size:1.7rem; font-weight:800; margin-top:6px">{{ t('plus_hero') }}</h2>
+  <div style="opacity:.9; margin-top:6px">{{ t('plus_sub') }}</div>
+  <div class="price-tag">💎 {{ settings.get('plus_price') or t('plus_price') }}</div>
+</div>
+
+{% if cu.plus %}
+<div class="card" style="text-align:center; padding:30px; border-color:rgba(255,215,90,.5)">
+  <div style="font-size:2.4rem">⭐</div>
+  <h2 style="margin-top:8px">{{ t('plus_active') }}</h2>
+</div>
+{% endif %}
+
+<div class="perks">
+  {% for i, e in [(1,'⭐'),(2,'⚡'),(3,'🎨'),(4,'🛟'),(5,'🚀'),(6,'💜')] %}
+  <div class="perk" style="animation-delay: {{ loop.index0 * 0.07 }}s">
+    <div class="pe">{{ e }}</div>
+    <h3>{{ t('perk' + i|string + '_t') }}</h3>
+    <p>{{ t('perk' + i|string + '_d') }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+{% if not cu.plus %}
+<div class="card" id="order" style="text-align:center">
+  <h2>💳 {{ t('pay_how') }}</h2>
+  <div class="hint"></div>
+  <div class="steps">1️⃣ {{ t('pay_step1') }}</div>
+  <div class="paynum" dir="ltr">
+    <span id="payNum">{{ phone }}</span>
+    <button class="small" type="button" onclick="copyNum(this)"
+            style="border-color:var(--accent); color:var(--accent)">📋 {{ t('copy_num') }}</button>
+  </div>
+  <div class="steps">2️⃣ {{ t('pay_step2') }}</div>
+  <div class="paybtns">
+    <button class="paybtn fib" type="button" onclick="openPay('fib')">🏦 FIB</button>
+    <button class="paybtn fp" type="button" onclick="openPay('fastpay')">⚡ FastPay</button>
+  </div>
+  <div class="steps">3️⃣ {{ t('pay_step3') }}</div>
+  <form method="post" action="{{ url_for('plus_paid') }}" style="margin-top:8px">
+    <input type="hidden" name="method" id="payMethod" value="">
+    <button class="primary" type="submit" style="width:auto; padding:13px 34px">
+      {{ t('i_paid') }}</button>
+  </form>
+</div>
+
+<script>
+  const PHONE = {{ phone|tojson }};
+  const COPIED = {{ t('copied')|tojson }};
+  function copyNum(btn) {
+    (navigator.clipboard ? navigator.clipboard.writeText(PHONE)
+                         : Promise.reject()).catch(() => {});
+    if (btn) { const old = btn.textContent; btn.textContent = "✓ " + COPIED;
+               setTimeout(() => { btn.textContent = old; }, 1500); }
+  }
+  function openPay(app) {
+    copyNum(null);                                 // number ready to paste
+    document.getElementById("payMethod").value = app === "fib" ? "FIB" : "FastPay";
+    const android = /android/i.test(navigator.userAgent);
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (app === "fib") {
+      if (android)
+        location.href = "intent://open#Intent;package=com.firstiraqibank.personal;" +
+          "S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2F" +
+          "details%3Fid%3Dcom.firstiraqibank.personal;end";
+      else if (ios) location.href = "https://fib.iq/fib-app/";
+      else window.open("https://fib.iq/fib-app/", "_blank");
+    } else {
+      if (android)
+        location.href = "intent://open#Intent;package=com.sslwireless.fastpay;" +
+          "S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2F" +
+          "details%3Fid%3Dcom.sslwireless.fastpay;end";
+      else if (ios) location.href = "https://apps.apple.com/app/id1255784969";
+      else window.open("https://www.fast-pay.iq/", "_blank");
+    }
+  }
+</script>
+{% endif %}
+{% endblock %}

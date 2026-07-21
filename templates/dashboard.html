@@ -68,6 +68,9 @@
     .sbg4 { background:linear-gradient(135deg,#22c55e,#84cc16); }
     .sbg5 { background:linear-gradient(135deg,#f43f5e,#fb7185); }
     .sbg6 { background:linear-gradient(135deg,#1e1b4b,#4c1d95); }
+    .sbg7 { background:linear-gradient(135deg,#facc15,#f97316); }         /* ⭐ Plus */
+    .sbg8 { background:linear-gradient(135deg,#0f172a,#334155 55%,#94a3b8); }
+    .sbg9 { background:conic-gradient(from 200deg,#7c5cff,#ec4899,#f97316,#22d3ee,#7c5cff); }
     .sbars { position:absolute; top:12px; left:14px; right:14px; display:flex; gap:5px; }
     .sbars span { flex:1; height:3.5px; border-radius:99px; background:rgba(255,255,255,.3); }
     .sbars span.done { background:#fff; }
@@ -110,10 +113,15 @@
                   placeholder="{{ t('story_write') }}"></textarea>
         <input type="hidden" name="bg" id="sbgInput" value="1">
         <div class="sdots">
-          {% for i in range(1, 7) %}
+          {% for i in range(1, 10 if cu.plus else 7) %}
           <button type="button" class="sbg{{ i }} {{ 'sel' if i == 1 }}"
-                  onclick="sbgPick(this, {{ i }})"></button>
+                  onclick="sbgPick(this, {{ i }})"
+                  {% if i > 6 %}title="⭐ Plus"{% endif %}></button>
           {% endfor %}
+          {% if not cu.plus %}
+          <a href="{{ url_for('plus_page') }}" style="font-size:.7rem; color:gold;
+             align-self:center; text-decoration:none">⭐ +3</a>
+          {% endif %}
         </div>
         <button class="primary" type="submit" style="width:auto; padding:10px 26px">
           ✨ {{ t('story_post') }}</button>

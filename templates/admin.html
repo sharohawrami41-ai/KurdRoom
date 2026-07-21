@@ -86,7 +86,7 @@
     <div class="plan {{ 'medium' if not f.resolved else 'low' }}"
          style="flex-direction:column; align-items:stretch; gap:6px">
       <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap">
-        <strong>{{ f.username }}
+        <strong>{{ f.username }}{% if f.uplus %} <span class="badge high" style="font-size:.6rem">⭐ PLUS</span>{% endif %}
           {% if f.rating %}<span class="badge medium" dir="ltr">{{ '⭐' * f.rating }}</span>{% endif %}</strong>
         <span style="display:flex; gap:8px; align-items:center">
           <span style="font-size:.7rem; color:var(--muted)" dir="ltr"><time data-ts="{{ f.created_at }}" data-fmt="full">{{ f.created_at[:16].replace('T',' ') }}</time></span>
@@ -145,6 +145,11 @@
                  {{ 'checked' if settings.get('sponsor_enabled') == '1' }}>
           {{ t('sponsor_on') }}
         </label>
+
+        <label>⭐ {{ t('plus_t') }} — 💎</label>
+        <input name="plus_price" maxlength="80"
+               value="{{ settings.get('plus_price','') }}"
+               placeholder="{{ t('plus_price') }}">
         <div style="margin-top:16px">
           <button class="primary" type="submit">{{ t('save') }}</button>
         </div>
