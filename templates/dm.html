@@ -36,7 +36,22 @@
   body.light .bub.them { background:#fff; }
   .bub img { max-width:230px; max-height:280px; border-radius:12px; display:block;
     cursor:pointer; }
-  .bub audio { max-width:220px; height:38px; }
+  .vmsg { display:flex; align-items:center; gap:10px; min-width:210px; padding:3px 0; }
+  .vbtn { width:40px; height:40px; border-radius:50%; border:none; cursor:pointer;
+    color:#fff; flex-shrink:0; font-size:1rem; display:inline-flex; align-items:center;
+    justify-content:center; background: linear-gradient(135deg, var(--accent), #a855f7);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);
+    transition: transform .15s; }
+  .vbtn:active { transform: scale(.92); }
+  .vbars { display:flex; align-items:center; gap:2.5px; height:32px; flex:1;
+    cursor:pointer; }
+  .vbars span { width:3px; border-radius:2px;
+    background: color-mix(in srgb, var(--text) 30%, transparent);
+    transition: background .12s, height .25s; }
+  .vbars span.on { background: var(--accent); }
+  .vmsg.playing .vbars span.on { background: linear-gradient(180deg, var(--accent), #a855f7); }
+  .vtime { font-size:.66rem; color:var(--muted); min-width:36px; text-align:end;
+    font-variant-numeric: tabular-nums; }
   .meta { font-size:.6rem; color:var(--muted); margin-top:3px;
     display:flex; align-items:center; gap:6px; }
   .mmenu { background:none; border:none; color:var(--muted); cursor:pointer;
@@ -145,9 +160,8 @@
         <a href="{{ url_for('dm_file', msg_id=m.id) }}">
           <img src="{{ url_for('dm_file', msg_id=m.id) }}" alt=""></a>
       {% elif m.kind == 'voice' and m.stored %}
-        <div style="display:flex; align-items:center; gap:8px">🎤
-          <audio controls preload="metadata" src="{{ url_for('dm_file', msg_id=m.id) }}"></audio>
-        </div>
+        <div class="vmsg" data-src="{{ url_for('dm_file', msg_id=m.id) }}"
+             data-vid="{{ m.id }}"></div>
       {% elif m.kind == 'file' and m.stored %}
         <a href="{{ url_for('dm_file', msg_id=m.id) }}"
            style="display:flex; align-items:center; gap:10px; color:inherit">
@@ -512,11 +526,11 @@
       a.appendChild(img); b.appendChild(a);
     } else if (m.stored && m.kind === "voice") {
       const w = document.createElement("div");
-      w.style.cssText = "display:flex; align-items:center; gap:8px";
-      w.append("🎤");
-      const au = document.createElement("audio");
-      au.controls = true; au.preload = "metadata"; au.src = FILE_URL + m.id;
-      w.appendChild(au); b.appendChild(w);
+      w.className = "vmsg";
+      w.dataset.src = FILE_URL + m.id;
+      w.dataset.vid = m.id;
+      b.appendChild(w);
+      setTimeout(() => initVoice(w), 0);
     } else if (m.stored && m.kind === "file") {
       const a = document.createElement("a");
       a.href = FILE_URL + m.id;
@@ -604,6 +618,66 @@
     if (!q) scrollBottom();
   }
 
+  /* ---------- modern voice player (Instagram/Telegram style) ---------- */
+  let vPlaying = null;
+  function vFmt(sec) {
+    if (!isFinite(sec) || sec < 0) return "·· : ··";
+    sec = Math.round(sec);
+    return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  }
+  function initVoice(el) {
+    if (el._v) return;
+    el._v = 1;
+    const N = 30;
+    const seed = (+el.dataset.vid || 7) * 2654435761;
+    const audio = new Audio();
+    audio.preload = "metadata";
+    audio.src = el.dataset.src;
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "vbtn"; btn.textContent = "▶";
+    const bars = document.createElement("div");
+    bars.className = "vbars";
+    for (let i = 0; i < N; i++) {
+      const sp = document.createElement("span");
+      const h = 6 + (((seed >>> (i % 28)) * (i + 3)) % 97) / 97 * 20;
+      sp.style.height = h.toFixed(1) + "px";
+      bars.appendChild(sp);
+    }
+    const tm = document.createElement("span");
+    tm.className = "vtime"; tm.textContent = "·· : ··";
+    el.append(btn, bars, tm);
+    audio.addEventListener("loadedmetadata", () => { tm.textContent = vFmt(audio.duration); });
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (vPlaying && vPlaying !== audio) vPlaying.pause();
+      if (audio.paused) { vPlaying = audio; audio.play().catch(() => {}); }
+      else audio.pause();
+    });
+    bars.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!isFinite(audio.duration)) return;
+      const r = bars.getBoundingClientRect();
+      audio.currentTime = Math.max(0, Math.min(1,
+        (e.clientX - r.left) / r.width)) * audio.duration;
+    });
+    audio.addEventListener("play", () => { btn.textContent = "⏸"; el.classList.add("playing"); });
+    audio.addEventListener("pause", () => { btn.textContent = "▶"; el.classList.remove("playing"); });
+    audio.addEventListener("ended", () => {
+      btn.textContent = "▶"; el.classList.remove("playing");
+      bars.querySelectorAll("span").forEach((s) => s.classList.remove("on"));
+      tm.textContent = vFmt(audio.duration);
+    });
+    audio.addEventListener("timeupdate", () => {
+      if (!isFinite(audio.duration) || !audio.duration) return;
+      const p = audio.currentTime / audio.duration;
+      bars.querySelectorAll("span").forEach((s, i) =>
+        s.classList.toggle("on", i / N <= p));
+      tm.textContent = vFmt(audio.currentTime);
+    });
+    audio.addEventListener("error", () => { tm.textContent = "⚠"; });
+  }
+  document.querySelectorAll(".vmsg").forEach(initVoice);
+
   /* ---------- voice messages ---------- */
   let rec = null, chunks = [];
   async function recToggle(btn) {
@@ -611,14 +685,18 @@
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunks = [];
-      rec = new MediaRecorder(stream);
+      const vMime = (window.MediaRecorder && MediaRecorder.isTypeSupported &&
+                     MediaRecorder.isTypeSupported("audio/mp4")) ? "audio/mp4" : "";
+      rec = vMime ? new MediaRecorder(stream, { mimeType: vMime })
+                  : new MediaRecorder(stream);
       rec.ondataavailable = (e) => chunks.push(e.data);
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         btn.classList.remove("recing"); btn.textContent = "🎤";
         const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        const vExt = (rec.mimeType || "").indexOf("mp4") >= 0 ? "m4a" : "webm";
         const fd = new FormData();
-        fd.append("file", blob, "voice.webm");
+        fd.append("file", blob, "voice." + vExt);
         fd.append("kind", "voice");
         if (replyInp.value) fd.append("reply_to", replyInp.value);
         clearReply();

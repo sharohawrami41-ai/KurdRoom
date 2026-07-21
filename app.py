@@ -39,7 +39,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "3.8"   # shown in the footer — bump this with each release
+APP_VERSION = "3.9"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -3991,6 +3991,10 @@ def dm_thread(username):
                                   f.filename[:100], reply_to))
                 stored = f"{cur.lastrowid}_{secure_filename(f.filename) or 'file.' + ext}"
                 f.save(os.path.join(BASE_DIR, "dmfiles", stored))
+                if kind == "voice":
+                    new_name = transcode_voice(stored)
+                    if new_name:
+                        stored = new_name   # mp3 plays on iPhone + Android alike
                 db.execute("UPDATE dms SET stored = ? WHERE id = ?",
                            (stored, cur.lastrowid))
                 sent = True
@@ -4250,6 +4254,38 @@ def api_pings():
     return out
 
 
+def transcode_voice(stored):
+    """Convert a webm voice file to mp3 so iPhones can play it.
+    Returns the new stored filename, or None if conversion failed."""
+    if not stored.lower().endswith(".webm"):
+        return None
+    src = os.path.join(BASE_DIR, "dmfiles", stored)
+    if not os.path.exists(src):
+        return None
+    dst_name = stored.rsplit(".", 1)[0] + ".mp3"
+    dst = os.path.join(BASE_DIR, "dmfiles", dst_name)
+    try:
+        import subprocess
+        import imageio_ffmpeg
+        ff = imageio_ffmpeg.get_ffmpeg_exe()
+        r = subprocess.run([ff, "-y", "-i", src, "-vn", "-acodec", "libmp3lame",
+                            "-b:a", "64k", dst], capture_output=True, timeout=60)
+        if r.returncode == 0 and os.path.exists(dst) and os.path.getsize(dst) > 0:
+            try:
+                os.remove(src)
+            except OSError:
+                pass
+            return dst_name
+    except Exception:
+        pass
+    try:
+        if os.path.exists(dst):
+            os.remove(dst)
+    except OSError:
+        pass
+    return None
+
+
 @app.route("/dmfile/<int:msg_id>")
 @login_required
 def dm_file(msg_id):
@@ -4260,6 +4296,12 @@ def dm_file(msg_id):
         abort(404)
     if session["user_id"] not in (m["from_id"], m["to_id"]):
         abort(403)
+    if m["kind"] == "voice" and m["stored"].lower().endswith(".webm"):
+        new_name = transcode_voice(m["stored"])     # heal old voices on the fly
+        if new_name:
+            db.execute("UPDATE dms SET stored = ? WHERE id = ?", (new_name, msg_id))
+            db.commit()
+            m = db.execute("SELECT * FROM dms WHERE id = ?", (msg_id,)).fetchone()
     inline = m["kind"] in ("image", "voice")
     return send_from_directory(os.path.join(BASE_DIR, "dmfiles"), m["stored"],
                                as_attachment=not inline,
