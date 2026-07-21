@@ -41,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "4.0"   # shown in the footer — bump this with each release
+APP_VERSION = "4.2"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -408,6 +408,8 @@ def init_db():
                  "ALTER TABLE users ADD COLUMN last_seen TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'",
                  "ALTER TABLE group_messages ADD COLUMN deleted INTEGER DEFAULT 0",
+                 "ALTER TABLE group_messages ADD COLUMN kind TEXT DEFAULT 'text'",
+                 "ALTER TABLE group_messages ADD COLUMN stored TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN plus INTEGER DEFAULT 0",
                  "ALTER TABLE users ADD COLUMN studying_until TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN studying_label TEXT DEFAULT ''"):
@@ -3346,9 +3348,16 @@ def group_page(group_id):
 @app.route("/group/<int:group_id>/message", methods=["POST"])
 @login_required
 def group_message(group_id):
+    from werkzeug.utils import secure_filename
     member_group_or_403(group_id)
     content = request.form.get("content", "").strip()
-    if content:
+    f = request.files.get("file")
+    voice_ext = ""
+    if f and f.filename and request.form.get("kind") == "voice":
+        voice_ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+        if voice_ext not in ("webm", "m4a", "ogg", "wav", "mp3"):
+            voice_ext = ""
+    if content or voice_ext:
         db = get_db()
         reply_to = request.form.get("reply_to") or None
         if reply_to:
@@ -3356,10 +3365,20 @@ def group_message(group_id):
                             (reply_to, group_id)).fetchone()
             if not ok:
                 reply_to = None
-        db.execute("INSERT INTO group_messages(group_id, user_id, content, created_at, "
-                   "reply_to) VALUES(?,?,?,?,?)",
-                   (group_id, session["user_id"], content[:500],
-                    datetime.utcnow().isoformat(timespec="seconds"), reply_to))
+        cur = db.execute(
+            "INSERT INTO group_messages(group_id, user_id, content, created_at, "
+            "reply_to, kind) VALUES(?,?,?,?,?,?)",
+            (group_id, session["user_id"], content[:500],
+             datetime.utcnow().isoformat(timespec="seconds"), reply_to,
+             "voice" if voice_ext else "text"))
+        if voice_ext:
+            stored = f"gv{cur.lastrowid}_"                      f"{secure_filename(f.filename) or 'voice.' + voice_ext}"
+            f.save(os.path.join(BASE_DIR, "groupfiles", stored))
+            new_name = transcode_voice(stored, "groupfiles")
+            if new_name:
+                stored = new_name
+            db.execute("UPDATE group_messages SET stored = ? WHERE id = ?",
+                       (stored, cur.lastrowid))
         g_row = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
         link = url_for("group_page", group_id=group_id)
         # @mentions ping the mentioned member directly
@@ -3381,6 +3400,32 @@ def group_message(group_id):
     if request.headers.get("X-Requested-With") == "fetch":
         return {"ok": 1}
     return redirect(url_for("group_page", group_id=group_id) + "#chat")
+
+
+@app.route("/gvoice/<int:msg_id>")
+@login_required
+def group_voice(msg_id):
+    db = get_db()
+    m = db.execute("SELECT * FROM group_messages WHERE id = ?", (msg_id,)).fetchone()
+    if m is None or m["kind"] != "voice" or not m["stored"]:
+        abort(404)
+    if not is_group_member(m["group_id"], session["user_id"]):
+        abort(403)
+    if m["stored"].lower().endswith(".webm"):
+        new_name = transcode_voice(m["stored"], "groupfiles")
+        if new_name:
+            db.execute("UPDATE group_messages SET stored = ? WHERE id = ?",
+                       (new_name, msg_id))
+            db.commit()
+            m = db.execute("SELECT * FROM group_messages WHERE id = ?",
+                           (msg_id,)).fetchone()
+    from flask import send_from_directory
+    ext = m["stored"].rsplit(".", 1)[-1].lower() if "." in m["stored"] else ""
+    mime = {"mp3": "audio/mpeg", "m4a": "audio/mp4", "webm": "audio/webm",
+            "ogg": "audio/ogg", "wav": "audio/wav"}.get(ext)
+    return send_from_directory(os.path.join(BASE_DIR, "groupfiles"), m["stored"],
+                               as_attachment=False, mimetype=mime,
+                               download_name=m["stored"])
 
 
 @app.route("/group/<int:group_id>/chat_poll")
@@ -3426,6 +3471,7 @@ def group_chat_poll(group_id):
     return {"msgs": [{"id": m["id"], "uid": m["user_id"], "me": m["user_id"] == uid,
                       "name": m["username"] + (" ⭐" if m["uplus"] else ""),
                       "level": lv(m["user_id"]),
+                      "kind": m["kind"] or "text", "stored": bool(m["stored"]),
                       "content": m["content"] or "",
                       "at": (m["created_at"] or "")[5:16].replace("T", " "),
                       "ts": m["created_at"] or "",
@@ -3549,8 +3595,13 @@ def msg_delete(msg_id):
     if m["user_id"] != session["user_id"] and g_row["owner_id"] != session["user_id"]:
         abort(403)
     # soft delete so every member's open chat replaces it live
-    db.execute("UPDATE group_messages SET deleted = 1, content = '' WHERE id = ?",
-               (msg_id,))
+    if m["kind"] == "voice" and m["stored"]:
+        try:
+            os.remove(os.path.join(BASE_DIR, "groupfiles", m["stored"]))
+        except OSError:
+            pass
+    db.execute("UPDATE group_messages SET deleted = 1, content = '', stored = '' "
+               "WHERE id = ?", (msg_id,))
     db.execute("DELETE FROM msg_reactions WHERE message_id = ?", (msg_id,))
     db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
@@ -4234,7 +4285,10 @@ def api_pings():
                           "AND is_read = 0", (uid,)).fetchone()[0]
     out = {"dm": unread_d, "notif": unread_n,
            "dm_id": 0, "dm_text": "", "dm_link": "",
-           "notif_id": 0, "notif_text": "", "notif_link": ""}
+           "notif_id": 0, "notif_text": "", "notif_link": "",
+           "kinds": [r[0] for r in db.execute(
+               "SELECT DISTINCT kind FROM notifications WHERE user_id = ? "
+               "AND is_read = 0", (uid,))]}
     if unread_d:
         m = db.execute(
             "SELECT d.id, u.username, u.full_name FROM dms d "
@@ -4259,14 +4313,14 @@ def api_pings():
 _transcode_lock = threading.Lock()
 
 
-def transcode_voice(stored):
+def transcode_voice(stored, folder="dmfiles"):
     """Convert a webm voice file to mp3 so iPhones can play it.
     Returns the new stored filename, or None if conversion failed."""
     if not stored.lower().endswith(".webm"):
         return None
     dst_name = stored.rsplit(".", 1)[0] + ".mp3"
-    src = os.path.join(BASE_DIR, "dmfiles", stored)
-    dst = os.path.join(BASE_DIR, "dmfiles", dst_name)
+    src = os.path.join(BASE_DIR, folder, stored)
+    dst = os.path.join(BASE_DIR, folder, dst_name)
     with _transcode_lock:
         if os.path.exists(dst) and os.path.getsize(dst) > 0:
             return dst_name          # another request already converted it

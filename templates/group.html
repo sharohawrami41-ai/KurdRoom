@@ -66,6 +66,26 @@
   .pick .rpl { font-size:.95rem; border-inline-start:1px solid var(--card-border);
     padding-inline-start:9px; margin-inline-start:4px; }
   .pick .del { color: var(--high, #ef4444); }
+  .vmsg { display:flex; align-items:center; gap:10px; min-width:200px; padding:3px 0; }
+  .vbtn { width:38px; height:38px; border-radius:50%; border:none; cursor:pointer;
+    color:#fff; flex-shrink:0; font-size:.95rem; display:inline-flex; align-items:center;
+    justify-content:center; background: linear-gradient(135deg, var(--accent), #a855f7);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .vbars { display:flex; align-items:center; gap:2.5px; height:30px; flex:1; cursor:pointer; }
+  .vbars span { width:3px; border-radius:2px;
+    background: color-mix(in srgb, var(--text) 30%, transparent);
+    transition: background .12s; }
+  .vbars span.on { background: var(--accent); }
+  .vtime { font-size:.64rem; color:var(--muted); min-width:34px; text-align:end;
+    font-variant-numeric: tabular-nums; }
+  .grec { width:44px; height:44px; border-radius:50%; border:1px solid var(--card-border);
+    background:var(--input-bg); color:var(--text); cursor:pointer; font-size:1.05rem;
+    flex-shrink:0; }
+  .grec.recing { background: var(--high); color:#fff; border-color:var(--high);
+    animation: softPulse 1s infinite; }
+  .gvprev { display:flex; align-items:center; gap:10px; margin-top:10px; padding:9px 12px;
+    border-radius:12px; background:color-mix(in srgb, var(--accent) 10%, transparent);
+    border:1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
   .gcomposer { display:flex; gap:8px; margin-top:10px; align-items:flex-end; }
   .gcomposer textarea { flex:1; resize:none; min-height:44px; max-height:130px;
     padding:11px 14px; border-radius:14px; line-height:1.4; overflow-y:auto;
@@ -159,7 +179,12 @@
                 <strong style="color:var(--accent)">{{ quotes[m.id].username }}</strong><br>
                 {{ quotes[m.id].content }}…</div>
               {% endif %}
+              {% if m.kind == 'voice' and m.stored %}
+              <div class="vmsg" data-src="{{ url_for('group_voice', msg_id=m.id) }}"
+                   data-vid="{{ m.id }}"></div>
+              {% elif m.content %}
               <div class="gtxt">{{ m.content|mentions }}</div>
+              {% endif %}
               <div class="rx" data-rx="{{ m.id }}">
                 {%- for r in reactions.get(m.id, []) -%}
                 <button type="button" class="{{ 'mine' if r.mine }}" data-e="{{ r.emoji }}">{{ r.emoji }} {{ r.n }}</button>
@@ -181,9 +206,17 @@
           <button type="button" onclick="clearReply()" style="margin-inline-start:auto;
                   background:none; border:none; color:var(--high); cursor:pointer">✕</button>
         </div>
+        <div class="gvprev" id="vprev" style="display:none">
+          <div id="vprevHolder" style="flex:1; min-width:0"></div>
+          <button type="button" class="vbtn" onclick="voiceSend()"
+                  title="{{ t('send') }}">➤</button>
+          <button type="button" class="small warn" onclick="voiceCancel()">✕</button>
+        </div>
         <form class="gcomposer" id="gForm" method="post"
               action="{{ url_for('group_message', group_id=g.id) }}">
           <input type="hidden" name="reply_to" id="replyTo">
+          <button type="button" class="grec" id="gRecBtn" title="{{ t('record_v') }}"
+                  onclick="recToggle(this)">🎤</button>
           <textarea name="content" id="msgInput" maxlength="500" rows="1"
                     placeholder="{{ t('write_message') }}" autocomplete="off"></textarea>
           <button class="primary" type="submit" style="width:auto; padding:12px 22px">➤</button>
@@ -778,13 +811,22 @@
         q.append((m.reply.text || "") + "…");
         gb.appendChild(q);
       }
-      const t = document.createElement("div");
-      t.className = "gtxt";
-      const esc = document.createElement("span");
-      esc.textContent = m.content;
-      t.innerHTML = esc.innerHTML.replace(/@([A-Za-z0-9_.]{3,20})/g,
-        '<span class="mention">@$1</span>');
-      gb.appendChild(t);
+      if (m.kind === "voice" && m.stored) {
+        const v = document.createElement("div");
+        v.className = "vmsg";
+        v.dataset.src = "/gvoice/" + m.id;
+        v.dataset.vid = m.id;
+        gb.appendChild(v);
+        setTimeout(() => initVoice(v), 0);
+      } else if (m.content) {
+        const t = document.createElement("div");
+        t.className = "gtxt";
+        const esc = document.createElement("span");
+        esc.textContent = m.content;
+        t.innerHTML = esc.innerHTML.replace(/@([A-Za-z0-9_.]{3,20})/g,
+          '<span class="mention">@$1</span>');
+        gb.appendChild(t);
+      }
       const rx = document.createElement("div");
       rx.className = "rx"; rx.dataset.rx = m.id;
       gb.appendChild(rx);
@@ -825,6 +867,129 @@
   }
   setInterval(() => { if (!document.hidden) poll(); }, 2500);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+  /* ---------- voice player (same as private chat) ---------- */
+  let vPlaying = null;
+  function vFmt(sec) {
+    if (!isFinite(sec) || sec < 0) return "·· : ··";
+    sec = Math.round(sec);
+    return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  }
+  function initVoice(el) {
+    if (el._v) return;
+    el._v = 1;
+    const N = 28;
+    const seed = (+el.dataset.vid || 7) * 2654435761;
+    const audio = new Audio();
+    audio.preload = "metadata";
+    audio.src = el.dataset.src;
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "vbtn"; btn.textContent = "▶";
+    const bars = document.createElement("div");
+    bars.className = "vbars";
+    for (let i = 0; i < N; i++) {
+      const sp = document.createElement("span");
+      const h = 6 + (((seed >>> (i % 28)) * (i + 3)) % 97) / 97 * 18;
+      sp.style.height = h.toFixed(1) + "px";
+      bars.appendChild(sp);
+    }
+    const tm = document.createElement("span");
+    tm.className = "vtime"; tm.textContent = "·· : ··";
+    el.append(btn, bars, tm);
+    audio.addEventListener("loadedmetadata", () => {
+      if (audio.duration === Infinity) {
+        audio.currentTime = 1e7;
+        audio.addEventListener("durationchange", function fix() {
+          if (isFinite(audio.duration) && audio.duration > 0) {
+            audio.currentTime = 0;
+            tm.textContent = vFmt(audio.duration);
+            audio.removeEventListener("durationchange", fix);
+          }
+        });
+      } else tm.textContent = vFmt(audio.duration);
+    });
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (vPlaying && vPlaying !== audio) vPlaying.pause();
+      if (audio.paused) { vPlaying = audio; audio.play().catch(() => {}); }
+      else audio.pause();
+    });
+    bars.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!isFinite(audio.duration)) return;
+      const r = bars.getBoundingClientRect();
+      audio.currentTime = Math.max(0, Math.min(1,
+        (e.clientX - r.left) / r.width)) * audio.duration;
+    });
+    audio.addEventListener("play", () => { btn.textContent = "⏸"; });
+    audio.addEventListener("pause", () => { btn.textContent = "▶"; });
+    audio.addEventListener("ended", () => {
+      btn.textContent = "▶";
+      bars.querySelectorAll("span").forEach((s) => s.classList.remove("on"));
+      tm.textContent = vFmt(audio.duration);
+    });
+    audio.addEventListener("timeupdate", () => {
+      if (!isFinite(audio.duration) || !audio.duration) return;
+      const p = audio.currentTime / audio.duration;
+      bars.querySelectorAll("span").forEach((s, i) =>
+        s.classList.toggle("on", i / N <= p));
+      tm.textContent = vFmt(audio.currentTime);
+    });
+    audio.addEventListener("error", () => { tm.textContent = "⚠"; });
+  }
+  document.querySelectorAll(".vmsg").forEach(initVoice);
+
+  /* ---------- record -> preview -> send ---------- */
+  let rec = null, chunks = [], vBlob = null, vExt = "webm", vUrl = null, vSeed = 60;
+  async function recToggle(btn) {
+    if (rec && rec.state === "recording") { rec.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      const vMime = (window.MediaRecorder && MediaRecorder.isTypeSupported &&
+                     MediaRecorder.isTypeSupported("audio/mp4")) ? "audio/mp4" : "";
+      rec = vMime ? new MediaRecorder(stream, { mimeType: vMime })
+                  : new MediaRecorder(stream);
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        btn.classList.remove("recing"); btn.textContent = "🎤";
+        vBlob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        vExt = (rec.mimeType || "").indexOf("mp4") >= 0 ? "m4a" : "webm";
+        if (vUrl) URL.revokeObjectURL(vUrl);
+        vUrl = URL.createObjectURL(vBlob);
+        const holder = document.getElementById("vprevHolder");
+        holder.innerHTML = "";
+        const w = document.createElement("div");
+        w.className = "vmsg";
+        w.dataset.src = vUrl;
+        w.dataset.vid = String(vSeed += 13);
+        holder.appendChild(w);
+        initVoice(w);
+        document.getElementById("vprev").style.display = "flex";
+      };
+      rec.start();
+      btn.classList.add("recing"); btn.textContent = "⏹";
+    } catch (e) { alert("🎤 ✗"); }
+  }
+  function voiceCancel() {
+    document.getElementById("vprev").style.display = "none";
+    document.getElementById("vprevHolder").innerHTML = "";
+    if (vUrl) { URL.revokeObjectURL(vUrl); vUrl = null; }
+    vBlob = null;
+  }
+  function voiceSend() {
+    if (!vBlob) return;
+    const fd = new FormData();
+    fd.append("file", vBlob, "voice." + vExt);
+    fd.append("kind", "voice");
+    if (replyInp.value) fd.append("reply_to", replyInp.value);
+    clearReply();
+    voiceCancel();
+    fetch(gForm.action, { method: "POST", body: fd,
+                          headers: { "X-Requested-With": "fetch" } })
+      .then(() => poll());
+  }
 
   /* ---------- search inside the chat ---------- */
   function gSearchToggle() {

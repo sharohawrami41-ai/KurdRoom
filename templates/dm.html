@@ -200,6 +200,13 @@
     <button type="button" class="fx" onclick="clearFile()">✕</button>
   </div>
 
+  <div class="fprev" id="vprev" style="display:none">
+    <div id="vprevHolder" style="flex:1; min-width:0"></div>
+    <button type="button" class="cbtn send" onclick="voiceSend()"
+            title="{{ t('send') }}">➤</button>
+    <button type="button" class="fx" onclick="voiceCancel()">✕</button>
+  </div>
+
   <form class="dm-composer" method="post" enctype="multipart/form-data" id="dmForm">
     <input type="hidden" name="kind" id="dmKind" value="">
     <input type="hidden" name="reply_to" id="dmReply" value="">
@@ -646,7 +653,18 @@
     const tm = document.createElement("span");
     tm.className = "vtime"; tm.textContent = "·· : ··";
     el.append(btn, bars, tm);
-    audio.addEventListener("loadedmetadata", () => { tm.textContent = vFmt(audio.duration); });
+    audio.addEventListener("loadedmetadata", () => {
+      if (audio.duration === Infinity) {          // Chrome blob quirk
+        audio.currentTime = 1e7;
+        audio.addEventListener("durationchange", function fix() {
+          if (isFinite(audio.duration) && audio.duration > 0) {
+            audio.currentTime = 0;
+            tm.textContent = vFmt(audio.duration);
+            audio.removeEventListener("durationchange", fix);
+          }
+        });
+      } else tm.textContent = vFmt(audio.duration);
+    });
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (vPlaying && vPlaying !== audio) vPlaying.pause();
@@ -678,8 +696,8 @@
   }
   document.querySelectorAll(".vmsg").forEach(initVoice);
 
-  /* ---------- voice messages ---------- */
-  let rec = null, chunks = [];
+  /* ---------- voice messages: record -> PREVIEW -> send ---------- */
+  let rec = null, chunks = [], vBlob = null, vExt = "webm", vUrl = null, vSeed = 40;
   async function recToggle(btn) {
     if (rec && rec.state === "recording") { rec.stop(); return; }
     try {
@@ -693,18 +711,39 @@
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         btn.classList.remove("recing"); btn.textContent = "🎤";
-        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
-        const vExt = (rec.mimeType || "").indexOf("mp4") >= 0 ? "m4a" : "webm";
-        const fd = new FormData();
-        fd.append("file", blob, "voice." + vExt);
-        fd.append("kind", "voice");
-        if (replyInp.value) fd.append("reply_to", replyInp.value);
-        clearReply();
-        fetch(location.href, { method: "POST", body: fd }).then(() => poll());
+        vBlob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        vExt = (rec.mimeType || "").indexOf("mp4") >= 0 ? "m4a" : "webm";
+        if (vUrl) URL.revokeObjectURL(vUrl);
+        vUrl = URL.createObjectURL(vBlob);
+        const holder = document.getElementById("vprevHolder");
+        holder.innerHTML = "";
+        const w = document.createElement("div");
+        w.className = "vmsg";
+        w.dataset.src = vUrl;
+        w.dataset.vid = String(vSeed += 13);
+        holder.appendChild(w);
+        initVoice(w);
+        document.getElementById("vprev").style.display = "flex";
       };
       rec.start();
       btn.classList.add("recing"); btn.textContent = "⏹";
     } catch (e) { alert("🎤 ✗"); }
+  }
+  function voiceCancel() {
+    document.getElementById("vprev").style.display = "none";
+    document.getElementById("vprevHolder").innerHTML = "";
+    if (vUrl) { URL.revokeObjectURL(vUrl); vUrl = null; }
+    vBlob = null;
+  }
+  function voiceSend() {
+    if (!vBlob) return;
+    const fd = new FormData();
+    fd.append("file", vBlob, "voice." + vExt);
+    fd.append("kind", "voice");
+    if (replyInp.value) fd.append("reply_to", replyInp.value);
+    clearReply();
+    voiceCancel();
+    fetch(location.href, { method: "POST", body: fd }).then(() => poll());
   }
 </script>
 {% endblock %}

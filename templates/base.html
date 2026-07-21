@@ -1490,6 +1490,17 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     d: +(localStorage.getItem("kr_seen_d") || 0),
     n: +(localStorage.getItem("kr_seen_n") || 0),
   };
+  async function krClearTray(kinds) {
+    // remove phone-tray notifications for things the user has already seen
+    try {
+      if (!("serviceWorker" in navigator)) return;
+      const reg = await navigator.serviceWorker.getRegistration("/");
+      if (!reg || !reg.getNotifications) return;
+      (await reg.getNotifications()).forEach((n) => {
+        if (!kinds.includes(n.tag)) n.close();
+      });
+    } catch (err) {}
+  }
   async function krPings() {
     try {
       const r = await fetch("/api/pings");
@@ -1498,6 +1509,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       setDot("dmBtn", d.dm);
       setDot("avSum", d.notif);
       setDot("bellBtn", d.notif);
+      krClearTray(d.kinds || []);
       if (d.dm_id > krSeen.d) {
         krSeen.d = d.dm_id; localStorage.setItem("kr_seen_d", d.dm_id);
         if (location.pathname !== d.dm_link) showToast(d.dm_text, d.dm_link);
