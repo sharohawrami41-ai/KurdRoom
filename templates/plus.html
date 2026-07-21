@@ -79,25 +79,64 @@
     <button class="paybtn fp" type="button" onclick="openPay('fastpay')">⚡ FastPay</button>
   </div>
   <div class="steps">3️⃣ {{ t('pay_step3') }}</div>
-  <form method="post" action="{{ url_for('plus_paid') }}" style="margin-top:8px">
-    <input type="hidden" name="method" id="payMethod" value="">
-    <button class="primary" type="submit" style="width:auto; padding:13px 34px">
-      {{ t('i_paid') }}</button>
+  <form method="post" action="{{ url_for('plus_paid') }}" style="margin-top:8px;
+        max-width:400px; margin-inline:auto; text-align:start">
+    <label>{{ t('pay_method_q') }}</label>
+    <div style="display:flex; gap:10px; margin:6px 0 12px">
+      <label class="pill" style="flex:1; text-align:center; cursor:pointer" id="pmFib">
+        <input type="radio" name="method" value="FIB" required style="display:none"
+               onchange="pmSel(this)"> 🏦 FIB</label>
+      <label class="pill" style="flex:1; text-align:center; cursor:pointer" id="pmFp">
+        <input type="radio" name="method" value="FastPay" style="display:none"
+               onchange="pmSel(this)"> ⚡ FastPay</label>
+    </div>
+    <label>{{ t('pay_plan_q') }}</label>
+    <div style="display:flex; gap:10px; margin:6px 0 16px">
+      <label class="pill" style="flex:1; text-align:center; cursor:pointer">
+        <input type="radio" name="plan" value="monthly" required style="display:none"
+               onchange="pmSel(this)"> {{ t('plan_month') }}</label>
+      <label class="pill" style="flex:1; text-align:center; cursor:pointer">
+        <input type="radio" name="plan" value="yearly" style="display:none"
+               onchange="pmSel(this)"> {{ t('plan_year') }}</label>
+    </div>
+    <div style="text-align:center">
+      <button class="primary" type="submit" style="width:auto; padding:13px 40px">
+        {{ t('submit_t') }}</button>
+    </div>
   </form>
 </div>
 
 <script>
   const PHONE = {{ phone|tojson }};
   const COPIED = {{ t('copied')|tojson }};
+  const FIB_LINK = {{ settings.get('fib_link', '')|tojson }};
+  const FP_LINK = {{ settings.get('fastpay_link', '')|tojson }};
   function copyNum(btn) {
     (navigator.clipboard ? navigator.clipboard.writeText(PHONE)
                          : Promise.reject()).catch(() => {});
     if (btn) { const old = btn.textContent; btn.textContent = "✓ " + COPIED;
                setTimeout(() => { btn.textContent = old; }, 1500); }
   }
+  function pmSel(inp) {
+    const group = inp.name;
+    document.querySelectorAll('input[name="' + group + '"]').forEach((r) => {
+      const p = r.closest(".pill");
+      p.style.borderColor = r.checked ? "var(--accent)" : "";
+      p.style.color = r.checked ? "var(--accent)" : "";
+      p.style.background = r.checked ?
+        "color-mix(in srgb, var(--accent) 14%, transparent)" : "";
+    });
+  }
   function openPay(app) {
     copyNum(null);                                 // number ready to paste
-    document.getElementById("payMethod").value = app === "fib" ? "FIB" : "FastPay";
+    // preselect the method in the form below
+    const radio = document.querySelector(
+      'input[name="method"][value="' + (app === "fib" ? "FIB" : "FastPay") + '"]');
+    if (radio) { radio.checked = true; pmSel(radio); }
+    // a personal payment link (set by the admin) opens the app DIRECTLY on
+    // the "pay me" screen — the best the apps allow
+    if (app === "fib" && FIB_LINK) { location.href = FIB_LINK; return; }
+    if (app === "fastpay" && FP_LINK) { location.href = FP_LINK; return; }
     const android = /android/i.test(navigator.userAgent);
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     if (app === "fib") {

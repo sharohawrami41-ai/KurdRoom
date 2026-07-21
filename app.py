@@ -39,7 +39,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "3.3"   # shown in the footer — bump this with each release
+APP_VERSION = "3.4"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1682,6 +1682,53 @@ V21 = {
 for _l, _d in V21.items():
     T[_l].update(_d)
 
+V22 = {
+    "en": {
+        "pay_method_q": "What payment method did you choose?",
+        "pay_plan_q": "Which plan did you pay for?",
+        "plan_month": "5,000 IQD / Monthly", "plan_year": "45,000 IQD / Yearly",
+        "submit_t": "Submit",
+        "pay_success": "Payment successful ✅ — wait for the activation, your ⭐ is coming soon!",
+        "ntf_plus_wait": "Payment received for review:",
+        "ntf_plus_on": "Your ⭐ Plus is now active! Enjoy!",
+        "about_t": "About Us", "about_l": "About Us text",
+        "social_l": "Links (Instagram · Facebook · Website · Email)",
+        "fib_link_l": "FIB payment link (from your FIB app: Request → Share link)",
+        "fp_link_l": "FastPay payment link (optional)",
+        "contact_t": "Find us",
+    },
+    "ar": {
+        "pay_method_q": "ما طريقة الدفع التي اخترتها؟",
+        "pay_plan_q": "أي خطة دفعت؟",
+        "plan_month": "5,000 دينار / شهري", "plan_year": "45,000 دينار / سنوي",
+        "submit_t": "إرسال",
+        "pay_success": "تم الدفع بنجاح ✅ — انتظر التفعيل، نجمتك ⭐ قادمة قريبًا!",
+        "ntf_plus_wait": "دفعة قيد المراجعة:",
+        "ntf_plus_on": "تم تفعيل ⭐ بلس الخاص بك! استمتع!",
+        "about_t": "من نحن", "about_l": "نص من نحن",
+        "social_l": "الروابط (إنستغرام · فيسبوك · الموقع · البريد)",
+        "fib_link_l": "رابط دفع FIB (من تطبيقك: طلب → مشاركة الرابط)",
+        "fp_link_l": "رابط دفع FastPay (اختياري)",
+        "contact_t": "تواصل معنا",
+    },
+    "ku": {
+        "pay_method_q": "کام شێوازی پارەدانت هەڵبژارد؟",
+        "pay_plan_q": "پارەت بۆ کام پلان دا؟",
+        "plan_month": "5,000 دینار / مانگانە", "plan_year": "45,000 دینار / ساڵانە",
+        "submit_t": "ناردن",
+        "pay_success": "پارەدان سەرکەوتوو بوو ✅ — چاوەڕێی چالاککردن بە، ئەستێرەکەت ⭐ بەم زووانە دێت!",
+        "ntf_plus_wait": "پارەدانێک بۆ پێداچوونەوە:",
+        "ntf_plus_on": "⭐ پڵەسەکەت چالاک کرا! چێژی لێ ببینە!",
+        "about_t": "دەربارەی ئێمە", "about_l": "دەقی دەربارەی ئێمە",
+        "social_l": "لینکەکان (ئینستاگرام · فەیسبووک · ماڵپەڕ · ئیمەیڵ)",
+        "fib_link_l": "لینکی پارەدانی FIB (لە ئەپەکەتەوە: داواکردن → هاوبەشکردنی لینک)",
+        "fp_link_l": "لینکی پارەدانی FastPay (ئارەزوومەندانە)",
+        "contact_t": "بمانبیننەوە",
+    },
+}
+for _l, _d in V22.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1820,7 +1867,7 @@ NOTIF_ICONS = {"friend_req": "👥", "friend_acc": "🤝", "group_msg": "💬",
                "group_add": "➕", "badge": "🏅", "dm": "✉️", "duel_req": "⚔️",
                "duel_acc": "⚔️", "duel_end": "🏆", "deadline": "⏰",
                "overdue": "🚨", "exam_soon": "📚", "homework": "📝",
-               "weekly": "🏆", "mention": "📣"}
+               "weekly": "🏆", "mention": "📣", "plus_wait": "💳", "plus_on": "⭐"}
 
 
 def push_text(lang, kind, actor):
@@ -1829,9 +1876,11 @@ def push_text(lang, kind, actor):
     txt = tt.get("ntf_" + kind, "")
     if kind == "badge":
         return f"{txt} {tt.get('badge_' + actor + '_n', actor)}"
-    if kind in ("group_msg", "group_add", "duel_end",
-                "deadline", "overdue", "exam_soon", "homework", "weekly"):
+    if kind in ("group_msg", "group_add", "duel_end", "deadline", "overdue",
+                "exam_soon", "homework", "weekly", "plus_wait"):
         return f"{txt} “{actor}”"
+    if kind == "plus_on":
+        return txt
     return f"{actor} {txt}"
 
 
@@ -2628,17 +2677,27 @@ def plus_page():
 @app.route("/plus/paid", methods=["POST"])
 @login_required
 def plus_paid():
-    method = request.form.get("method", "")[:20]
+    method = request.form.get("method", "")[:20] or "?"
+    plan = request.form.get("plan", "")[:20] or "?"
+    plan_label = {"monthly": "5,000 / Monthly",
+                  "yearly": "45,000 / Yearly"}.get(plan, plan)
     db = get_db()
     db.execute("INSERT INTO feedback(user_id, message, rating, created_at) "
                "VALUES(?,?,?,?)",
                (session["user_id"],
-                f"💳⭐ PLUS PAYMENT — sent via {method or '?'} to {PLUS_PHONE}. "
-                "Please activate my Plus!", None,
+                f"💳⭐ PLUS PAYMENT — {plan_label} via {method} to {PLUS_PHONE}. "
+                "Please check and activate!", None,
                 datetime.utcnow().isoformat(timespec="seconds")))
+    notify(session["user_id"], "plus_wait", actor=f"{plan_label} · {method}",
+           link=url_for("plus_page"))
     db.commit()
-    flash(tr("paid_sent"), "ok")
+    flash(tr("pay_success"), "ok")
     return redirect(url_for("plus_page"))
+
+
+@app.route("/about")
+def about():
+    return render_template("about.html", user=current_user())
 
 
 # ---------------------------------------------------------------- stories (24h)
@@ -4572,7 +4631,7 @@ def call_ai(task, text, lang, system_override=None):
     key = (s.get("ai_api_key") or "").strip()
     if not key:
         return None, "not_configured"
-    model = (s.get("ai_model") or "").strip() or "claude-3-5-haiku-latest"
+    model = (s.get("ai_model") or "").strip() or "claude-haiku-4-5"
     lang_name = {"en": "English", "ar": "Arabic", "ku": "Kurdish (Sorani)"}.get(lang, "English")
     tasks = {
         "rate": "You are a fair, encouraging university writing tutor. Rate the essay "
@@ -4797,7 +4856,9 @@ def admin():
 def admin_settings():
     db = get_db()
     fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
-              "ai_api_key", "ai_model", "sponsor_name", "sponsor_url", "plus_price"]
+              "ai_api_key", "ai_model", "sponsor_name", "sponsor_url", "plus_price",
+              "fib_link", "fastpay_link", "about_text", "social_instagram",
+              "social_facebook", "social_website", "social_email"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
@@ -4825,6 +4886,8 @@ def admin_toggle_plus(user_id):
     if row:
         db.execute("UPDATE users SET plus = ? WHERE id = ?",
                    (0 if row["plus"] else 1, user_id))
+        if not row["plus"]:   # just activated -> congratulate them instantly
+            notify(user_id, "plus_on", link=url_for("plus_page"))
         db.commit()
         flash(tr("ok_saved"), "ok")
     return redirect(url_for("admin"))

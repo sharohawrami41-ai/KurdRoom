@@ -125,7 +125,7 @@
                autocomplete="off" placeholder="sk-ant-…">
         <div style="font-size:.72rem; color:var(--muted); margin-top:4px">{{ t('ai_key_hint') }}</div>
         <label>{{ t('ai_model') }}</label>
-        <input name="ai_model" value="{{ settings.ai_model or 'claude-3-5-haiku-latest' }}">
+        <input name="ai_model" value="{{ settings.ai_model or 'claude-haiku-4-5' }}">
         <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:.9rem; color:var(--text)">
           <input type="checkbox" name="allow_registration" style="width:auto"
                  {{ 'checked' if settings.allow_registration == '1' }}>
@@ -150,6 +150,26 @@
         <input name="plus_price" maxlength="80"
                value="{{ settings.get('plus_price','') }}"
                placeholder="{{ t('plus_price') }}">
+        <label>🏦 {{ t('fib_link_l') }}</label>
+        <input name="fib_link" maxlength="200" dir="ltr"
+               value="{{ settings.get('fib_link','') }}" placeholder="https://fib.me/…">
+        <label>⚡ {{ t('fp_link_l') }}</label>
+        <input name="fastpay_link" maxlength="200" dir="ltr"
+               value="{{ settings.get('fastpay_link','') }}" placeholder="https://…">
+
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        <h2 style="font-size:1rem">ℹ️ {{ t('about_t') }}</h2>
+        <label>{{ t('about_l') }}</label>
+        <textarea name="about_text" rows="5" maxlength="3000">{{ settings.get('about_text','') }}</textarea>
+        <label>{{ t('social_l') }}</label>
+        <input name="social_instagram" maxlength="200" dir="ltr"
+               value="{{ settings.get('social_instagram','') }}" placeholder="https://instagram.com/…">
+        <input name="social_facebook" maxlength="200" dir="ltr" style="margin-top:8px"
+               value="{{ settings.get('social_facebook','') }}" placeholder="https://facebook.com/…">
+        <input name="social_website" maxlength="200" dir="ltr" style="margin-top:8px"
+               value="{{ settings.get('social_website','') }}" placeholder="https://aikurd.org">
+        <input name="social_email" maxlength="120" dir="ltr" style="margin-top:8px"
+               value="{{ settings.get('social_email','') }}" placeholder="info@aikurd.org">
         <div style="margin-top:16px">
           <button class="primary" type="submit">{{ t('save') }}</button>
         </div>
