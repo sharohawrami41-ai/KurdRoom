@@ -41,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "6.0"   # shown in the footer — bump this with each release
+APP_VERSION = "6.1"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -549,6 +549,8 @@ def init_db():
     }
     for k, v in _REG_DEFAULTS.items():
         db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
+    db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)",
+               ("cofounders", "sharo, mohammedtaha"))
     # upgrade plain (English-only) option lines to the emoji|en|ku|ar format
     for k in ("reg_universities", "reg_colleges", "reg_departments"):
         row = db.execute("SELECT value FROM settings WHERE key = ?", (k,)).fetchone()
@@ -2105,6 +2107,8 @@ V25 = {
         "follow_b": "Follow", "following_b": "Following",
         "private_note": "This account is private — send a friend request to see their profile",
         "no_posts": "No posts yet",
+        "cofounder_t": "Co-Founder of KurdRoom",
+        "cofounders_l": "Co-founders (usernames, separated by commas)",
     },
     "ar": {
         "chat_set_t": "إعدادات المحادثة",
@@ -2122,6 +2126,8 @@ V25 = {
         "follow_b": "متابعة", "following_b": "تتابعه",
         "private_note": "هذا الحساب خاص — أرسل طلب صداقة لرؤية ملفه الشخصي",
         "no_posts": "لا توجد منشورات بعد",
+        "cofounder_t": "مؤسس مشارك لـ KurdRoom",
+        "cofounders_l": "المؤسسون المشاركون (أسماء المستخدمين مفصولة بفواصل)",
     },
     "ku": {
         "chat_set_t": "ڕێکخستنەکانی چات",
@@ -2139,6 +2145,8 @@ V25 = {
         "follow_b": "فۆڵۆکردن", "following_b": "فۆڵۆکراوە",
         "private_note": "ئەم هەژمارە تایبەتە — داواکاری هاوڕێیەتی بنێرە بۆ بینینی پرۆفایلەکەی",
         "no_posts": "هێشتا هیچ پۆستێک نییە",
+        "cofounder_t": "هاودامەزرێنەری KurdRoom",
+        "cofounders_l": "هاودامەزرێنەران (ناوی بەکارهێنەران بە کۆما جیابکەرەوە)",
     },
 }
 for _l, _d in V25.items():
@@ -4087,7 +4095,10 @@ def user_profile(username):
         posts = db.execute("SELECT * FROM posts WHERE user_id = ? "
                            "ORDER BY id DESC LIMIT 30", (person["id"],)).fetchall()
     following = bool(uid and is_following(uid, person["id"]))
+    cofounders = [c.strip().lower() for c in
+                  (get_settings().get("cofounders") or "").split(",") if c.strip()]
     return render_template("user_profile.html", user=current_user(), person=person,
+                           is_cofounder=person["username"].lower() in cofounders,
                            status=status, fid=fid, streak=user_streak(person["id"]),
                            done_count=done_count, earned=user_badges(person["id"]),
                            xpinfo=user_xp(person["id"]),
@@ -5447,7 +5458,7 @@ def post_create():
     cat = request.form.get("category", "other")
     if cat not in POST_CATS:
         cat = "other"
-    if title and content:
+    if title:   # details are optional — a title alone is enough
         db = get_db()
         cur = db.execute("INSERT INTO posts(user_id, title, content, category, "
                          "created_at) VALUES(?,?,?,?,?)",
@@ -6028,7 +6039,8 @@ def admin_settings():
               "about_ku", "social_instagram",
               "social_facebook", "social_website", "social_email", "plus_phone",
               "smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from",
-              "reg_universities", "reg_colleges", "reg_departments", "reg_jobs"]
+              "reg_universities", "reg_colleges", "reg_departments", "reg_jobs",
+              "cofounders"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "

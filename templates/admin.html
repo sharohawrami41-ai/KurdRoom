@@ -208,6 +208,10 @@
         <input name="smtp_from" dir="ltr" value="{{ settings.get('smtp_from','') }}">
 
         <hr style="margin:18px 0; border-color:var(--card-border)">
+        <label>👑 {{ t('cofounders_l') }}</label>
+        <input name="cofounders" dir="ltr"
+               value="{{ settings.get('cofounders','sharo, mohammedtaha') }}">
+        <hr style="margin:18px 0; border-color:var(--card-border)">
         <h2 style="font-size:1rem">🎓 {{ t('regopts_t') }}</h2>
         <div style="font-size:.74rem; color:var(--muted); margin-top:6px;
              padding:10px 12px; border-radius:12px; background:var(--input-bg);

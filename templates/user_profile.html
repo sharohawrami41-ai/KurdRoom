@@ -37,6 +37,14 @@
     <span class="badge high" style="font-size:.68rem; vertical-align:middle">
       {{ t('level') }} {{ xpinfo.level }}</span></div>
   <div style="color:var(--accent); font-weight:600; font-size:1.02rem">@{{ person.username }}</div>
+  {% if is_cofounder %}
+  <div style="display:inline-flex; align-items:center; gap:7px; margin-top:10px;
+       padding:7px 18px; border-radius:999px; font-size:.78rem; font-weight:800;
+       color:#1a1200; background: linear-gradient(135deg, #fbbf24, #f59e0b, #fde68a);
+       box-shadow: 0 6px 20px rgba(245,158,11,.45);
+       animation: fadeUp .4s ease both">
+    👑 {{ t('cofounder_t') }}</div>
+  {% endif %}
   {% if person.bio and can_view %}
     <p style="margin-top:14px; font-size:.94rem; white-space:pre-wrap">{{ person.bio }}</p>
   {% endif %}
@@ -44,19 +52,29 @@
 
   <!-- ============ instagram-style counters ============ -->
   <div class="pstats">
-    <div class="pstat"><div class="n">{{ posts_n }}</div>
+    <div class="pstat"><div class="n">{{ posts_n if can_view else '🔒' }}</div>
       <div class="l">{{ t('posts_t') }}</div></div>
     <a class="pstat" href="/u/{{ person.username }}/followers"
        {% if not can_view %}onclick="return false"{% endif %}
        style="{{ 'cursor:default' if not can_view }}">
-      <div class="n">{{ followers_n }}</div>
+      <div class="n">{{ followers_n if can_view else '🔒' }}</div>
       <div class="l">{{ t('followers_t') }}</div></a>
     <a class="pstat" href="/u/{{ person.username }}/following"
        {% if not can_view %}onclick="return false"{% endif %}
        style="{{ 'cursor:default' if not can_view }}">
-      <div class="n">{{ following_n }}</div>
+      <div class="n">{{ following_n if can_view else '🔒' }}</div>
       <div class="l">{{ t('following_t') }}</div></a>
   </div>
+
+  {% if cu and cu.id == person.id %}
+  <!-- ============ my own profile: manage buttons ============ -->
+  <div class="pbtns">
+    <a class="pbtn main" href="{{ url_for('profile') }}">✏️ {{ t('edit_profile') }}</a>
+    {% if person.is_private %}
+    <span class="pbtn on" style="cursor:default">🔒 {{ t('private_acc_t') }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
 
   {% if cu and cu.id != person.id %}
   <!-- ============ follow / friend / message ============ -->

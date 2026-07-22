@@ -859,7 +859,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="#" class="pushBtn" style="display:none"
      onclick="krPushSub(false); return false">📲 {{ t('enable_notifs') }}</a>
   <a href="{{ url_for('plus_page') }}" style="{{ 'color:gold' if not cu.plus }}">⭐ {{ t('plus_t') }}</a>
-  <a href="{{ url_for('profile') }}">👤 {{ t('profile') }}</a>
+  <a href="{{ url_for('user_profile', username=cu.username) if cu else url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
   <a href="{{ url_for('support') }}">🛟 {{ t('support_t') }}</a>
