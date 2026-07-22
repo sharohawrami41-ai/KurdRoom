@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+  <div style="display:flex; align-items:center; gap:10px; margin:8px 0 18px">
+    <h2 style="font-size:1.4rem">👥 {{ t('users') }} ({{ users|length }})</h2>
+    <a class="pill" href="{{ url_for('admin') }}" style="margin-inline-start:auto">
+      🛠 {{ t('admin_panel') }} {{ '←' if is_rtl else '→' }}</a>
+  </div>
+
+  <div class="card" style="overflow-x:auto">
+    <table>
+      <tr>
+        <th>#</th><th>{{ t('username') }}</th><th>{{ t('full_name') }}</th>
+        <th>{{ t('email_addr') }}</th><th>{{ t('role') }}</th>
+        <th>{{ t('plans_count') }}</th><th>{{ t('created') }}</th>
+        <th>{{ t('last_login') }}</th><th>{{ t('actions') }}</th>
+      </tr>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td><strong>{{ u.username }}</strong>
+            {% if u.id == user.id %} <span class="badge today">{{ t('you') }}</span>{% endif %}</td>
+        <td style="font-size:.82rem">{{ u.full_name or '—' }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">{{ u.email or '—' }}</td>
+        <td>{% if u.is_admin %}<span class="badge high">{{ t('admin') }}</span>
+            {% else %}<span class="badge low">{{ t('user') }}</span>{% endif %}</td>
+        <td>{{ u.plan_count }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">{{ (u.created_at or '')[:10] }}</td>
+        <td style="font-size:.78rem; color:var(--muted)">
+          {% if u.last_login %}<time data-ts="{{ u.last_login }}" data-fmt="full">{{ u.last_login[:16].replace('T',' ') }}</time>{% else %}{{ t('never') }}{% endif %}</td>
+        <td>
+          {% if u.id != user.id %}
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <form method="post" action="{{ url_for('admin_toggle_admin', user_id=u.id) }}">
+              <button class="small" type="submit">
+                {{ t('remove_admin') if u.is_admin else t('make_admin') }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_toggle_plus', user_id=u.id) }}">
+              <button class="small" type="submit"
+                      style="{{ 'border-color:gold; color:gold' if u.plus }}">
+                {{ t('remove_plus') if u.plus else t('make_plus') }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
+                  data-confirm="{{ t('confirm_del_user') }}">
+              <button class="small warn" type="submit">✕ {{ t('delete_user') }}</button>
+            </form>
+          </div>
+          {% endif %}
+          <details>
+            <summary>{{ t('reset_pw') }}</summary>
+            <form class="inline-form" method="post" style="margin-top:6px"
+                  action="{{ url_for('admin_reset_password', user_id=u.id) }}">
+              <input type="password" name="new_password" minlength="6"
+                     placeholder="{{ t('new_password') }}" required>
+              <button class="small" type="submit">{{ t('save') }}</button>
+            </form>
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+{% endblock %}

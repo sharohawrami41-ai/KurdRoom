@@ -65,28 +65,10 @@
     </table>
     {% if users|length > 3 %}
     <div style="text-align:center; margin-top:12px">
-      <button class="small" id="moreUsersBtn" type="button" onclick="toggleUsers()"
-              style="padding:9px 26px; border-color:var(--accent); color:var(--accent)">
-        ▼ {{ t('show_more') }} ({{ users|length - 3 }})</button>
+      <a class="small" href="{{ url_for('admin_users') }}"
+         style="display:inline-block; padding:9px 26px; border-color:var(--accent); color:var(--accent)">
+        {{ t('show_more') }} ({{ users|length - 3 }}) {{ '←' if is_rtl else '→' }}</a>
     </div>
-    <script>
-      function moreList(btn, cls) {
-        const rows = document.querySelectorAll("." + cls);
-        if (!rows.length) return;
-        const hidden = getComputedStyle(rows[0]).display === "none";
-        rows.forEach((r) => { r.style.display = hidden ? "block" : "none"; });
-        btn.innerHTML = (hidden ? "▲ {{ t('show_less') }}"
-                                : "▼ {{ t('show_more') }} (" + rows.length + ")");
-      }
-      function toggleUsers() {
-        const rows = document.querySelectorAll("tr.xtrau");
-        const btn = document.getElementById("moreUsersBtn");
-        const hidden = rows[0].style.display === "none";
-        rows.forEach((r) => { r.style.display = hidden ? "" : "none"; });
-        btn.innerHTML = hidden ? "▲ {{ t('show_less') }}"
-                               : "▼ {{ t('show_more') }} ({{ users|length - 3 }})";
-      }
-    </script>
     {% endif %}
   </div>
 
@@ -117,9 +99,9 @@
     {% endfor %}
     {% if fb|length > 3 %}
     <div style="text-align:center; margin-top:12px">
-      <button class="small" type="button" onclick="moreList(this, 'xfb')"
-              style="padding:9px 26px; border-color:var(--accent); color:var(--accent)">
-        ▼ {{ t('show_more') }} ({{ fb|length - 3 }})</button>
+      <a class="small" href="{{ url_for('admin_feedback') }}"
+         style="display:inline-block; padding:9px 26px; border-color:var(--accent); color:var(--accent)">
+        {{ t('show_more') }} ({{ fb|length - 3 }}) {{ '←' if is_rtl else '→' }}</a>
     </div>
     {% endif %}
   </div>
@@ -281,9 +263,9 @@
       {% endfor %}
       {% if quotes|length > 3 %}
       <div style="text-align:center; margin-top:10px">
-        <button class="small" type="button" onclick="moreList(this, 'xqt')"
-                style="padding:8px 22px; border-color:var(--accent); color:var(--accent)">
-          ▼ {{ t('show_more') }} ({{ quotes|length - 3 }})</button>
+        <a class="small" href="{{ url_for('admin_quotes') }}"
+           style="display:inline-block; padding:8px 22px; border-color:var(--accent); color:var(--accent)">
+          {{ t('show_more') }} ({{ quotes|length - 3 }}) {{ '←' if is_rtl else '→' }}</a>
       </div>
       {% endif %}
       <form method="post" action="{{ url_for('admin_quote_add') }}" style="margin-top:14px">

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+  <div style="display:flex; align-items:center; gap:10px; margin:8px 0 18px">
+    <h2 style="font-size:1.4rem">🛟 {{ t('feedback_t') }} ({{ fb|length }})
+      {% if avg_rating %}<span class="badge high" style="font-size:.8rem" dir="ltr">
+        ⭐ {{ avg_rating }} / 5 · {{ n_ratings }} {{ t('ratings_n') }}</span>{% endif %}</h2>
+    <a class="pill" href="{{ url_for('admin') }}" style="margin-inline-start:auto">
+      🛠 {{ t('admin_panel') }} {{ '←' if is_rtl else '→' }}</a>
+  </div>
+
+  <div class="card">
+    {% for f in fb %}
+    <div class="plan {{ 'medium' if not f.resolved else 'low' }}"
+         style="flex-direction:column; align-items:stretch; gap:6px">
+      <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap">
+        <strong>{{ f.username }}{% if f.uplus %} <span class="badge high" style="font-size:.6rem">⭐ PLUS</span>{% endif %}
+          {% if f.rating %}<span class="badge medium" dir="ltr">{{ '⭐' * f.rating }}</span>{% endif %}</strong>
+        <span style="display:flex; gap:8px; align-items:center">
+          <span style="font-size:.7rem; color:var(--muted)" dir="ltr"><time data-ts="{{ f.created_at }}" data-fmt="full">{{ f.created_at[:16].replace('T',' ') }}</time></span>
+          <form method="post" action="{{ url_for('admin_feedback_resolve', fb_id=f.id) }}">
+            <button class="small" type="submit"
+                    style="{{ 'border-color:var(--ok); color:var(--ok)' if not f.resolved }}">
+              {{ '↩' if f.resolved else '✓ ' + t('resolved_t') }}</button>
+          </form>
+        </span>
+      </div>
+      {% if f.message %}<div style="font-size:.88rem; white-space:pre-wrap">{{ f.message }}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="hint" style="display:block">—</div>
+    {% endfor %}
+  </div>
+{% endblock %}

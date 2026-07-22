@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .mm-wrap { overflow-x:auto; padding:6px 2px; }
+  .mm-tree, .mm-tree ul { list-style:none; margin:0; padding:0; }
+  .mm-tree ul { margin-inline-start:22px; border-inline-start:2px solid var(--card-border);
+    padding-inline-start:16px; margin-top:6px; }
+  .mm-tree li { position:relative; margin:6px 0; }
+  .mm-node { display:inline-block; padding:7px 13px; border-radius:12px;
+    font-size:.9rem; line-height:1.3; border:1px solid var(--card-border);
+    background:var(--input-bg); animation: fadeUp .35s ease both; }
+  .mm-node.d0 { font-size:1.05rem; font-weight:800; color:#fff;
+    background:linear-gradient(90deg, var(--accent), #a855f7); border:none;
+    box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .mm-node.d1 { font-weight:700; color:var(--accent);
+    border-color:color-mix(in srgb, var(--accent) 45%, transparent); }
+  .mm-node.d2 { color:var(--text); }
+  .mm-node.d3, .mm-node.d4 { color:var(--muted); font-size:.84rem; }
+  @media print {
+    .krnav, .pill, form, .no-print { display:none !important; }
+    .mm-node { box-shadow:none !important; }
+  }
+</style>
+
+<div style="display:flex; align-items:center; gap:10px; margin:8px 0 18px">
+  <h2 style="font-size:1.4rem">🧠 {{ t('tool_mindmap') }}
+    <span style="color:gold; font-size:.8rem">⭐</span></h2>
+</div>
+
+{% if not configured %}
+<div class="card" style="text-align:center; padding:48px; max-width:560px; margin:0 auto">
+  <div style="font-size:3rem; animation: softPulse 2.5s ease-in-out infinite; display:inline-block">🧠</div>
+  <h2 style="margin-top:14px; font-size:1.4rem">{{ t('coming_soon') }}</h2>
+  <p style="margin-top:8px; color:var(--muted); font-size:.9rem">{{ t('coming_soon_sub') }}</p>
+  {% if cu.is_admin %}
+    <hr style="border:none; border-top:1px solid var(--card-border); margin:22px 0">
+    <div style="font-size:.78rem; color:var(--muted)">{{ t('ai_not_conf') }}</div>
+    <a class="pill primary" href="{{ url_for('admin') }}" style="margin-top:12px; display:inline-block">
+      🛠 {{ t('admin_panel') }} →</a>
+  {% endif %}
+</div>
+{% else %}
+<div class="card" style="margin-bottom:20px">
+  <form method="post">
+    <label>{{ t('mm_input') }}</label>
+    <textarea name="topic" rows="6" required maxlength="12000"
+              placeholder="{{ t('mm_ph') }}">{{ topic }}</textarea>
+    <div style="margin-top:14px">
+      <button class="primary" type="submit" style="width:auto; padding:12px 34px"
+              onclick="this.textContent='🧠 …'; this.form.submit()">
+        🧠 {{ t('mm_gen') }}</button>
+    </div>
+  </form>
+</div>
+
+{% if error %}
+<div class="flash error">{{ t('ai_err') }} {{ error }}</div>
+{% endif %}
+
+{% if nodes %}
+{% macro tree(items, depth) %}
+<ul>
+  {% for n in items %}
+  <li>
+    <span class="mm-node d{{ depth if depth < 4 else 4 }}">{{ n.label }}</span>
+    {% if n.children %}{{ tree(n.children, depth + 1) }}{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+<div class="card" style="border-color: color-mix(in srgb, var(--accent) 55%, transparent)">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px">
+    <h2 style="margin:0">✨ {{ t('mm_result') }}</h2>
+    <button class="small no-print" type="button" onclick="window.print()"
+            style="margin-inline-start:auto">🖨 {{ t('mm_print') }}</button>
+  </div>
+  <div class="hint"></div>
+  <div class="mm-wrap">
+    <div class="mm-tree">{{ tree(nodes, 0) }}</div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

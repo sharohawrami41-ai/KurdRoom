@@ -1775,15 +1775,14 @@ for _l, _d in V20.items():
 
 V21 = {
     "en": {
-        "tool_studyplan": "Study Plan Generator", "tool_sum2": "AI Summarizer",
+        "tool_mindmap": "AI Mind-Map Maker", "tool_sum2": "AI Summarizer",
         "tool_present": "Presentation Builder", "tool_translate": "Academic Translator",
         "tool_predict": "Exam Question Predictor",
         "gate_t": "This is a Plus tool", "gate_sub": "Exclusive to ⭐ Plus members — unlock it and 4 more premium tools, double XP, the gold badge, and everything else.",
         "gate_cta": "Get Plus ⭐",
-        "sp_perday": "Subjects per day", "sp_gen": "✨ Generate my plan",
-        "sp_save": "✅ Add to my planner", "sp_preview": "Your revision schedule",
-        "sp_none": "Add your upcoming exams in University first — the plan is built from them.",
-        "sp_revise": "Revise", "sp_created": "revision sessions added to your planner! 🎉",
+        "mm_input": "Topic or notes", "mm_gen": "Generate mind map",
+        "mm_result": "Your mind map", "mm_print": "Print / Save",
+        "mm_ph": "Enter a topic (e.g. Photosynthesis) or paste your notes — the AI maps out the key ideas and how they connect…",
         "sum2_ph": "Paste the lecture, chapter, or article here…",
         "present_ph": "Write your presentation topic (e.g. Renewable energy in Kurdistan)…",
         "translate_ph": "Paste the text to translate and polish…",
@@ -1791,15 +1790,14 @@ V21 = {
         "translate_to": "Translate to", "run_t": "Run ✨", "result_t": "Result",
     },
     "ar": {
-        "tool_studyplan": "مولّد خطة المذاكرة", "tool_sum2": "الملخّص الذكي",
+        "tool_mindmap": "صانع الخرائط الذهنية", "tool_sum2": "الملخّص الذكي",
         "tool_present": "منشئ العروض التقديمية", "tool_translate": "المترجم الأكاديمي",
         "tool_predict": "متنبّئ أسئلة الامتحان",
         "gate_t": "هذه أداة بلس", "gate_sub": "حصرية لأعضاء ⭐ بلس — افتحها مع 4 أدوات مميزة أخرى ونقاط مضاعفة والشارة الذهبية وكل شيء آخر.",
         "gate_cta": "احصل على بلس ⭐",
-        "sp_perday": "مواد في اليوم", "sp_gen": "✨ أنشئ خطتي",
-        "sp_save": "✅ أضِف إلى مخططي", "sp_preview": "جدول مراجعتك",
-        "sp_none": "أضف امتحاناتك القادمة في صفحة الجامعة أولًا — الخطة تُبنى منها.",
-        "sp_revise": "مراجعة", "sp_created": "جلسة مراجعة أُضيفت إلى مخططك! 🎉",
+        "mm_input": "الموضوع أو الملاحظات", "mm_gen": "أنشئ الخريطة الذهنية",
+        "mm_result": "خريطتك الذهنية", "mm_print": "طباعة / حفظ",
+        "mm_ph": "اكتب موضوعًا (مثل: البناء الضوئي) أو الصق ملاحظاتك — سيرسم الذكاء الاصطناعي الأفكار الرئيسية وكيف ترتبط…",
         "sum2_ph": "الصق المحاضرة أو الفصل أو المقال هنا…",
         "present_ph": "اكتب موضوع عرضك التقديمي…",
         "translate_ph": "الصق النص للترجمة والتحسين…",
@@ -1807,15 +1805,14 @@ V21 = {
         "translate_to": "ترجم إلى", "run_t": "شغّل ✨", "result_t": "النتيجة",
     },
     "ku": {
-        "tool_studyplan": "دروستکەری پلانی خوێندن", "tool_sum2": "کورتکەرەوەی زیرەک",
+        "tool_mindmap": "دروستکەری نەخشەی مێشک", "tool_sum2": "کورتکەرەوەی زیرەک",
         "tool_present": "دروستکەری پرێزەنتەیشن", "tool_translate": "وەرگێڕی ئەکادیمی",
         "tool_predict": "پێشبینیکەری پرسیاری تاقیکردنەوە",
         "gate_t": "ئەمە ئامرازێکی پڵەسە", "gate_sub": "تایبەتە بە ئەندامانی ⭐ پڵەس — بیکەرەوە لەگەڵ 4 ئامرازی پرێمیۆمی تر و XP ی دووهێندە و نیشانە ئاڵتوونیەکە و هەموو شتێکی تر.",
         "gate_cta": "پڵەس وەربگرە ⭐",
-        "sp_perday": "بابەت لە ڕۆژێکدا", "sp_gen": "✨ پلانەکەم دروست بکە",
-        "sp_save": "✅ زیادی بکە بۆ پلانەکانم", "sp_preview": "خشتەی پێداچوونەوەکەت",
-        "sp_none": "سەرەتا تاقیکردنەوە داهاتووەکانت لە پەڕەی زانکۆ زیاد بکە — پلانەکە لەوانەوە دروست دەبێت.",
-        "sp_revise": "پێداچوونەوە", "sp_created": "دانیشتنی پێداچوونەوە زیادکرا بۆ پلانەکانت! 🎉",
+        "mm_input": "بابەت یان تێبینی", "mm_gen": "نەخشەی مێشک دروست بکە",
+        "mm_result": "نەخشەی مێشکەکەت", "mm_print": "چاپکردن / پاشەکەوت",
+        "mm_ph": "بابەتێک بنووسە (وەک: فۆتۆسینتێز) یان تێبینیەکانت دابنێ — زیرەکی دەستکرد بیرۆکە سەرەکییەکان و پەیوەندیان دەکێشێت…",
         "sum2_ph": "وانەکە یان بەشەکە یان وتارەکە لێرە دابنێ…",
         "present_ph": "بابەتی پرێزەنتەیشنەکەت بنووسە…",
         "translate_ph": "دەقەکە دابنێ بۆ وەرگێڕان و جوانکردن…",
@@ -1935,6 +1932,9 @@ V23 = {
         "st_unis": "Universities", "st_colleges": "Colleges",
         "st_deps": "Departments", "st_school": "School stages",
         "st_grades": "Grades", "st_jobs": "Jobs", "st_growth": "New users per month",
+        "st_bycat": "Students by category", "cat_institute": "Institute",
+        "st_topcoll": "Top 5 colleges", "st_topdep": "Top 5 departments",
+        "st_other_coll": "Other colleges", "st_other_dep": "Other departments",
         "smtp_t": "Email sending (SMTP)",
         "regopts_t": "Registration options (one per line)",
     },
@@ -1987,6 +1987,9 @@ V23 = {
         "st_unis": "الجامعات", "st_colleges": "الكليات",
         "st_deps": "الأقسام", "st_school": "المراحل المدرسية",
         "st_grades": "الصفوف", "st_jobs": "الأعمال", "st_growth": "مستخدمون جدد شهريًا",
+        "st_bycat": "الطلاب حسب الفئة", "cat_institute": "معهد",
+        "st_topcoll": "أعلى 5 كليات", "st_topdep": "أعلى 5 أقسام",
+        "st_other_coll": "كليات أخرى", "st_other_dep": "أقسام أخرى",
         "smtp_t": "إرسال البريد (SMTP)",
         "regopts_t": "خيارات التسجيل (واحد في كل سطر)",
     },
@@ -2042,6 +2045,9 @@ V23 = {
         "st_deps": "بەشەکان", "st_school": "قۆناغەکانی قوتابخانە",
         "st_grades": "پۆلەکان", "st_jobs": "کارەکان",
         "st_growth": "بەکارهێنەری نوێ لە مانگدا",
+        "st_bycat": "خوێندکاران بەپێی جۆر", "cat_institute": "پەیمانگا",
+        "st_topcoll": "باشترین ٥ کۆلێژ", "st_topdep": "باشترین ٥ بەش",
+        "st_other_coll": "کۆلێژەکانی تر", "st_other_dep": "بەشەکانی تر",
         "smtp_t": "ناردنی ئیمەیڵ (SMTP)",
         "regopts_t": "هەڵبژاردەکانی تۆمارکردن (هەر یەکە لە دێڕێکدا)",
     },
@@ -5566,7 +5572,7 @@ def admin_feedback_resolve(fb_id):
     db = get_db()
     db.execute("UPDATE feedback SET resolved = 1 - resolved WHERE id = ?", (fb_id,))
     db.commit()
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 # ---------------------------------------------------------------- leaderboard
@@ -5866,55 +5872,61 @@ def plus_gate_or_none(icon, name_key):
     return None
 
 
-@app.route("/tools/studyplan", methods=["GET", "POST"])
+def parse_outline(text):
+    """Parse an indented '-' bullet outline into a nested tree of {label, children}."""
+    root = {"label": None, "children": [], "_ind": -1}
+    stack = [root]
+    for raw in (text or "").splitlines():
+        raw = raw.replace("\t", "  ")
+        if not raw.strip():
+            continue
+        ind = len(raw) - len(raw.lstrip(" "))
+        label = re.sub(r"^[\-\*•‣◦·]+\s*", "", raw.lstrip(" "))
+        label = re.sub(r"^\d+[\.\)]\s*", "", label)
+        label = label.strip().strip("*_#").strip()
+        if not label:
+            continue
+        node = {"label": label[:120], "children": [], "_ind": ind}
+        while len(stack) > 1 and stack[-1]["_ind"] >= ind:
+            stack.pop()
+        stack[-1]["children"].append(node)
+        stack.append(node)
+    nodes = root["children"]
+    # If the model kept the central topic and its branches at the same indent,
+    # nest everything under the first line (the central topic) so it reads as a map.
+    if len(nodes) > 1:
+        nodes[0]["children"] = nodes[1:] + nodes[0]["children"]
+        nodes = [nodes[0]]
+    return nodes
+
+
+@app.route("/tools/mindmap", methods=["GET", "POST"])
 @login_required
-def tool_studyplan():
-    gate = plus_gate_or_none("🗓", "tool_studyplan")
+def tool_mindmap():
+    gate = plus_gate_or_none("🧠", "tool_mindmap")
     if gate:
         return gate
-    db = get_db()
-    uid = session["user_id"]
-    today_d = date.today()
-    exams = [e for e in db.execute("SELECT * FROM exams WHERE user_id = ? "
-                                   "ORDER BY exam_date", (uid,))
-             if (e["exam_date"] or "") > today_d.isoformat()]
-    plan, created = None, 0
-    if request.method == "POST" and exams:
-        per_day = min(4, max(1, request.form.get("per_day", 2, type=int)))
-        sched = {}
-        horizon = max(date.fromisoformat(e["exam_date"]) for e in exams)
-        d = today_d
-        while d < horizon:
-            todays = []
-            for e in sorted(exams, key=lambda x: x["exam_date"]):
-                if len(todays) >= per_day:
-                    break
-                ed = date.fromisoformat(e["exam_date"])
-                if d >= ed or e["subject"] in todays:
-                    continue
-                days_left = (ed - today_d).days
-                gap = 1 if days_left <= 7 else (2 if days_left <= 14 else 3)
-                if (d - today_d).days % gap == 0:
-                    todays.append(e["subject"])
-            if todays:
-                sched[d.isoformat()] = todays
-            d += _td(days=1)
-        if request.form.get("save") and sched:
-            now = datetime.utcnow().isoformat(timespec="seconds")
-            for day_iso, subs in sched.items():
-                for subj in subs:
-                    db.execute("INSERT INTO plans(user_id, title, plan_type, "
-                               "priority, due_date, created_at) VALUES(?,?,?,?,?,?)",
-                               (uid, f"📖 {tr('sp_revise')}: {subj}", "short",
-                                "medium", day_iso, now))
-                    created += 1
-            db.commit()
-            flash(f"{created} {tr('sp_created')}", "ok")
-            return redirect(url_for("dashboard"))
-        plan = sorted(sched.items())
-    return render_template("tools_studyplan.html", user=current_user(),
-                           exams=exams, plan=plan,
-                           per_day=request.form.get("per_day", 2, type=int) or 2)
+    configured = bool((get_settings().get("ai_api_key") or "").strip())
+    topic = request.form.get("topic", "")
+    nodes = error = None
+    if request.method == "POST" and configured and topic.strip():
+        system = (
+            "You are a study assistant that builds revision mind maps. Given a topic "
+            "or a block of notes, output ONLY a hierarchical mind map as a nested "
+            "bullet list. Use '-' bullets and exactly two spaces of indentation for "
+            "each deeper level. The first line is the single central topic (no "
+            "indentation). Then 3 to 6 main branches, each with 2 to 5 short "
+            "sub-points; sub-points may have their own short children. Keep every "
+            "label 2 to 6 words — no full sentences, no numbering, no commentary "
+            "before or after the list.")
+        raw, error = call_ai("mindmap", topic.strip(), session.get("lang", "en"),
+                             system_override=system)
+        if error == "not_configured":
+            configured, error = False, None
+        elif raw:
+            nodes = parse_outline(raw)
+    return render_template("tools_mindmap.html", user=current_user(),
+                           configured=configured, nodes=nodes, error=error, topic=topic)
 
 
 PLUS_AI_TOOLS = {
@@ -6029,6 +6041,39 @@ def admin():
                            n_ratings=avg_rating[1])
 
 
+@app.route("/admin/users")
+@admin_required
+def admin_users():
+    db = get_db()
+    users = db.execute("""
+        SELECT u.*, COUNT(p.id) AS plan_count
+        FROM users u LEFT JOIN plans p ON p.user_id = u.id
+        GROUP BY u.id ORDER BY u.created_at ASC""").fetchall()
+    return render_template("admin_users.html", user=current_user(), users=users)
+
+
+@app.route("/admin/feedback")
+@admin_required
+def admin_feedback():
+    db = get_db()
+    fb = db.execute("SELECT f.*, u.username, u.plus AS uplus FROM feedback f "
+                    "JOIN users u ON u.id = f.user_id "
+                    "ORDER BY f.resolved ASC, u.plus DESC, f.id DESC").fetchall()
+    avg_rating = db.execute("SELECT AVG(rating), COUNT(rating) FROM feedback "
+                            "WHERE rating IS NOT NULL").fetchone()
+    return render_template("admin_feedback.html", user=current_user(), fb=fb,
+                           avg_rating=round(avg_rating[0], 2) if avg_rating[0] else None,
+                           n_ratings=avg_rating[1])
+
+
+@app.route("/admin/quotes")
+@admin_required
+def admin_quotes():
+    db = get_db()
+    quotes = db.execute("SELECT * FROM quotes ORDER BY id").fetchall()
+    return render_template("admin_quotes.html", user=current_user(), quotes=quotes)
+
+
 @app.route("/admin/settings", methods=["POST"])
 @admin_required
 def admin_settings():
@@ -6088,14 +6133,14 @@ def admin_toggle_plus(user_id):
             notify(user_id, "plus_on", link=url_for("plus_page"))
         db.commit()
         flash(tr("ok_saved"), "ok")
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 @app.route("/admin/user/<int:user_id>/toggle_admin", methods=["POST"])
 @admin_required
 def admin_toggle_admin(user_id):
     if user_id == session["user_id"]:
-        return redirect(url_for("admin"))  # can't demote yourself
+        return redirect(request.referrer or url_for("admin"))  # can't demote yourself
     db = get_db()
     row = db.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
     if row:
@@ -6103,19 +6148,19 @@ def admin_toggle_admin(user_id):
                    (0 if row["is_admin"] else 1, user_id))
         db.commit()
         flash(tr("ok_saved"), "ok")
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 @app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
 @admin_required
 def admin_delete_user(user_id):
     if user_id == session["user_id"]:
-        return redirect(url_for("admin"))  # can't delete yourself
+        return redirect(request.referrer or url_for("admin"))  # can't delete yourself
     db = get_db()
     db.execute("DELETE FROM users WHERE id = ?", (user_id,))
     db.commit()
     flash(tr("ok_deleted"), "ok")
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 @app.route("/admin/user/<int:user_id>/reset_password", methods=["POST"])
@@ -6124,13 +6169,13 @@ def admin_reset_password(user_id):
     new_pw = request.form.get("new_password", "")
     if len(new_pw) < 6:
         flash(tr("err_pw_short"), "error")
-        return redirect(url_for("admin"))
+        return redirect(request.referrer or url_for("admin"))
     db = get_db()
     db.execute("UPDATE users SET password_hash = ? WHERE id = ?",
                (generate_password_hash(new_pw), user_id))
     db.commit()
     flash(tr("ok_saved"), "ok")
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 @app.route("/admin/quote/add", methods=["POST"])
@@ -6138,14 +6183,14 @@ def admin_reset_password(user_id):
 def admin_quote_add():
     en = request.form.get("text_en", "").strip()
     if not en:
-        return redirect(url_for("admin"))
+        return redirect(request.referrer or url_for("admin"))
     db = get_db()
     db.execute("INSERT INTO quotes(text_en, text_ar, text_ku) VALUES(?,?,?)",
                (en, request.form.get("text_ar", "").strip(),
                 request.form.get("text_ku", "").strip()))
     db.commit()
     flash(tr("ok_saved"), "ok")
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 @app.route("/admin/quote/<int:quote_id>/delete", methods=["POST"])
@@ -6155,7 +6200,7 @@ def admin_quote_delete(quote_id):
     db.execute("DELETE FROM quotes WHERE id = ?", (quote_id,))
     db.commit()
     flash(tr("ok_deleted"), "ok")
-    return redirect(url_for("admin"))
+    return redirect(request.referrer or url_for("admin"))
 
 
 # ---------------------------------------------------------------- error reporting
@@ -6203,28 +6248,44 @@ def admin_stats():
         active7=one("SELECT COUNT(*) FROM users WHERE last_seen > ?", week_ago),
         completed=one("SELECT COUNT(*) FROM users WHERE profile_v >= 2"),
     )
-    lvls = rows("SELECT COALESCE(NULLIF(edu_level, ''), 'unset') AS k, COUNT(*) AS n "
-                "FROM users GROUP BY k ORDER BY n DESC")
-    unis = rows("SELECT institution AS k, COUNT(*) AS n FROM users WHERE edu_level "
-                "IN ('bachelor','master','phd','professor') AND institution != '' "
-                "GROUP BY k ORDER BY n DESC")
-    colleges = rows("SELECT college AS k, COUNT(*) AS n FROM users WHERE "
-                    "college != '' GROUP BY k ORDER BY n DESC LIMIT 25")
-    deps = rows("SELECT department AS k, COUNT(*) AS n FROM users WHERE "
-                "department != '' GROUP BY k ORDER BY n DESC LIMIT 25")
+    def cnt(where):
+        return db.execute("SELECT COUNT(*) FROM users WHERE " + where).fetchone()[0]
+
+    def topn(col, n=5):
+        """Top-N values of a column by student count, plus the combined rest."""
+        allrows = db.execute(
+            f"SELECT {col} AS k, COUNT(*) AS n FROM users "
+            f"WHERE {col} IS NOT NULL AND {col} != '' "
+            f"GROUP BY {col} ORDER BY n DESC").fetchall()
+        top = [dict(k=r["k"], n=r["n"]) for r in allrows[:n]]
+        other = sum(r["n"] for r in allrows[n:])
+        if other:
+            top.append(dict(k="__other__", n=other))
+        return top, len(allrows)
+
+    # ---- students by category (non-overlapping buckets) ----
+    _not_inst = "COALESCE(college_kind, '') != 'institute'"
+    cats = [
+        dict(k="school",     n=cnt("edu_level = 'school'")),
+        dict(k="university", n=cnt(f"edu_level = 'bachelor' AND {_not_inst}")),
+        dict(k="institute",  n=cnt("COALESCE(college_kind, '') = 'institute'")),
+        dict(k="master",     n=cnt(f"edu_level = 'master' AND {_not_inst}")),
+        dict(k="phd",        n=cnt(f"edu_level = 'phd' AND {_not_inst}")),
+        dict(k="professor",  n=cnt(f"edu_level = 'professor' AND {_not_inst}")),
+        dict(k="others",     n=cnt("edu_level = 'graduate'")),
+    ]
+
+    colleges, colleges_total = topn("college")
+    deps, deps_total = topn("department")
     slvls = rows("SELECT COALESCE(NULLIF(school_level, ''), '?') AS k, COUNT(*) AS n "
                  "FROM users WHERE edu_level = 'school' GROUP BY k ORDER BY n DESC")
-    grades = rows("SELECT grade AS k, COUNT(*) AS n FROM users WHERE "
-                  "edu_level = 'school' AND grade != '' GROUP BY k "
-                  "ORDER BY CAST(k AS INTEGER)")
-    jobs = rows("SELECT job_title AS k, COUNT(*) AS n FROM users WHERE "
-                "job_title != '' GROUP BY k ORDER BY n DESC LIMIT 25")
     months = rows("SELECT substr(created_at, 1, 7) AS k, COUNT(*) AS n FROM users "
+                  "WHERE created_at IS NOT NULL AND created_at != '' "
                   "GROUP BY k ORDER BY k DESC LIMIT 12")
     return render_template("admin_stats.html", user=current_user(), cards=cards,
-                           lvls=lvls, unis=unis, colleges=colleges, deps=deps,
-                           slvls=slvls, grades=grades, jobs=jobs,
-                           months=list(reversed(months)))
+                           cats=cats, colleges=colleges, colleges_total=colleges_total,
+                           deps=deps, deps_total=deps_total,
+                           slvls=slvls, months=list(reversed(months)))
 
 
 # ---------------------------------------------------------------- reminders

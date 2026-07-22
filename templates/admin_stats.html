@@ -16,6 +16,7 @@
   .hbar .fl { height:100%; border-radius:99px;
     background: linear-gradient(90deg, var(--accent), #a855f7);
     transition: width .8s cubic-bezier(.22,.9,.36,1); }
+  .hbar .fl.other { background: linear-gradient(90deg, #64748b, #94a3b8); }
   .hbar .nn { min-width:56px; font-size:.76rem; color:var(--muted); text-align:end;
     font-variant-numeric: tabular-nums; }
   .vbarrow { display:flex; align-items:flex-end; gap:8px; height:130px; margin-top:10px; }
@@ -40,63 +41,65 @@
   <div class="stcard"><div class="n">{{ cards.completed }}</div><div class="l">✅ {{ t('st_completed') }}</div></div>
 </div>
 
+{% set cat_meta = {
+  'school':     {'i': '🏫', 'l': t('wl_school')},
+  'university': {'i': '🎓', 'l': t('wl_uni')},
+  'institute':  {'i': '🏛', 'l': t('cat_institute')},
+  'master':     {'i': '📜', 'l': t('wl_master')},
+  'phd':        {'i': '🧑‍🔬', 'l': t('wl_phd')},
+  'professor':  {'i': '👨‍🏫', 'l': t('wl_prof')},
+  'others':     {'i': '💼', 'l': t('wl_other')}
+} %}
+
+<div class="card" style="margin-bottom:18px">
+  <h2>🎓 {{ t('st_bycat') }}</h2>
+  <div class="hint"></div>
+  <div class="stcards" style="margin-bottom:0">
+    {% for c in cats %}
+    <div class="stcard">
+      <div class="n">{{ c.n }}</div>
+      <div class="l">{{ cat_meta[c.k].i }} {{ cat_meta[c.k].l }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
 {% macro bars(rows, labels={}) %}
   {% set mx = (rows | map(attribute='n') | max) if rows else 1 %}
   {% for r in rows %}
   <div class="hbar">
     <span class="lb" title="{{ r.k }}">{{ labels.get(r.k, loc_opt(r.k)) }}</span>
-    <div class="tr"><div class="fl" style="width:{{ (r.n * 100 / mx)|round(1) }}%"></div></div>
-    <span class="nn" dir="ltr">{{ r.n }} · {{ (r.n * 100 / cards.total)|round(1) }}%</span>
+    <div class="tr"><div class="fl {{ 'other' if r.k == '__other__' }}" style="width:{{ (r.n * 100 / mx)|round(1) }}%"></div></div>
+    <span class="nn" dir="ltr">{{ r.n }}{% if cards.total %} · {{ (r.n * 100 / cards.total)|round(1) }}%{% endif %}</span>
   </div>
   {% endfor %}
   {% if not rows %}<div class="hint" style="display:block">—</div>{% endif %}
 {% endmacro %}
 
-<div class="card" style="margin-bottom:18px">
-  <h2>🎓 {{ t('st_bylevel') }}</h2>
-  <div class="hint"></div>
-  {{ bars(lvls, {'school': '🏫 ' + t('wl_school'), 'bachelor': '🎓 ' + t('wl_uni'),
-                 'master': '📜 ' + t('wl_master'), 'phd': '🧑‍🔬 ' + t('wl_phd'),
-                 'professor': '👨‍🏫 ' + t('wl_prof'), 'graduate': '💼 ' + t('wl_other'),
-                 'unset': '❔ —'}) }}
-</div>
-
 <div class="grid2">
   <div class="card" style="margin-bottom:18px">
-    <h2>🏛 {{ t('st_unis') }}</h2>
+    <h2>📚 {{ t('st_topcoll') }}
+      <span class="badge low" style="font-size:.7rem">{{ colleges_total }}</span></h2>
     <div class="hint"></div>
-    {{ bars(unis) }}
+    {{ bars(colleges, {'__other__': '▪️ ' + t('st_other_coll')}) }}
   </div>
   <div class="card" style="margin-bottom:18px">
-    <h2>📚 {{ t('st_colleges') }}</h2>
+    <h2>🧪 {{ t('st_topdep') }}
+      <span class="badge low" style="font-size:.7rem">{{ deps_total }}</span></h2>
     <div class="hint"></div>
-    {{ bars(colleges) }}
-  </div>
-  <div class="card" style="margin-bottom:18px">
-    <h2>🧪 {{ t('st_deps') }}</h2>
-    <div class="hint"></div>
-    {{ bars(deps) }}
+    {{ bars(deps, {'__other__': '▪️ ' + t('st_other_dep')}) }}
   </div>
   <div class="card" style="margin-bottom:18px">
     <h2>🏫 {{ t('st_school') }}</h2>
     <div class="hint"></div>
     {{ bars(slvls, {'elementary': '✏️ ' + t('s_elem'), 'intermediate': '📗 ' + t('s_inter'),
                     'high': '📘 ' + t('s_high'), '?': '❔'}) }}
-    <h2 style="margin-top:16px">{{ t('st_grades') }}</h2>
-    <table>
-      <tr><th>{{ t('grade_l') }}</th><th>👥</th></tr>
-      {% for g in grades %}<tr><td>{{ g.k }}</td><td>{{ g.n }}</td></tr>{% endfor %}
-    </table>
-  </div>
-  <div class="card" style="margin-bottom:18px">
-    <h2>💼 {{ t('st_jobs') }}</h2>
-    <div class="hint"></div>
-    {{ bars(jobs) }}
   </div>
   <div class="card" style="margin-bottom:18px">
     <h2>📈 {{ t('st_growth') }}</h2>
     <div class="hint"></div>
     {% set mmx = (months | map(attribute='n') | max) if months else 1 %}
+    {% if months %}
     <div class="vbarrow">
       {% for m in months %}
       <div class="vbarcol">
@@ -106,6 +109,7 @@
       </div>
       {% endfor %}
     </div>
+    {% else %}<div class="hint" style="display:block">—</div>{% endif %}
   </div>
 </div>
 {% endblock %}
