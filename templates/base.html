@@ -1701,10 +1701,15 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       return document.querySelector(
         'input[type=hidden][name="' + btn.dataset.name + '"]');
     }
+    function norm(o) {
+      /* options may be plain strings or {v: value, l: label, e: emoji} */
+      return (typeof o === "string") ? { v: o, l: o, e: "" } : o;
+    }
     function render(filter) {
       const name = kpBtn.dataset.name;
-      const opts = (window.KPDATA[name] || []).filter((o) =>
-        !filter || o.toLowerCase().includes(filter.toLowerCase()));
+      const q = (filter || "").toLowerCase();
+      const opts = (window.KPDATA[name] || []).map(norm).filter((o) =>
+        !q || o.l.toLowerCase().includes(q) || o.v.toLowerCase().includes(q));
       const cur = (hiddenFor(kpBtn) || {}).value || "";
       listEl.innerHTML = "";
       if (!opts.length) {
@@ -1713,12 +1718,12 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       }
       opts.forEach((o, i) => {
         const row = document.createElement("div");
-        row.className = "kpo" + (o === cur ? " sel" : "");
+        row.className = "kpo" + (o.v === cur ? " sel" : "");
         row.style.animationDelay = Math.min(i * 22, 260) + "ms";
         const ke = document.createElement("span"); ke.className = "ke";
-        ke.textContent = emojiFor(o, kpBtn.dataset.icon);
+        ke.textContent = o.e || emojiFor(o.v + " " + o.l, kpBtn.dataset.icon);
         const kn = document.createElement("span"); kn.className = "kn";
-        kn.textContent = o;
+        kn.textContent = o.l;
         const ck = document.createElement("span"); ck.className = "kck";
         ck.textContent = "✓";
         row.append(ke, kn, ck);
@@ -1726,19 +1731,21 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
         listEl.appendChild(row);
       });
     }
-    function choose(v) {
+    function choose(o) {
+      o = norm(o);
       const name = kpBtn.dataset.name;
       const hid = hiddenFor(kpBtn);
       if (hid) {
-        hid.value = v;
+        hid.value = o.v;
         hid.dispatchEvent(new Event("change", { bubbles: true }));
       }
       kpBtn.classList.add("has");
       kpBtn.classList.remove("err");
-      kpBtn.querySelector(".kpe").textContent = emojiFor(v, kpBtn.dataset.icon);
-      kpBtn.querySelector(".kplb").textContent = v;
+      kpBtn.querySelector(".kpe").textContent =
+        o.e || emojiFor(o.v + " " + o.l, kpBtn.dataset.icon);
+      kpBtn.querySelector(".kplb").textContent = o.l;
       kpClose();
-      if (window.KPHOOK[name]) window.KPHOOK[name](v);
+      if (window.KPHOOK[name]) window.KPHOOK[name](o.v);
     }
     window.kpOpen = function (btn) {
       ensure();
@@ -1768,6 +1775,29 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     };
   })();
 </script>
+<style>
+  /* ============ silky page transitions (View Transitions API) ============ */
+  @media (prefers-reduced-motion: no-preference) {
+    @view-transition { navigation: auto; }
+    ::view-transition-old(root) {
+      animation: vtOut .16s ease both;
+    }
+    ::view-transition-new(root) {
+      animation: vtIn .3s cubic-bezier(.22,.9,.36,1) both;
+    }
+    @keyframes vtOut {
+      to { opacity: 0; transform: translateY(-8px) scale(.995); }
+    }
+    @keyframes vtIn {
+      from { opacity: 0; transform: translateY(14px) scale(.99); }
+      to { opacity: 1; transform: none; }
+    }
+  }
+  /* GPU-friendly hover/press feel everywhere */
+  a, button, .pill, .ocard, .gpill, .kpick, .kpo { -webkit-tap-highlight-color: transparent; }
+  button:active, .pill:active, .ocard:active, .gpill:active,
+  .kpick:active, .kpo:active { transform: scale(.97); }
+</style>
 <style>
   /* ============ modern confirm dialog (kconfirm) ============ */
   .kcov { position:fixed; inset:0; z-index:500; display:flex; align-items:center;

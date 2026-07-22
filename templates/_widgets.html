@@ -38,9 +38,9 @@ eduToggle();
 {% if p.edu_level %}
 <div style="margin-top:10px; font-size:.84rem; color:var(--muted); line-height:1.6">
   {% if p.edu_level == 'graduate' %}
-    💼 {{ p.job_title or t('lvl_graduate') }}{% if p.job_field %} · {{ p.job_field }}{% endif %}
+    💼 {{ loc_opt(p.job_title) or t('lvl_graduate') }}{% if p.job_field %} · {{ p.job_field }}{% endif %}
   {% else %}
-    🎓 {{ t('lvl_' + p.edu_level) }}{% if p.institution %} · {{ p.institution }}{% endif %}{% if p.college %} · {{ p.college }}{% endif %}{% if p.department %} · {{ p.department }}{% endif %}{% if p.stage %} · {{ t('stage') }}: {{ p.stage }}{% endif %}
+    🎓 {{ t('lvl_' + p.edu_level) }}{% if p.institution %} · {{ loc_opt(p.institution) }}{% endif %}{% if p.college %} · {{ loc_opt(p.college) }}{% endif %}{% if p.department %} · {{ loc_opt(p.department) }}{% endif %}{% if p.stage %} · {{ t('stage') }}: {{ p.stage }}{% endif %}
   {% endif %}
 </div>
 {% endif %}

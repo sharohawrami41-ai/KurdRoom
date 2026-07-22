@@ -44,7 +44,7 @@
   {% set mx = (rows | map(attribute='n') | max) if rows else 1 %}
   {% for r in rows %}
   <div class="hbar">
-    <span class="lb" title="{{ r.k }}">{{ labels.get(r.k, r.k) }}</span>
+    <span class="lb" title="{{ r.k }}">{{ labels.get(r.k, loc_opt(r.k)) }}</span>
     <div class="tr"><div class="fl" style="width:{{ (r.n * 100 / mx)|round(1) }}%"></div></div>
     <span class="nn" dir="ltr">{{ r.n }} · {{ (r.n * 100 / cards.total)|round(1) }}%</span>
   </div>

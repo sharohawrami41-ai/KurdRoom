@@ -41,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "5.3"   # shown in the footer — bump this with each release
+APP_VERSION = "5.4"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -445,28 +445,58 @@ def init_db():
     # seed the editable registration option lists (admin can change them later)
     _REG_DEFAULTS = {
         "reg_universities": "\n".join([
-            "Salahaddin University-Erbil", "University of Sulaimani",
-            "University of Duhok", "University of Zakho", "Koya University",
-            "Soran University", "University of Raparin", "University of Halabja",
-            "University of Garmian", "Charmo University",
-            "Erbil Polytechnic University", "Sulaimani Polytechnic University",
-            "Duhok Polytechnic University", "University of Kurdistan Hewlêr",
-            "American University of Iraq Sulaimani",
-            "American University of Kurdistan", "Tishk International University",
-            "Cihan University Erbil", "Cihan University Sulaimaniya",
-            "Cihan University Duhok", "Knowledge University",
-            "Catholic University in Erbil", "Lebanese French University",
-            "Bayan University", "Komar University of Science and Technology",
-            "University of Human Development", "Qaiwan International University",
-            "Nawroz University"]),
+            "🏛️ | Salahaddin University-Erbil | زانکۆی سەڵاحەدین - هەولێر | جامعة صلاح الدين - أربيل",
+            "🏛️ | University of Sulaimani | زانکۆی سلێمانی | جامعة السليمانية",
+            "🏛️ | University of Duhok | زانکۆی دهۆک | جامعة دهوك",
+            "🏛️ | University of Zakho | زانکۆی زاخۆ | جامعة زاخو",
+            "🏛️ | Koya University | زانکۆی کۆیە | جامعة كوية",
+            "🏛️ | Soran University | زانکۆی سۆران | جامعة سوران",
+            "🏛️ | University of Raparin | زانکۆی ڕاپەڕین | جامعة رابرين",
+            "🏛️ | University of Halabja | زانکۆی هەڵەبجە | جامعة حلبجة",
+            "🏛️ | University of Garmian | زانکۆی گەرمیان | جامعة كرميان",
+            "🏛️ | Charmo University | زانکۆی چەرموو | جامعة جرمو",
+            "🏢 | Erbil Polytechnic University | زانکۆی پۆلیتەکنیکی هەولێر | جامعة أربيل التقنية",
+            "🏢 | Sulaimani Polytechnic University | زانکۆی پۆلیتەکنیکی سلێمانی | جامعة السليمانية التقنية",
+            "🏢 | Duhok Polytechnic University | زانکۆی پۆلیتەکنیکی دهۆک | جامعة دهوك التقنية",
+            "🏛️ | University of Kurdistan Hewlêr | زانکۆی کوردستان هەولێر | جامعة كردستان أربيل",
+            "🌍 | American University of Iraq Sulaimani | زانکۆی ئەمریکی عێراق - سلێمانی | الجامعة الأمريكية في العراق - السليمانية",
+            "🌍 | American University of Kurdistan | زانکۆی ئەمریکی کوردستان | الجامعة الأمريكية في كردستان",
+            "🌍 | Tishk International University | زانکۆی نێودەوڵەتی تیشک | جامعة تيشك الدولية",
+            "🏛️ | Cihan University Erbil | زانکۆی جیهان - هەولێر | جامعة جيهان - أربيل",
+            "🏛️ | Cihan University Sulaimaniya | زانکۆی جیهان - سلێمانی | جامعة جيهان - السليمانية",
+            "🏛️ | Cihan University Duhok | زانکۆی جیهان - دهۆک | جامعة جيهان - دهوك",
+            "🏛️ | Knowledge University | زانکۆی نۆلج | جامعة المعرفة",
+            "🏛️ | Catholic University in Erbil | زانکۆی کاسۆلیکی هەولێر | الجامعة الكاثوليكية في أربيل",
+            "🏛️ | Lebanese French University | زانکۆی لوبنانی فەرەنسی | الجامعة اللبنانية الفرنسية",
+            "🏛️ | Bayan University | زانکۆی بایان | جامعة بيان",
+            "🔬 | Komar University of Science and Technology | زانکۆی کۆمار بۆ زانست و تەکنەلۆژیا | جامعة كومار للعلوم والتكنولوجيا",
+            "🏛️ | University of Human Development | زانکۆی گەشەپێدانی مرۆیی | جامعة التنمية البشرية",
+            "🌍 | Qaiwan International University | زانکۆی نێودەوڵەتی قەیوان | جامعة قيوان الدولية",
+            "🏛️ | Nawroz University | زانکۆی نەورۆز | جامعة نوروز"]),
         "reg_colleges": "\n".join([
-            "Medicine", "Dentistry", "Pharmacy", "Nursing", "Health Sciences",
-            "Veterinary Medicine", "Engineering", "Science",
-            "Computer Science & IT", "Agriculture", "Education",
-            "Basic Education", "Physical Education & Sport Sciences", "Languages",
-            "Arts & Humanities", "Law", "Political Science",
-            "Administration & Economics", "Fine Arts", "Islamic Sciences",
-            "Media & Communication", "Architecture", "Tourism"]),
+            "🩺 | Medicine | پزیشکی | الطب",
+            "🦷 | Dentistry | ددانسازی | طب الأسنان",
+            "💊 | Pharmacy | دەرمانسازی | الصيدلة",
+            "🩹 | Nursing | پەرستاری | التمريض",
+            "🏥 | Health Sciences | زانستە تەندروستییەکان | العلوم الصحية",
+            "🐾 | Veterinary Medicine | پزیشکی ڤێتێرنەری | الطب البيطري",
+            "⚙️ | Engineering | ئەندازیاری | الهندسة",
+            "🔬 | Science | زانست | العلوم",
+            "💻 | Computer Science & IT | زانستی کۆمپیوتەر و ئایتی | علوم الحاسوب وتكنولوجيا المعلومات",
+            "🌾 | Agriculture | کشتوکاڵ | الزراعة",
+            "🎓 | Education | پەروەردە | التربية",
+            "✏️ | Basic Education | پەروەردەی بنەڕەتی | التربية الأساسية",
+            "🏃 | Physical Education & Sport Sciences | پەروەردەی وەرزشی | التربية الرياضية",
+            "🗣️ | Languages | زمان | اللغات",
+            "🎨 | Arts & Humanities | ئاداب و زانستە مرۆییەکان | الآداب والعلوم الإنسانية",
+            "⚖️ | Law | یاسا | القانون",
+            "🏛️ | Political Science | زانستە سیاسییەکان | العلوم السياسية",
+            "📊 | Administration & Economics | کارگێڕی و ئابووری | الإدارة والاقتصاد",
+            "🎭 | Fine Arts | هونەرە جوانەکان | الفنون الجميلة",
+            "🕌 | Islamic Sciences | زانستە ئیسلامییەکان | العلوم الإسلامية",
+            "📺 | Media & Communication | ڕاگەیاندن | الإعلام والاتصال",
+            "📐 | Architecture | تەلارسازی | العمارة",
+            "🧳 | Tourism | گەشتوگوزار | السياحة"]),
         "reg_departments": "\n".join([
             "Medicine: General Medicine",
             "Dentistry: Dentistry",
@@ -501,6 +531,19 @@ def init_db():
     }
     for k, v in _REG_DEFAULTS.items():
         db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
+    # upgrade plain (English-only) option lines to the emoji|en|ku|ar format
+    for k in ("reg_universities", "reg_colleges"):
+        row = db.execute("SELECT value FROM settings WHERE key = ?", (k,)).fetchone()
+        if row and "|" not in row[0]:
+            rich = {}
+            for line in _REG_DEFAULTS[k].split("\n"):
+                parts = [p.strip() for p in line.split("|")]
+                if len(parts) >= 2:
+                    rich[parts[1]] = line.strip()
+            merged = [rich.get(l.strip(), l.strip())
+                      for l in row[0].split("\n") if l.strip()]
+            db.execute("UPDATE settings SET value = ? WHERE key = ?",
+                       ("\n".join(merged), k))
     # generate the push-notification (VAPID) keypair once, keep it in settings
     if not db.execute("SELECT 1 FROM settings WHERE key = 'vapid_private'").fetchone():
         try:
@@ -1984,6 +2027,7 @@ V24 = {
         "ferr_bad": "Please check this field",
         "kp_search": "Search…",
         "kp_none": "No results found",
+        "regopts_hint": "Format: emoji | English | کوردی | عربي — only the English name is required. Example: 🩺 | Medicine | پزیشکی | الطب",
         "kc_t": "Are you sure?",
         "kc_yes": "Yes, do it",
         "kc_hint": "This action cannot be undone.",
@@ -1995,6 +2039,7 @@ V24 = {
         "ferr_bad": "يرجى التحقق من هذا الحقل",
         "kp_search": "ابحث…",
         "kp_none": "لا توجد نتائج",
+        "regopts_hint": "الصيغة: إيموجي | English | کوردی | عربي — الاسم الإنجليزي فقط إلزامي. مثال: 🩺 | Medicine | پزیشکی | الطب",
         "kc_t": "هل أنت متأكد؟",
         "kc_yes": "نعم، متأكد",
         "kc_hint": "لا يمكن التراجع عن هذا الإجراء.",
@@ -2006,6 +2051,7 @@ V24 = {
         "ferr_bad": "تکایە ئەم خانەیە بپشکنە",
         "kp_search": "بگەڕێ…",
         "kp_none": "هیچ ئەنجامێک نەدۆزرایەوە",
+        "regopts_hint": "شێواز: ئیمۆجی | English | کوردی | عربي — تەنها ناوی ئینگلیزی پێویستە. نموونە: 🩺 | Medicine | پزیشکی | الطب",
         "kc_t": "دڵنیایت؟",
         "kc_yes": "بەڵێ، دڵنیام",
         "kc_hint": "ئەم کردارە ناگەڕێتەوە.",
@@ -2632,17 +2678,86 @@ def smtp_ready():
                 (st.get("smtp_user") or "").strip())
 
 
-def reg_options():
+def _looks_emoji(seg):
+    """True when a pipe segment is an emoji/symbol, not a name."""
+    seg = seg.strip()
+    if not seg or len(seg) > 6:
+        return False
+    return all(not ch.isalnum() for ch in seg if ch not in " \ufe0f\u200d")
+
+
+def _parse_opt(raw):
+    """'emoji | English | Kurdish | Arabic' -> dict (all but English optional)."""
+    parts = [p.strip() for p in raw.split("|")]
+    e = ""
+    if parts and _looks_emoji(parts[0]):
+        e = parts[0]
+        parts = parts[1:]
+    if not parts or not parts[0]:
+        return None
+    en = parts[0]
+    ku = parts[1] if len(parts) > 1 and parts[1] else en
+    ar = parts[2] if len(parts) > 2 and parts[2] else en
+    return {"v": en, "ku": ku, "ar": ar, "e": e}
+
+
+def reg_options_rich():
     st = get_settings()
-    unis = [u.strip() for u in (st.get("reg_universities") or "").split("\n") if u.strip()]
-    colleges = [c.strip() for c in (st.get("reg_colleges") or "").split("\n") if c.strip()]
-    jobs = [j.strip() for j in (st.get("reg_jobs") or "").split("\n") if j.strip()]
+
+    def plist(key):
+        out = []
+        for line in (st.get(key) or "").split("\n"):
+            o = _parse_opt(line) if line.strip() else None
+            if o:
+                out.append(o)
+        return out
+
+    unis = plist("reg_universities")
+    colleges = plist("reg_colleges")
+    jobs = plist("reg_jobs")
     deps = {}
     for line in (st.get("reg_departments") or "").split("\n"):
         if ":" in line:
             c, rest = line.split(":", 1)
-            deps[c.strip()] = [d.strip() for d in rest.split(",") if d.strip()]
+            co = _parse_opt(c)
+            if not co:
+                continue
+            deps[co["v"]] = [o for o in (_parse_opt(x) for x in rest.split(","))
+                             if o]
     return unis, colleges, deps, jobs
+
+
+def reg_options():
+    """Canonical (English) values — used for validation and storage."""
+    unis, colleges, deps, jobs = reg_options_rich()
+    return ([u["v"] for u in unis], [c["v"] for c in colleges],
+            {k: [d["v"] for d in v] for k, v in deps.items()},
+            [j["v"] for j in jobs])
+
+
+def loc_opt(name):
+    """Localize a stored canonical option name for the current language."""
+    if not name:
+        return name
+    lang = session.get("lang", "en")
+    if lang == "en":
+        return name
+    cache = getattr(g, "_loc_opt", None)
+    if cache is None:
+        cache = {}
+        unis, colleges, deps, jobs = reg_options_rich()
+        for lst in (unis, colleges, jobs):
+            for o in lst:
+                cache[o["v"]] = o
+        for v in deps.values():
+            for o in v:
+                cache.setdefault(o["v"], o)
+        g._loc_opt = cache
+    o = cache.get(name)
+    return o[lang] if o else name
+
+
+app.jinja_env.globals["loc_opt"] = loc_opt
 
 
 EMAIL_RE = r"[^@\s]+@[^@\s]+\.[^@\s]+"
@@ -2705,8 +2820,17 @@ def parse_edu_wizard(form):
 
 
 def _wizard_ctx():
-    unis, colleges, deps, jobs = reg_options()
-    return dict(unis=unis, colleges=colleges, deps=deps, jobs=jobs)
+    unis, colleges, deps, jobs = reg_options_rich()
+    lang = session.get("lang", "en")
+
+    def pack(lst):
+        return [{"v": o["v"], "l": o.get(lang) or o["v"], "e": o["e"]}
+                for o in lst]
+
+    return dict(unis=pack(unis), colleges=pack(colleges),
+                deps={k: pack(v) for k, v in deps.items()}, jobs=pack(jobs),
+                uni_vals=[o["v"] for o in unis],
+                job_vals=[o["v"] for o in jobs])
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -3586,13 +3710,36 @@ def profile():
     db = get_db()
     uid = session["user_id"]
     if request.method == "POST":
-        db.execute("UPDATE users SET full_name = ?, email = ?, bio = ? WHERE id = ?",
-                   (request.form.get("full_name", "").strip()[:60],
-                    request.form.get("email", "").strip()[:80],
-                    request.form.get("bio", "").strip()[:300], uid))
-        save_edu_fields(uid)
+        f = request.form
+        first = f.get("first_name", "").strip()[:40]
+        middle = f.get("middle_name", "").strip()[:40]
+        last = f.get("last_name", "").strip()[:40]
+        email = f.get("email", "").strip().lower()[:100]
+        edu, edu_ok = parse_edu_wizard(f)
+        err = None
+        if not (first and middle and last):
+            err = "err_fill"
+        elif not re.fullmatch(EMAIL_RE, email):
+            err = "err_email"
+        elif db.execute("SELECT 1 FROM users WHERE email = ? COLLATE NOCASE AND "
+                        "email != '' AND id != ?", (email, uid)).fetchone():
+            err = "err_email_used"
+        elif not edu_ok:
+            err = "err_fill"
+        if err:
+            flash(tr(err), "error")
+            return redirect(url_for("profile"))
+        full = " ".join(x for x in (first, middle, last) if x)
+        db.execute("UPDATE users SET first_name=?, middle_name=?, last_name=?, "
+                   "full_name=?, email=?, bio=?, edu_level=?, institution=?, "
+                   "school_level=?, grade=?, college=?, department=?, stage=?, "
+                   "job_title=?, college_kind=? WHERE id=?",
+                   (first, middle, last, full, email,
+                    f.get("bio", "").strip()[:300], edu["edu_level"],
+                    edu["institution"], edu["school_level"], edu["grade"],
+                    edu["college"], edu["department"], edu["stage"],
+                    edu["job_title"], edu["college_kind"], uid))
         # optional username change (must stay unique, same rules as registration)
-        import re
         new_un = request.form.get("username", "").strip()
         if new_un and new_un != current_user()["username"]:
             if not re.fullmatch(USERNAME_RE, new_un):
@@ -3629,7 +3776,8 @@ def profile():
                             (uid,)).fetchone()[0]
     return render_template("profile.html", user=current_user(),
                            streak=user_streak(uid), done_count=done_count,
-                           earned=user_badges(uid), xpinfo=user_xp(uid))
+                           earned=user_badges(uid), xpinfo=user_xp(uid),
+                           **_wizard_ctx())
 
 
 @app.route("/u/<username>")

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_widgets.html" import avi, edu_fields, edu_line with context %}
+{% from "_widgets.html" import avi, edu_line with context %}
 {% block content %}
   <div class="grid2" style="grid-template-columns: 1fr 1.4fr">
     <!-- ============ my card ============ -->
@@ -53,22 +53,76 @@
 
     <!-- ============ edit form ============ -->
     <div class="card">
+      <style>
+        .ocards { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr));
+          gap:10px; margin:8px 0 4px; }
+        .ocard { border:1.5px solid var(--card-border); border-radius:16px;
+          padding:14px 10px; text-align:center; cursor:pointer;
+          background:var(--input-bg); transition:.18s; user-select:none; }
+        .ocard.sel { border-color:var(--accent);
+          background: color-mix(in srgb, var(--accent) 16%, transparent);
+          box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent); }
+        .ocard .oe { font-size:1.7rem; }
+        .ocard .ol { font-size:.78rem; font-weight:700; margin-top:6px; }
+        .pillrow { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }
+        .gpill { min-width:46px; padding:10px 0; text-align:center; border-radius:12px;
+          border:1.5px solid var(--card-border); background:var(--input-bg);
+          cursor:pointer; font-weight:700; user-select:none; }
+        .gpill.sel { border-color:var(--accent); color:var(--accent);
+          background: color-mix(in srgb, var(--accent) 14%, transparent); }
+        .fewrap.bad { animation: wshake .35s ease; }
+        .fewrap.bad input, .fewrap.bad select,
+        .fewrap.bad .kpick { border-color:#ef4444 !important; }
+        .fmsg { display:none; color:#f87171; font-size:.72rem; margin-top:4px; }
+        .fewrap.bad .fmsg { display:block; }
+        @keyframes wshake { 0%,100% { transform:translateX(0); }
+          25% { transform:translateX(-7px); } 50% { transform:translateX(7px); }
+          75% { transform:translateX(-4px); } }
+      </style>
       <h2>⚙️ {{ t('edit_profile') }}</h2>
       <div class="hint"></div>
-      <form method="post" enctype="multipart/form-data">
+      <form method="post" enctype="multipart/form-data" id="wform" novalidate>
         <label>{{ t('photo') }}</label>
         <input type="file" name="photo" accept=".png,.jpg,.jpeg,.webp,.gif">
         <div style="font-size:.72rem; color:var(--muted); margin-top:4px">{{ t('upload_hint') }}</div>
         <label>@ {{ t('username') }}</label>
         <input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_.]+"
                value="{{ cu.username }}">
-        <label>{{ t('full_name') }}</label>
-        <input name="full_name" maxlength="60" value="{{ cu.full_name or '' }}">
-        <label>{{ t('email_addr') }}</label>
-        <input type="email" name="email" maxlength="80" value="{{ cu.email or '' }}">
+        {% set parts = (cu.full_name or '').split(' ') %}
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px">
+          <div class="fewrap" data-f="first_name">
+            <label>{{ t('first_name_l') }}</label>
+            <input name="first_name" maxlength="40"
+                   value="{{ cu.first_name or (parts[0] if parts|length > 0 else '') }}">
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+          <div class="fewrap" data-f="middle_name">
+            <label>{{ t('middle_name_l') }}</label>
+            <input name="middle_name" maxlength="40"
+                   value="{{ cu.middle_name or (parts[1] if parts|length > 1 else '') }}">
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+          <div class="fewrap" data-f="last_name">
+            <label>{{ t('last_name_l') }}</label>
+            <input name="last_name" maxlength="40"
+                   value="{{ cu.last_name or (parts[2] if parts|length > 2 else '') }}">
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+        </div>
+        <div class="fewrap" data-f="email">
+          <label>✉️ {{ t('email_addr') }}</label>
+          <input type="email" name="email" maxlength="100" value="{{ cu.email or '' }}">
+          <div style="font-size:.7rem; color:var(--muted); margin-top:4px">
+            🔒 {{ t('email_hint2') }}</div>
+          <div class="fmsg">{{ t('err_email') }}</div>
+        </div>
         <label>{{ t('bio') }}</label>
         <textarea name="bio" rows="3" maxlength="300">{{ cu.bio or '' }}</textarea>
-        {{ edu_fields(cu) }}
+
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        {% set u = cu %}
+        {% include "_edu.html" %}
+
         <label>{{ t('pw_keep') }}</label>
         <input type="password" name="new_password" minlength="6" autocomplete="new-password">
         <div style="margin-top:16px">
@@ -76,6 +130,17 @@
             💾 {{ t('save') }}</button>
         </div>
       </form>
+      <script>
+        form.addEventListener("submit", (e) => {
+          let ok = 1;
+          ok &= need("first_name", !!val("first_name"));
+          ok &= need("middle_name", !!val("middle_name"));
+          ok &= need("last_name", !!val("last_name"));
+          ok &= need("email", /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("email")));
+          ok &= validEdu() ? 1 : 0;
+          if (!ok) e.preventDefault();
+        });
+      </script>
     </div>
   </div>
 {% endblock %}

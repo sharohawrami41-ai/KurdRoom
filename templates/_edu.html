@@ -1,0 +1,285 @@
+{# ===== shared education wizard (used by complete_profile + profile edit) =====
+   expects: u (user row or none), unis, colleges, deps, jobs, uni_vals, job_vals #}
+{% set is_uni = u and u.edu_level in ('bachelor', 'master', 'phd', 'professor') %}
+{% set uval = u.institution if is_uni and u.institution in uni_vals else '' %}
+{% set uop = (unis | selectattr('v', 'equalto', uval) | list | first) if uval else None %}
+{% set cval = u.college if is_uni and u.college_kind == 'college' and u.college else '' %}
+{% set cop = (colleges | selectattr('v', 'equalto', cval) | list | first) if cval else None %}
+{% set cval = cop.v if cop else '' %}
+{% set dops = deps.get(cval, []) if cval else [] %}
+{% set dop = (dops | selectattr('v', 'equalto', u.department) | list | first) if (cval and u) else None %}
+{% set jval = u.job_title if u and u.job_title in job_vals else '' %}
+{% set jop = (jobs | selectattr('v', 'equalto', jval) | list | first) if jval else None %}
+
+<label>{{ t('edu_q') }}</label>
+<input type="hidden" name="edu_level" id="eduLevel">
+<div class="fewrap" data-f="edu_level">
+  <div class="ocards" id="lvlCards">
+    {% for v, e, k in [('school','🏫','wl_school'), ('university','🎓','wl_uni'),
+                       ('master','📜','wl_master'), ('phd','🧑‍🔬','wl_phd'),
+                       ('professor','👨‍🏫','wl_prof'), ('others','💼','wl_other')] %}
+    <div class="ocard" data-v="{{ v }}" onclick="lvlPick(this)">
+      <div class="oe">{{ e }}</div><div class="ol">{{ t(k) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="fmsg">{{ t('err_fill') }}</div>
+</div>
+
+<!-- school branch -->
+<div id="brSchool" style="display:none">
+  <div class="fewrap" data-f="school_name">
+    <label>🏫 {{ t('school_name_l') }}</label>
+    <input name="school_name" maxlength="100"
+           value="{{ u.institution if u and u.edu_level == 'school' else '' }}">
+    <div class="fmsg">{{ t('err_fill') }}</div>
+  </div>
+  <label>{{ t('school_lvl_l') }}</label>
+  <input type="hidden" name="school_level">
+  <div class="fewrap" data-f="school_level">
+    <div class="ocards" style="grid-template-columns:repeat(3,1fr)">
+      {% for v, e, k in [('elementary','✏️','s_elem'), ('intermediate','📗','s_inter'),
+                         ('high','📘','s_high')] %}
+      <div class="ocard" data-v="{{ v }}" onclick="slvlPick(this)">
+        <div class="oe">{{ e }}</div><div class="ol">{{ t(k) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="fmsg">{{ t('err_fill') }}</div>
+  </div>
+  <div id="gradeWrap" style="display:none">
+    <label>{{ t('grade_l') }}</label>
+    <input type="hidden" name="grade">
+    <div class="fewrap" data-f="grade">
+      <div class="pillrow" id="gradePills"></div>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- university / master / phd / professor branch -->
+<div id="brUni" style="display:none">
+  <div class="fewrap" data-f="university">
+    <label>🎓 {{ t('uni_l') }}</label>
+    <input type="hidden" name="university" value="{{ uval }}">
+    <button type="button" class="kpick {{ 'has' if uop }}" data-name="university"
+            data-icon="🏛️" data-title="🎓 {{ t('uni_l') }}"
+            data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+      <span class="kpe">{{ uop.e if uop and uop.e else '🏛️' }}</span>
+      <span class="kplb">{{ uop.l if uop else t('choose_l') }}</span>
+      <span class="kpch">▼</span>
+    </button>
+    <div class="fmsg">{{ t('err_fill') }}</div>
+  </div>
+  <label>{{ t('ck_l') }}</label>
+  <input type="hidden" name="college_kind">
+  <div class="fewrap" data-f="college_kind">
+    <div class="ocards" style="grid-template-columns:1fr 1fr">
+      <div class="ocard" data-v="college" onclick="ckPick(this)">
+        <div class="oe">🏛</div><div class="ol">{{ t('ck_college') }}</div></div>
+      <div class="ocard" data-v="institute" onclick="ckPick(this)">
+        <div class="oe">🏢</div><div class="ol">{{ t('ck_institute') }}</div></div>
+    </div>
+    <div class="fmsg">{{ t('err_fill') }}</div>
+  </div>
+  <div id="brCollege" style="display:none">
+    <div class="fewrap" data-f="college">
+      <label>{{ t('college_l') }}</label>
+      <input type="hidden" name="college" value="{{ cval }}">
+      <button type="button" class="kpick {{ 'has' if cop }}" data-name="college"
+              data-icon="📚" data-title="{{ t('college_l') }}"
+              data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+        <span class="kpe">{{ cop.e if cop and cop.e else '📚' }}</span>
+        <span class="kplb">{{ cop.l if cop else t('choose_l') }}</span>
+        <span class="kpch">▼</span>
+      </button>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+    <div class="fewrap" data-f="department">
+      <label>{{ t('dept_l') }}</label>
+      <input type="hidden" name="department" value="{{ dop.v if dop else '' }}">
+      <button type="button" class="kpick {{ 'has' if dop }}" data-name="department"
+              data-icon="🧪" data-title="{{ t('dept_l') }}"
+              data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+        <span class="kpe">{{ dop.e if dop and dop.e else '🧪' }}</span>
+        <span class="kplb">{{ dop.l if dop else t('choose_l') }}</span>
+        <span class="kpch">▼</span>
+      </button>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+  </div>
+  <div id="brInstitute" style="display:none">
+    <div class="fewrap" data-f="institute_name">
+      <label>{{ t('inst_name_l') }}</label>
+      <input name="institute_name" maxlength="120"
+             value="{{ u.college if u and is_uni and u.college_kind == 'institute' else '' }}">
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+    <div class="fewrap" data-f="institute_dept">
+      <label>{{ t('inst_dept_l') }}</label>
+      <input name="institute_dept" maxlength="120"
+             value="{{ u.department if u and is_uni and u.college_kind == 'institute' else '' }}">
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+  </div>
+  <div id="stageWrap" style="display:none">
+    <div class="fewrap" data-f="stage">
+      <label>📚 {{ t('stage') }}</label>
+      <input name="stage" maxlength="40" placeholder="1, 2, 3…"
+             value="{{ u.stage if u else '' }}">
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- work / others branch -->
+<div id="brJob" style="display:none">
+  <div class="fewrap" data-f="job">
+    <label>💼 {{ t('job_l') }}</label>
+    <input type="hidden" name="job" value="{{ jval }}">
+    <button type="button" class="kpick {{ 'has' if jop }}" data-name="job"
+            data-icon="💼" data-title="💼 {{ t('job_l') }}"
+            data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+      <span class="kpe">{{ jop.e if jop and jop.e else '💼' }}</span>
+      <span class="kplb">{{ jop.l if jop else t('choose_l') }}</span>
+      <span class="kpch">▼</span>
+    </button>
+    <div class="fmsg">{{ t('err_fill') }}</div>
+  </div>
+</div>
+
+<script>
+  const DEPS = {{ deps|tojson }};
+  const EDU_U = {{ {'edu_level': (u.edu_level if u else '') or '',
+                    'school_level': (u.school_level if u else '') or '',
+                    'grade': (u.grade if u else '') or '',
+                    'college_kind': (u.college_kind if u else '') or '',
+                    'stage': (u.stage if u else '') or ''} | tojson }};
+  const form = document.getElementById("wform");
+
+  window.KPDATA = window.KPDATA || {};
+  window.KPHOOK = window.KPHOOK || {};
+  KPDATA.university = {{ unis|tojson }};
+  KPDATA.college = {{ colleges|tojson }};
+  KPDATA.department = {{ dops|tojson }};
+  KPDATA.job = {{ jobs|tojson }};
+  KPHOOK.university = () => markBad("university", false);
+  KPHOOK.college = (v) => {
+    KPDATA.department = DEPS[v] || [];
+    kpReset("department");
+    markBad("college", false);
+  };
+  KPHOOK.department = () => markBad("department", false);
+  KPHOOK.job = () => markBad("job", false);
+
+  function markBad(name, bad) {
+    const w = form.querySelector('.fewrap[data-f="' + name + '"]');
+    if (!w) return;
+    const inp = w.querySelector("input:not([type=hidden]), select, .kpick");
+    if (inp) inp.classList.toggle("err", bad);
+    if (bad) { w.classList.remove("bad"); void w.offsetWidth; w.classList.add("bad"); }
+    else w.classList.remove("bad");
+  }
+  function val(n) { return (form[n] && form[n].value || "").trim(); }
+  function need(name, ok) { markBad(name, !ok); return ok ? 1 : 0; }
+  function pickCard(container, el) {
+    container.querySelectorAll(".ocard").forEach((c) => c.classList.remove("sel"));
+    el.classList.add("sel");
+  }
+  function lvlPick(el) {
+    pickCard(document.getElementById("lvlCards"), el);
+    const v = el.dataset.v;
+    form.edu_level.value = v;
+    markBad("edu_level", false);
+    document.getElementById("brSchool").style.display = v === "school" ? "" : "none";
+    document.getElementById("brUni").style.display =
+      ["university", "master", "phd", "professor"].includes(v) ? "" : "none";
+    document.getElementById("brJob").style.display = v === "others" ? "" : "none";
+    document.getElementById("stageWrap").style.display =
+      v === "university" ? "" : "none";
+  }
+  function slvlPick(el) {
+    pickCard(el.parentElement, el);
+    form.school_level.value = el.dataset.v;
+    markBad("school_level", false);
+    const ranges = { elementary: [1, 6], intermediate: [7, 9], high: [10, 12] };
+    const r = ranges[el.dataset.v];
+    const row = document.getElementById("gradePills");
+    row.innerHTML = "";
+    for (let g = r[0]; g <= r[1]; g++) {
+      const p = document.createElement("div");
+      p.className = "gpill"; p.textContent = g;
+      p.onclick = () => {
+        row.querySelectorAll(".gpill").forEach((x) => x.classList.remove("sel"));
+        p.classList.add("sel");
+        form.grade.value = g;
+        markBad("grade", false);
+      };
+      row.appendChild(p);
+    }
+    form.grade.value = "";
+    document.getElementById("gradeWrap").style.display = "";
+  }
+  function ckPick(el) {
+    pickCard(el.parentElement, el);
+    form.college_kind.value = el.dataset.v;
+    markBad("college_kind", false);
+    document.getElementById("brCollege").style.display =
+      el.dataset.v === "college" ? "" : "none";
+    document.getElementById("brInstitute").style.display =
+      el.dataset.v === "institute" ? "" : "none";
+  }
+  function validEdu() {
+    let ok = 1;
+    const lvl = val("edu_level");
+    ok &= need("edu_level", !!lvl);
+    if (lvl === "school") {
+      ok &= need("school_name", !!val("school_name"));
+      ok &= need("school_level", !!val("school_level"));
+      ok &= need("grade", !!val("grade"));
+    } else if (["university", "master", "phd", "professor"].includes(lvl)) {
+      ok &= need("university", !!val("university"));
+      const ck = val("college_kind");
+      ok &= need("college_kind", !!ck);
+      if (ck === "college") {
+        ok &= need("college", !!val("college"));
+        ok &= need("department", !!val("department"));
+      } else if (ck === "institute") {
+        ok &= need("institute_name", !!val("institute_name"));
+        ok &= need("institute_dept", !!val("institute_dept"));
+      }
+      if (lvl === "university") ok &= need("stage", !!val("stage"));
+    } else if (lvl === "others") {
+      ok &= need("job", !!val("job"));
+    }
+    return !!ok;
+  }
+  /* -------- prefill everything the user chose before -------- */
+  (function initEdu() {
+    let lvl = EDU_U.edu_level;
+    if (!lvl) return;
+    if (lvl === "bachelor") lvl = "university";
+    if (lvl === "graduate") lvl = "others";
+    const card = document.querySelector('#lvlCards .ocard[data-v="' + lvl + '"]');
+    if (!card) return;
+    lvlPick(card);
+    if (lvl === "school" && EDU_U.school_level) {
+      const sc = document.querySelector(
+        '#brSchool .ocard[data-v="' + EDU_U.school_level + '"]');
+      if (sc) {
+        slvlPick(sc);
+        if (EDU_U.grade)
+          document.querySelectorAll("#gradePills .gpill").forEach((p) => {
+            if (p.textContent === String(EDU_U.grade)) p.click();
+          });
+      }
+    }
+    if (["university", "master", "phd", "professor"].includes(lvl) &&
+        EDU_U.college_kind) {
+      const ck = document.querySelector(
+        '.fewrap[data-f="college_kind"] .ocard[data-v="' + EDU_U.college_kind + '"]');
+      if (ck) ckPick(ck);
+    }
+    if (EDU_U.stage && form.stage) form.stage.value = EDU_U.stage;
+  })();
+</script>
