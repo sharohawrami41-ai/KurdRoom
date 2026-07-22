@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_widgets.html" import avi with context %}
+{% block content %}
+<div class="card" style="max-width:480px; margin:4vh auto 0; padding:26px">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px">
+    <a href="{{ url_for('user_profile', username=person.username) }}"
+       class="icon-btn" style="font-size:1.2rem">{{ '→' if is_rtl else '←' }}</a>
+    <h2 style="font-size:1.1rem">
+      {{ '👥 ' + t('followers_t') if mode == 'followers' else '➕ ' + t('following_t') }}
+      — @{{ person.username }}</h2>
+  </div>
+  {% for u in rows %}
+  <a href="{{ url_for('user_profile', username=u.username) }}"
+     style="display:flex; align-items:center; gap:12px; padding:10px 8px;
+     border-radius:14px; text-decoration:none; color:inherit;
+     animation: fadeUp .25s ease both; animation-delay: {{ [loop.index0 * 0.04, 0.4]|min }}s">
+    {{ avi(u.id, u.username, 44, '1.1rem') }}
+    <span style="flex:1; min-width:0">
+      <strong>{{ u.full_name or u.username }}{% if u.plus %} ⭐{% endif %}</strong>
+      <div style="font-size:.74rem; color:var(--accent)">@{{ u.username }}</div>
+    </span>
+    {{ '←' if is_rtl else '→' }}
+  </a>
+  {% else %}
+  <div class="hint" style="display:block">—</div>
+  {% endfor %}
+</div>
+{% endblock %}

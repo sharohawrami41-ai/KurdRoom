@@ -1,84 +1,157 @@
 {% extends "base.html" %}
 {% from "_widgets.html" import avi, edu_line with context %}
 {% block content %}
-  <div class="card" style="max-width:520px; margin:4vh auto 0; text-align:center; padding:34px">
-    <div style="display:flex; justify-content:center; margin-bottom:14px">
-      {{ avi(person.id, person.username, 120, '2.8rem') }}
-    </div>
-    <div style="font-size:1.45rem; font-weight:800">{{ person.full_name or person.username }}{% if person.plus %} ⭐{% endif %}
-      <span class="badge high" style="font-size:.68rem; vertical-align:middle">
-        {{ t('level') }} {{ xpinfo.level }}</span></div>
-    <div style="color:var(--accent); font-weight:600; font-size:1.02rem">@{{ person.username }}</div>
-    {% if person.bio %}
-      <p style="margin-top:14px; font-size:.94rem; white-space:pre-wrap">{{ person.bio }}</p>
+<style>
+  .pstats { display:flex; justify-content:center; gap:26px; margin-top:16px; }
+  .pstat { text-align:center; text-decoration:none; color:inherit; }
+  .pstat .n { font-size:1.25rem; font-weight:800; }
+  .pstat .l { font-size:.7rem; color:var(--muted); }
+  .pbtns { display:flex; gap:8px; justify-content:center; margin-top:18px;
+    flex-wrap:wrap; }
+  .pbtn { padding:11px 22px; border-radius:14px; font-weight:700; font-size:.88rem;
+    cursor:pointer; border:1.5px solid var(--card-border); background:var(--input-bg);
+    color:var(--text); text-decoration:none; display:inline-flex; align-items:center;
+    gap:7px; transition:.15s; }
+  .pbtn.main { border:none; color:#fff;
+    background: linear-gradient(135deg, var(--accent), #a855f7);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .pbtn.on { border-color:var(--accent); color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .ppost { text-align:start; border:1px solid var(--card-border); border-radius:16px;
+    padding:14px 16px; margin-top:10px; background:var(--input-bg);
+    animation: fadeUp .3s ease both; }
+  .ppost .pt { font-weight:800; font-size:.95rem; }
+  .ppost .pc { font-size:.85rem; color:var(--muted); margin-top:5px;
+    white-space:pre-wrap; word-break:break-word; }
+  .ppost img { max-width:100%; border-radius:12px; margin-top:8px; }
+  .privbox { margin-top:22px; padding:22px; border-radius:18px;
+    border:1.5px dashed var(--card-border); color:var(--muted); font-size:.85rem; }
+</style>
+
+<div class="card" style="max-width:560px; margin:4vh auto 0; text-align:center; padding:34px">
+  <div style="display:flex; justify-content:center; margin-bottom:14px">
+    {{ avi(person.id, person.username, 120, '2.8rem') }}
+  </div>
+  <div style="font-size:1.45rem; font-weight:800">{{ person.full_name or person.username }}{% if person.plus %} ⭐{% endif %}
+    {% if person.is_private %}<span title="{{ t('private_acc_t') }}">🔒</span>{% endif %}
+    <span class="badge high" style="font-size:.68rem; vertical-align:middle">
+      {{ t('level') }} {{ xpinfo.level }}</span></div>
+  <div style="color:var(--accent); font-weight:600; font-size:1.02rem">@{{ person.username }}</div>
+  {% if person.bio and can_view %}
+    <p style="margin-top:14px; font-size:.94rem; white-space:pre-wrap">{{ person.bio }}</p>
+  {% endif %}
+  {% if can_view %}{{ edu_line(person) }}{% endif %}
+
+  <!-- ============ instagram-style counters ============ -->
+  <div class="pstats">
+    <div class="pstat"><div class="n">{{ posts_n }}</div>
+      <div class="l">{{ t('posts_t') }}</div></div>
+    <a class="pstat" href="/u/{{ person.username }}/followers"
+       {% if not can_view %}onclick="return false"{% endif %}
+       style="{{ 'cursor:default' if not can_view }}">
+      <div class="n">{{ followers_n }}</div>
+      <div class="l">{{ t('followers_t') }}</div></a>
+    <a class="pstat" href="/u/{{ person.username }}/following"
+       {% if not can_view %}onclick="return false"{% endif %}
+       style="{{ 'cursor:default' if not can_view }}">
+      <div class="n">{{ following_n }}</div>
+      <div class="l">{{ t('following_t') }}</div></a>
+  </div>
+
+  {% if cu and cu.id != person.id %}
+  <!-- ============ follow / friend / message ============ -->
+  <div class="pbtns">
+    {% if not person.is_private or status == 'friends' %}
+    <form method="post" action="{{ url_for('follow_toggle', username=person.username) }}"
+          style="display:inline">
+      <button class="pbtn {{ 'on' if following else 'main' }}" type="submit">
+        {{ '✓ ' + t('following_b') if following else '➕ ' + t('follow_b') }}</button>
+    </form>
     {% endif %}
-    {{ edu_line(person) }}
-
-    <div style="display:flex; gap:10px; justify-content:center; margin-top:20px; flex-wrap:wrap">
-      <div style="padding:10px 20px; border-radius:14px; background:color-mix(in srgb, var(--accent) 14%, transparent)">
-        <div style="font-size:1.4rem; font-weight:800">🔥 {{ streak }}</div>
-        <div style="font-size:.7rem; color:var(--muted)">{{ t('streak') }}</div>
-      </div>
-      <div style="padding:10px 20px; border-radius:14px; background:color-mix(in srgb, var(--ok) 14%, transparent)">
-        <div style="font-size:1.4rem; font-weight:800">✓ {{ done_count }}</div>
-        <div style="font-size:.7rem; color:var(--muted)">{{ t('completed_plans') }}</div>
-      </div>
-    </div>
-
-    <div style="margin-top:14px; font-size:.75rem; color:var(--muted)">
-      {{ t('joined') }}: {{ (person.created_at or '')[:10] }}</div>
-
-    {% if earned %}
-    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:16px">
-      {% for b in earned %}
-      <span title="{{ t('badge_' + b.code + '_n') }} — {{ t('badge_' + b.code + '_d') }}"
-            style="font-size:1.5rem; padding:8px; border-radius:12px;
-            background: color-mix(in srgb, var(--accent) 14%, transparent);
-            border:1px solid color-mix(in srgb, var(--accent) 40%, transparent)">
-        {{ BADGES.get(b.code, '🏅') }}</span>
-      {% endfor %}
-    </div>
+    {% if status == 'none' %}
+    <form method="post" action="{{ url_for('friend_request') }}" style="display:inline">
+      <input type="hidden" name="username" value="{{ person.username }}">
+      <button class="pbtn" type="submit">👥 {{ t('add_friend') }}</button>
+    </form>
+    {% elif status == 'friends' %}
+    <span class="pbtn on" style="cursor:default">{{ t('friends_ok') }}</span>
+    {% elif status == 'pending_out' %}
+    <span class="pbtn" style="cursor:default">{{ t('pending_dots') }}</span>
+    {% elif status == 'pending_in' %}
+    <form method="post" action="{{ url_for('friend_accept', fid=fid) }}" style="display:inline">
+      <button class="pbtn main" type="submit">✓ {{ t('accept') }}</button>
+    </form>
     {% endif %}
-
+    {% if status == 'friends' or person.allow_dm_all %}
+    <a class="pbtn" href="{{ url_for('dm_thread', username=person.username) }}">
+      ✉️ {{ t('messages_t') }}</a>
+    {% endif %}
     {% if status == 'friends' %}
-    <div style="margin-top:14px">
-      <a class="pill" href="{{ url_for('dm_thread', username=person.username) }}">
-        ✉️ {{ t('messages_t') }}</a>
-      <form method="post" action="{{ url_for('duel_challenge', username=person.username) }}"
-            style="display:inline">
-        <button class="pill" type="submit" style="cursor:pointer">{{ t('duel_btn') }}</button>
-      </form>
-    </div>
+    <form method="post" action="{{ url_for('duel_challenge', username=person.username) }}"
+          style="display:inline">
+      <button class="pbtn" type="submit">⚔️</button>
+    </form>
     {% endif %}
+  </div>
+  {% endif %}
 
-    {% if not cu %}
-    <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--card-border)">
-      <div style="font-size:.85rem; color:var(--muted); margin-bottom:10px">
-        @{{ person.username }} {{ t('on_kurdroom') }} <strong>{{ settings.site_name }}</strong> ✨</div>
-      <a class="primary" href="{{ url_for('register') }}"
-         style="display:inline-block; padding:12px 34px; border-radius:14px;
-         background:linear-gradient(135deg, var(--accent), #a855f7); color:#fff;
-         font-weight:800; text-decoration:none">🚀 {{ t('join_now') }}</a>
+  {% if can_view %}
+  <div style="display:flex; gap:10px; justify-content:center; margin-top:20px; flex-wrap:wrap">
+    <div style="padding:10px 20px; border-radius:14px; background:color-mix(in srgb, var(--accent) 14%, transparent)">
+      <div style="font-size:1.4rem; font-weight:800">🔥 {{ streak }}</div>
+      <div style="font-size:.7rem; color:var(--muted)">{{ t('streak') }}</div>
     </div>
-    {% endif %}
-
-    <div style="margin-top:22px">
-      {% if status == 'none' %}
-        <form method="post" action="{{ url_for('friend_request') }}">
-          <input type="hidden" name="username" value="{{ person.username }}">
-          <button class="primary" type="submit" style="width:auto; padding:12px 34px">
-            ➕ {{ t('add_friend') }}</button>
-        </form>
-      {% elif status == 'friends' %}
-        <span class="badge today" style="font-size:.85rem; padding:8px 18px">{{ t('friends_ok') }}</span>
-      {% elif status == 'pending_out' %}
-        <span class="badge medium" style="font-size:.8rem; padding:8px 18px">{{ t('pending_dots') }}</span>
-      {% elif status == 'pending_in' %}
-        <form method="post" action="{{ url_for('friend_accept', fid=fid) }}" style="display:inline">
-          <button class="primary" type="submit" style="width:auto; padding:12px 30px">
-            ✓ {{ t('accept') }}</button>
-        </form>
-      {% endif %}
+    <div style="padding:10px 20px; border-radius:14px; background:color-mix(in srgb, var(--ok) 14%, transparent)">
+      <div style="font-size:1.4rem; font-weight:800">✓ {{ done_count }}</div>
+      <div style="font-size:.7rem; color:var(--muted)">{{ t('completed_plans') }}</div>
     </div>
   </div>
+
+  <div style="margin-top:14px; font-size:.75rem; color:var(--muted)">
+    {{ t('joined') }}: {{ (person.created_at or '')[:10] }}</div>
+
+  {% if earned %}
+  <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:16px">
+    {% for b in earned %}
+    <span title="{{ t('badge_' + b.code + '_n') }} — {{ t('badge_' + b.code + '_d') }}"
+          style="font-size:1.5rem; padding:8px; border-radius:12px;
+          background: color-mix(in srgb, var(--accent) 14%, transparent);
+          border:1px solid color-mix(in srgb, var(--accent) 40%, transparent)">
+      {{ BADGES.get(b.code, '🏅') }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ============ posts on the profile (like instagram) ============ -->
+  <div style="margin-top:24px; text-align:start">
+    <h2 style="font-size:1rem">📝 {{ t('posts_t') }} ({{ posts_n }})</h2>
+    {% for p in posts %}
+    <div class="ppost" style="animation-delay: {{ [loop.index0 * 0.05, 0.4]|min }}s">
+      {% if p.title %}<div class="pt">{{ p.title }}</div>{% endif %}
+      {% if p.content %}<div class="pc">{{ p.content[:400] }}{% if p.content|length > 400 %}…{% endif %}</div>{% endif %}
+      {% if p.image %}<img src="{{ url_for('post_image', post_id=p.id) }}" alt="" loading="lazy">{% endif %}
+      <div style="font-size:.68rem; color:var(--muted); margin-top:8px" dir="ltr">
+        {{ (p.created_at or '')[:10] }}</div>
+    </div>
+    {% else %}
+    <div class="hint" style="display:block; margin-top:10px">{{ t('no_posts') }}</div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- private account -->
+  <div class="privbox">🔒 {{ t('private_note') }}</div>
+  {% endif %}
+
+  {% if not cu %}
+  <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--card-border)">
+    <div style="font-size:.85rem; color:var(--muted); margin-bottom:10px">
+      @{{ person.username }} {{ t('on_kurdroom') }} <strong>{{ settings.site_name }}</strong> ✨</div>
+    <a class="primary" href="{{ url_for('register') }}"
+       style="display:inline-block; padding:12px 34px; border-radius:14px;
+       background:linear-gradient(135deg, var(--accent), #a855f7); color:#fff;
+       font-weight:800; text-decoration:none">🚀 {{ t('join_now') }}</a>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

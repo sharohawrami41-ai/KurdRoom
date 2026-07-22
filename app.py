@@ -41,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "5.4"   # shown in the footer — bump this with each release
+APP_VERSION = "6.0"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -420,7 +420,25 @@ def init_db():
                  "ALTER TABLE users ADD COLUMN grade TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN college_kind TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0",
-                 "ALTER TABLE users ADD COLUMN profile_v INTEGER DEFAULT 0"):
+                 "ALTER TABLE users ADD COLUMN profile_v INTEGER DEFAULT 0",
+                 "ALTER TABLE users ADD COLUMN allow_dm_all INTEGER DEFAULT 1",
+                 "ALTER TABLE users ADD COLUMN is_private INTEGER DEFAULT 0",
+                 "ALTER TABLE dms ADD COLUMN pinned INTEGER DEFAULT 0",
+                 "ALTER TABLE group_messages ADD COLUMN pinned INTEGER DEFAULT 0",
+                 """CREATE TABLE IF NOT EXISTS chat_clears (
+                     user_id INTEGER NOT NULL, kind TEXT NOT NULL,
+                     target_id INTEGER NOT NULL, cleared_id INTEGER NOT NULL DEFAULT 0,
+                     UNIQUE(user_id, kind, target_id))""",
+                 """CREATE TABLE IF NOT EXISTS chat_mutes (
+                     user_id INTEGER NOT NULL, kind TEXT NOT NULL,
+                     target_id INTEGER NOT NULL,
+                     UNIQUE(user_id, kind, target_id))""",
+                 """CREATE TABLE IF NOT EXISTS follows (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                     followed_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                     created_at TEXT NOT NULL,
+                     UNIQUE(follower_id, followed_id))"""):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -498,29 +516,29 @@ def init_db():
             "📐 | Architecture | تەلارسازی | العمارة",
             "🧳 | Tourism | گەشتوگوزار | السياحة"]),
         "reg_departments": "\n".join([
-            "Medicine: General Medicine",
-            "Dentistry: Dentistry",
-            "Pharmacy: Pharmacy",
-            "Nursing: Nursing",
-            "Health Sciences: Medical Laboratory Science, Physiotherapy, Radiology, Anesthesia, Public Health, Nutrition, Optometry",
-            "Veterinary Medicine: Veterinary Medicine",
-            "Engineering: Civil, Electrical, Mechanical, Architectural, Software, Computer, Chemical, Petroleum, Water Resources, Surveying, Aviation, Mechatronics",
-            "Science: Mathematics, Physics, Chemistry, Biology, Geology, Environmental Science, Statistics",
-            "Computer Science & IT: Computer Science, Information Technology, Software Engineering, Cybersecurity, Artificial Intelligence, Computer Networks, Information Systems",
-            "Agriculture: Plant Production, Animal Production, Food Science, Forestry, Horticulture, Soil & Water",
-            "Education: Kurdish Language, English Language, Arabic Language, Mathematics, Physics, Chemistry, Biology, History, Geography, Psychology, Special Education",
-            "Basic Education: General Science, Social Science, Kurdish Language, English Language, Mathematics, Kindergarten",
-            "Physical Education & Sport Sciences: Physical Education",
-            "Languages: Kurdish, English, Arabic, Persian, French, German, Turkish, Translation",
-            "Arts & Humanities: History, Geography, Archaeology, Philosophy, Psychology, Sociology, Social Work, Anthropology",
-            "Law: Law",
-            "Political Science: Political Science, International Relations, Diplomacy",
-            "Administration & Economics: Business Administration, Accounting, Economics, Finance & Banking, Marketing, Statistics & Informatics, Tourism Administration, Management Information Systems",
-            "Fine Arts: Music, Theatre, Cinema, Painting, Design, Sculpture",
-            "Islamic Sciences: Islamic Studies, Sharia, Usul al-Din",
-            "Media & Communication: Journalism, Media, Public Relations, Digital Media",
-            "Architecture: Architecture, Interior Design",
-            "Tourism: Tourism Management, Hotel Management"]),
+            "Medicine: General Medicine|پزیشکی گشتی|الطب العام",
+            "Dentistry: Dentistry|ددانسازی|طب الأسنان",
+            "Pharmacy: Pharmacy|دەرمانسازی|الصيدلة",
+            "Nursing: Nursing|پەرستاری|التمريض",
+            "Health Sciences: Medical Laboratory Science|زانستی تاقیگەی پزیشکی|علوم المختبرات الطبية, Physiotherapy|چارەسەری سروشتی|العلاج الطبيعي, Radiology|تیشک|الأشعة, Anesthesia|بێهۆشکردن|التخدير, Public Health|تەندروستی گشتی|الصحة العامة, Nutrition|خۆراک|التغذية, Optometry|چاودێری چاو|البصريات",
+            "Veterinary Medicine: Veterinary Medicine|پزیشکی ڤێتێرنەری|الطب البيطري",
+            "Engineering: Civil|شارستانی|المدنية, Electrical|کارەبا|الكهربائية, Mechanical|میکانیک|الميكانيكية, Architectural|تەلارسازی|العمارة, Software|سۆفتوێر|البرمجيات, Computer|کۆمپیوتەر|الحاسوب, Chemical|کیمیایی|الكيميائية, Petroleum|نەوت|النفط, Water Resources|سەرچاوەکانی ئاو|الموارد المائية, Surveying|ڕووپێوی|المساحة, Aviation|فڕۆکەوانی|الطيران, Mechatronics|میکاترۆنیکس|الميكاترونكس",
+            "Science: Mathematics|ماتماتیک|الرياضيات, Physics|فیزیا|الفيزياء, Chemistry|کیمیا|الكيمياء, Biology|زیندەزانی|الأحياء, Geology|زەویناسی|الجيولوجيا, Environmental Science|زانستی ژینگە|علوم البيئة, Statistics|ئامار|الإحصاء",
+            "Computer Science & IT: Computer Science|زانستی کۆمپیوتەر|علوم الحاسوب, Information Technology|تەکنەلۆژیای زانیاری|تكنولوجيا المعلومات, Software Engineering|ئەندازیاری سۆفتوێر|هندسة البرمجيات, Cybersecurity|ئاسایشی سایبەری|الأمن السيبراني, Artificial Intelligence|ژیریی دەستکرد|الذكاء الاصطناعي, Computer Networks|تۆڕی کۆمپیوتەر|شبكات الحاسوب, Information Systems|سیستەمی زانیاری|نظم المعلومات",
+            "Agriculture: Plant Production|بەرهەمی ڕووەک|الإنتاج النباتي, Animal Production|بەرهەمی ئاژەڵ|الإنتاج الحيواني, Food Science|زانستی خۆراک|علوم الأغذية, Forestry|دارستان|الغابات, Horticulture|باخداری|البستنة, Soil & Water|خاک و ئاو|التربة والمياه",
+            "Education: Kurdish Language|زمانی کوردی|اللغة الكردية, English Language|زمانی ئینگلیزی|اللغة الإنجليزية, Arabic Language|زمانی عەرەبی|اللغة العربية, Mathematics|ماتماتیک|الرياضيات, Physics|فیزیا|الفيزياء, Chemistry|کیمیا|الكيمياء, Biology|زیندەزانی|الأحياء, History|مێژوو|التاريخ, Geography|جوگرافیا|الجغرافيا, Psychology|دەروونناسی|علم النفس, Special Education|پەروەردەی تایبەت|التربية الخاصة",
+            "Basic Education: General Science|زانستە گشتییەکان|العلوم العامة, Social Science|زانستە کۆمەڵایەتییەکان|العلوم الاجتماعية, Kurdish Language|زمانی کوردی|اللغة الكردية, English Language|زمانی ئینگلیزی|اللغة الإنجليزية, Mathematics|ماتماتیک|الرياضيات, Kindergarten|باخچەی منداڵان|رياض الأطفال",
+            "Physical Education & Sport Sciences: Physical Education|پەروەردەی وەرزشی|التربية الرياضية",
+            "Languages: Kurdish|کوردی|الكردية, English|ئینگلیزی|الإنجليزية, Arabic|عەرەبی|العربية, Persian|فارسی|الفارسية, French|فەرەنسی|الفرنسية, German|ئەڵمانی|الألمانية, Turkish|تورکی|التركية, Translation|وەرگێڕان|الترجمة",
+            "Arts & Humanities: History|مێژوو|التاريخ, Geography|جوگرافیا|الجغرافيا, Archaeology|شوێنەوارناسی|الآثار, Philosophy|فەلسەفە|الفلسفة, Psychology|دەروونناسی|علم النفس, Sociology|کۆمەڵناسی|علم الاجتماع, Social Work|کاری کۆمەڵایەتی|الخدمة الاجتماعية, Anthropology|مرۆڤناسی|الأنثروبولوجيا",
+            "Law: Law|یاسا|القانون",
+            "Political Science: Political Science|زانستە سیاسییەکان|العلوم السياسية, International Relations|پەیوەندییە نێودەوڵەتییەکان|العلاقات الدولية, Diplomacy|دیپلۆماسی|الدبلوماسية",
+            "Administration & Economics: Business Administration|کارگێڕی کار|إدارة الأعمال, Accounting|ژمێریاری|المحاسبة, Economics|ئابووری|الاقتصاد, Finance & Banking|دارایی و بانک|المالية والمصارف, Marketing|بازاڕدۆزی|التسويق, Statistics & Informatics|ئامار و زانیاری|الإحصاء والمعلوماتية, Tourism Administration|کارگێڕی گەشتوگوزار|إدارة السياحة, Management Information Systems|سیستەمی زانیاری کارگێڕی|نظم المعلومات الإدارية",
+            "Fine Arts: Music|مۆسیقا|الموسيقى, Theatre|شانۆ|المسرح, Cinema|سینەما|السينما, Painting|وێنەکێشان|الرسم, Design|دیزاین|التصميم, Sculpture|پەیکەرتاشی|النحت",
+            "Islamic Sciences: Islamic Studies|خوێندنە ئیسلامییەکان|الدراسات الإسلامية, Sharia|شەریعە|الشريعة, Usul al-Din|ئوسولی دین|أصول الدين",
+            "Media & Communication: Journalism|ڕۆژنامەگەری|الصحافة, Media|ڕاگەیاندن|الإعلام, Public Relations|پەیوەندییە گشتییەکان|العلاقات العامة, Digital Media|میدیای دیجیتاڵ|الإعلام الرقمي",
+            "Architecture: Architecture|تەلارسازی|العمارة, Interior Design|دیزاینی ناوەوە|التصميم الداخلي",
+            "Tourism: Tourism Management|کارگێڕی گەشتوگوزار|إدارة السياحة, Hotel Management|کارگێڕی هوتێل|إدارة الفنادق"]),
         "reg_jobs": "\n".join([
             "Teacher", "Lecturer", "Doctor", "Nurse", "Pharmacist", "Engineer",
             "Lawyer", "Judge", "Accountant", "Government Employee",
@@ -532,15 +550,22 @@ def init_db():
     for k, v in _REG_DEFAULTS.items():
         db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
     # upgrade plain (English-only) option lines to the emoji|en|ku|ar format
-    for k in ("reg_universities", "reg_colleges"):
+    for k in ("reg_universities", "reg_colleges", "reg_departments"):
         row = db.execute("SELECT value FROM settings WHERE key = ?", (k,)).fetchone()
         if row and "|" not in row[0]:
             rich = {}
             for line in _REG_DEFAULTS[k].split("\n"):
+                if k == "reg_departments":
+                    if ":" in line:
+                        rich[line.split(":", 1)[0].strip()] = line.strip()
+                    continue
                 parts = [p.strip() for p in line.split("|")]
                 if len(parts) >= 2:
                     rich[parts[1]] = line.strip()
-            merged = [rich.get(l.strip(), l.strip())
+            def _mkey(l):
+                return (l.split(":", 1)[0].strip()
+                        if k == "reg_departments" and ":" in l else l.strip())
+            merged = [rich.get(_mkey(l), l.strip())
                       for l in row[0].split("\n") if l.strip()]
             db.execute("UPDATE settings SET value = ? WHERE key = ?",
                        ("\n".join(merged), k))
@@ -1023,6 +1048,7 @@ V5 = {
         "reminders": "Reminders",
         "ntf_friend_req": "sent you a friend request",
         "ntf_friend_acc": "accepted your friend request",
+        "ntf_follow": "started following you",
         "ntf_group_msg": "New messages in", "ntf_group_add": "You were added to",
         "ntf_badge": "You earned a badge:", "ntf_dm": "New message from",
         "ntf_exam": "Exam coming up:", "ntf_meeting": "Group meeting soon:",
@@ -1054,6 +1080,7 @@ V5 = {
         "reminders": "تذكيرات",
         "ntf_friend_req": "أرسل لك طلب صداقة",
         "ntf_friend_acc": "قبل طلب صداقتك",
+        "ntf_follow": "بدأ بمتابعتك",
         "ntf_group_msg": "رسائل جديدة في", "ntf_group_add": "تمت إضافتك إلى",
         "ntf_badge": "حصلت على وسام:", "ntf_dm": "رسالة جديدة من",
         "ntf_exam": "امتحان قريب:", "ntf_meeting": "اجتماع المجموعة قريبًا:",
@@ -1085,6 +1112,7 @@ V5 = {
         "reminders": "بیرخستنەوەکان",
         "ntf_friend_req": "داواکاری هاوڕێیەتی بۆ ناردیت",
         "ntf_friend_acc": "داواکاری هاوڕێیەتیەکەتی وەرگرت",
+        "ntf_follow": "دەستی کرد بە فۆڵۆکردنت",
         "ntf_group_msg": "نامەی نوێ لە", "ntf_group_add": "زیادکرایت بۆ",
         "ntf_badge": "خەڵاتێکت بەدەست هێنا:", "ntf_dm": "نامەی نوێ لە",
         "ntf_exam": "تاقیکردنەوە نزیکە:", "ntf_meeting": "کۆبوونەوەی گروپ نزیکە:",
@@ -2060,6 +2088,63 @@ V24 = {
 for _l, _d in V24.items():
     T[_l].update(_d)
 
+V25 = {
+    "en": {
+        "chat_set_t": "Chat settings",
+        "pinned_t": "Pinned messages", "pin_t": "Pin", "unpin_t": "Unpin",
+        "no_pins": "No pinned messages yet",
+        "mute_t": "Mute notifications", "unmute_t": "Unmute notifications",
+        "clear_t": "Clear conversation (only for you)",
+        "clear_q": "Clear this conversation? It disappears only for you — the other side keeps it.",
+        "members_t": "Group members",
+        "privacy_sec": "Privacy & messages",
+        "allow_dm_t": "People can send you messages even if they aren't your friends",
+        "private_acc_t": "Private account",
+        "private_acc_hint": "Only your friends can see your posts, activity and details",
+        "followers_t": "Followers", "following_t": "Following", "posts_t": "Posts",
+        "follow_b": "Follow", "following_b": "Following",
+        "private_note": "This account is private — send a friend request to see their profile",
+        "no_posts": "No posts yet",
+    },
+    "ar": {
+        "chat_set_t": "إعدادات المحادثة",
+        "pinned_t": "الرسائل المثبتة", "pin_t": "تثبيت", "unpin_t": "إلغاء التثبيت",
+        "no_pins": "لا توجد رسائل مثبتة بعد",
+        "mute_t": "كتم الإشعارات", "unmute_t": "إلغاء كتم الإشعارات",
+        "clear_t": "مسح المحادثة (لك فقط)",
+        "clear_q": "مسح هذه المحادثة؟ ستختفي لديك فقط — الطرف الآخر يحتفظ بها.",
+        "members_t": "أعضاء المجموعة",
+        "privacy_sec": "الخصوصية والرسائل",
+        "allow_dm_t": "يمكن للناس مراسلتك حتى لو لم يكونوا أصدقاءك",
+        "private_acc_t": "حساب خاص",
+        "private_acc_hint": "أصدقاؤك فقط يمكنهم رؤية منشوراتك ونشاطك وتفاصيلك",
+        "followers_t": "المتابِعون", "following_t": "يتابع", "posts_t": "المنشورات",
+        "follow_b": "متابعة", "following_b": "تتابعه",
+        "private_note": "هذا الحساب خاص — أرسل طلب صداقة لرؤية ملفه الشخصي",
+        "no_posts": "لا توجد منشورات بعد",
+    },
+    "ku": {
+        "chat_set_t": "ڕێکخستنەکانی چات",
+        "pinned_t": "پەیامە هەڵواسراوەکان", "pin_t": "هەڵواسین", "unpin_t": "لابردنی هەڵواسین",
+        "no_pins": "هێشتا هیچ پەیامێک هەڵنەواسراوە",
+        "mute_t": "بێدەنگکردنی ئاگادارییەکان", "unmute_t": "کردنەوەی ئاگادارییەکان",
+        "clear_t": "سڕینەوەی گفتوگۆ (تەنها بۆ تۆ)",
+        "clear_q": "ئەم گفتوگۆیە بسڕدرێتەوە؟ تەنها لای تۆ نامێنێت — لای بەرامبەر دەمێنێتەوە.",
+        "members_t": "ئەندامانی گروپ",
+        "privacy_sec": "تایبەتمەندی و پەیامەکان",
+        "allow_dm_t": "خەڵک دەتوانن پەیامت بۆ بنێرن تەنانەت ئەگەر هاوڕێت نەبن",
+        "private_acc_t": "هەژماری تایبەت",
+        "private_acc_hint": "تەنها هاوڕێکانت دەتوانن پۆست و چالاکی و زانیارییەکانت ببینن",
+        "followers_t": "فۆڵۆوەرەکان", "following_t": "فۆڵۆکراوەکان", "posts_t": "پۆستەکان",
+        "follow_b": "فۆڵۆکردن", "following_b": "فۆڵۆکراوە",
+        "private_note": "ئەم هەژمارە تایبەتە — داواکاری هاوڕێیەتی بنێرە بۆ بینینی پرۆفایلەکەی",
+        "no_posts": "هێشتا هیچ پۆستێک نییە",
+    },
+}
+for _l, _d in V25.items():
+    T[_l].update(_d)
+
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -2267,7 +2352,8 @@ NOTIF_ICONS = {"friend_req": "👥", "friend_acc": "🤝", "group_msg": "💬",
                "group_add": "➕", "badge": "🏅", "dm": "✉️", "duel_req": "⚔️",
                "duel_acc": "⚔️", "duel_end": "🏆", "deadline": "⏰",
                "overdue": "🚨", "exam_soon": "📚", "homework": "📝",
-               "weekly": "🏆", "mention": "📣", "plus_wait": "💳", "plus_on": "⭐"}
+               "weekly": "🏆", "mention": "📣", "plus_wait": "💳", "plus_on": "⭐",
+               "follow": "➕"}
 
 
 def push_text(lang, kind, actor):
@@ -2368,6 +2454,30 @@ def notify(uid, kind, actor="", link=""):
         push_to_user(uid, kind, actor, link)   # instant push to phone/desktop
     except Exception:
         pass
+
+
+def chat_cleared_id(uid, kind, target_id):
+    row = get_db().execute("SELECT cleared_id FROM chat_clears WHERE user_id = ? "
+                           "AND kind = ? AND target_id = ?",
+                           (uid, kind, target_id)).fetchone()
+    return row["cleared_id"] if row else 0
+
+
+def chat_muted(uid, kind, target_id):
+    return get_db().execute("SELECT 1 FROM chat_mutes WHERE user_id = ? AND "
+                            "kind = ? AND target_id = ?",
+                            (uid, kind, target_id)).fetchone() is not None
+
+
+def is_following(a, b):
+    return get_db().execute("SELECT 1 FROM follows WHERE follower_id = ? AND "
+                            "followed_id = ?", (a, b)).fetchone() is not None
+
+
+def make_follow(a, b):
+    get_db().execute("INSERT OR IGNORE INTO follows(follower_id, followed_id, "
+                     "created_at) VALUES(?,?,?)",
+                     (a, b, datetime.utcnow().isoformat(timespec="seconds")))
 
 
 BADGES = {
@@ -3733,12 +3843,15 @@ def profile():
         db.execute("UPDATE users SET first_name=?, middle_name=?, last_name=?, "
                    "full_name=?, email=?, bio=?, edu_level=?, institution=?, "
                    "school_level=?, grade=?, college=?, department=?, stage=?, "
-                   "job_title=?, college_kind=? WHERE id=?",
+                   "job_title=?, college_kind=?, is_private=?, allow_dm_all=? "
+                   "WHERE id=?",
                    (first, middle, last, full, email,
                     f.get("bio", "").strip()[:300], edu["edu_level"],
                     edu["institution"], edu["school_level"], edu["grade"],
                     edu["college"], edu["department"], edu["stage"],
-                    edu["job_title"], edu["college_kind"], uid))
+                    edu["job_title"], edu["college_kind"],
+                    1 if f.get("is_private") else 0,
+                    1 if f.get("allow_dm_all") else 0, uid))
         # optional username change (must stay unique, same rules as registration)
         new_un = request.form.get("username", "").strip()
         if new_un and new_un != current_user()["username"]:
@@ -3780,6 +3893,173 @@ def profile():
                            **_wizard_ctx())
 
 
+# ---------------------------------------------------------------- chat tools
+@app.route("/chat/clear", methods=["POST"])
+@login_required
+def chat_clear():
+    """Hide the whole conversation for ME only (the other side keeps it)."""
+    db = get_db()
+    uid = session["user_id"]
+    kind = request.form.get("kind")
+    target = request.form.get("target", type=int)
+    if kind not in ("dm", "group") or not target:
+        abort(400)
+    if kind == "dm":
+        mx = db.execute("SELECT COALESCE(MAX(id),0) FROM dms WHERE "
+                        "(from_id=? AND to_id=?) OR (from_id=? AND to_id=?)",
+                        (uid, target, target, uid)).fetchone()[0]
+    else:
+        member_group_or_403(target)
+        mx = db.execute("SELECT COALESCE(MAX(id),0) FROM group_messages "
+                        "WHERE group_id=?", (target,)).fetchone()[0]
+    db.execute("INSERT INTO chat_clears(user_id, kind, target_id, cleared_id) "
+               "VALUES(?,?,?,?) ON CONFLICT(user_id, kind, target_id) "
+               "DO UPDATE SET cleared_id=?", (uid, kind, target, mx, mx))
+    db.commit()
+    return {"ok": 1}
+
+
+@app.route("/chat/mute", methods=["POST"])
+@login_required
+def chat_mute():
+    db = get_db()
+    uid = session["user_id"]
+    kind = request.form.get("kind")
+    target = request.form.get("target", type=int)
+    if kind not in ("dm", "group") or not target:
+        abort(400)
+    if chat_muted(uid, kind, target):
+        db.execute("DELETE FROM chat_mutes WHERE user_id=? AND kind=? AND "
+                   "target_id=?", (uid, kind, target))
+        muted = 0
+    else:
+        db.execute("INSERT OR IGNORE INTO chat_mutes(user_id, kind, target_id) "
+                   "VALUES(?,?,?)", (uid, kind, target))
+        muted = 1
+    db.commit()
+    return {"muted": muted}
+
+
+@app.route("/chat/pin", methods=["POST"])
+@login_required
+def chat_pin():
+    db = get_db()
+    uid = session["user_id"]
+    kind = request.form.get("kind")
+    mid = request.form.get("msg_id", type=int)
+    if kind not in ("dm", "group") or not mid:
+        abort(400)
+    if kind == "dm":
+        m = db.execute("SELECT * FROM dms WHERE id=? AND (from_id=? OR to_id=?)",
+                       (mid, uid, uid)).fetchone()
+        if not m:
+            abort(403)
+        db.execute("UPDATE dms SET pinned=? WHERE id=?",
+                   (0 if m["pinned"] else 1, mid))
+        pinned = 0 if m["pinned"] else 1
+    else:
+        m = db.execute("SELECT * FROM group_messages WHERE id=?", (mid,)).fetchone()
+        if not m:
+            abort(404)
+        member_group_or_403(m["group_id"])
+        db.execute("UPDATE group_messages SET pinned=? WHERE id=?",
+                   (0 if m["pinned"] else 1, mid))
+        pinned = 0 if m["pinned"] else 1
+    db.commit()
+    return {"pinned": pinned}
+
+
+@app.route("/chat/pins")
+@login_required
+def chat_pins():
+    db = get_db()
+    uid = session["user_id"]
+    kind = request.args.get("kind")
+    target = request.args.get("target", type=int)
+    out = []
+    if kind == "dm":
+        cleared = chat_cleared_id(uid, "dm", target)
+        rows = db.execute(
+            "SELECT m.*, u.username FROM dms m JOIN users u ON u.id=m.from_id "
+            "WHERE m.pinned=1 AND m.deleted IS NOT 1 AND m.id > ? AND "
+            "((m.from_id=? AND m.to_id=?) OR (m.from_id=? AND m.to_id=?)) "
+            "ORDER BY m.id DESC LIMIT 40",
+            (cleared, uid, target, target, uid)).fetchall()
+    elif kind == "group":
+        member_group_or_403(target)
+        cleared = chat_cleared_id(uid, "group", target)
+        rows = db.execute(
+            "SELECT m.*, u.username FROM group_messages m "
+            "JOIN users u ON u.id=m.user_id WHERE m.pinned=1 AND "
+            "m.deleted IS NOT 1 AND m.group_id=? AND m.id > ? "
+            "ORDER BY m.id DESC LIMIT 40", (target, cleared)).fetchall()
+    else:
+        abort(400)
+    for m in rows:
+        txt = (m["content"] or "")[:120] or \
+            {"image": "📷", "voice": "🎤", "file": "📄"}.get(m["kind"] or "", "")
+        out.append({"id": m["id"], "who": m["username"], "text": txt,
+                    "ts": m["created_at"]})
+    return {"pins": out}
+
+
+# ---------------------------------------------------------------- follows
+@app.route("/follow/<username>", methods=["POST"])
+@login_required
+def follow_toggle(username):
+    db = get_db()
+    uid = session["user_id"]
+    person = db.execute("SELECT * FROM users WHERE username = ?",
+                        (username,)).fetchone()
+    if person is None or person["id"] == uid:
+        abort(404)
+    if is_following(uid, person["id"]):
+        db.execute("DELETE FROM follows WHERE follower_id=? AND followed_id=?",
+                   (uid, person["id"]))
+    else:
+        # private accounts can only be reached by friendship
+        if person["is_private"] and not are_friends(uid, person["id"]):
+            abort(403)
+        make_follow(uid, person["id"])
+        notify(person["id"], "follow", actor=current_user()["username"],
+               link=url_for("user_profile", username=current_user()["username"]))
+    db.commit()
+    return redirect(url_for("user_profile", username=username))
+
+
+def _can_view_profile(viewer_id, person):
+    if not person["is_private"]:
+        return True
+    if viewer_id is None:
+        return False
+    return viewer_id == person["id"] or are_friends(viewer_id, person["id"])
+
+
+@app.route("/u/<username>/followers")
+@app.route("/u/<username>/following")
+@login_required
+def follow_list(username):
+    db = get_db()
+    person = db.execute("SELECT * FROM users WHERE username = ?",
+                        (username,)).fetchone()
+    if person is None:
+        abort(404)
+    mode = "followers" if request.path.endswith("/followers") else "following"
+    if not _can_view_profile(session.get("user_id"), person):
+        flash(tr("private_note"), "error")
+        return redirect(url_for("user_profile", username=username))
+    if mode == "followers":
+        rows = db.execute(
+            "SELECT u.* FROM follows f JOIN users u ON u.id=f.follower_id "
+            "WHERE f.followed_id=? ORDER BY f.id DESC", (person["id"],)).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT u.* FROM follows f JOIN users u ON u.id=f.followed_id "
+            "WHERE f.follower_id=? ORDER BY f.id DESC", (person["id"],)).fetchall()
+    return render_template("follow_list.html", user=current_user(), person=person,
+                           rows=rows, mode=mode)
+
+
 @app.route("/u/<username>")
 def user_profile(username):
     # PUBLIC page — students can share kurdroom.aikurd.org/u/name anywhere
@@ -3788,16 +4068,32 @@ def user_profile(username):
                         (username,)).fetchone()
     if person is None:
         abort(404)
-    if session.get("user_id"):
-        status, fid = friendship_status(session["user_id"], person["id"])
+    uid = session.get("user_id")
+    if uid:
+        status, fid = friendship_status(uid, person["id"])
     else:
         status, fid = None, None
     done_count = db.execute("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1",
                             (person["id"],)).fetchone()[0]
+    followers_n = db.execute("SELECT COUNT(*) FROM follows WHERE followed_id = ?",
+                             (person["id"],)).fetchone()[0]
+    following_n = db.execute("SELECT COUNT(*) FROM follows WHERE follower_id = ?",
+                             (person["id"],)).fetchone()[0]
+    posts_n = db.execute("SELECT COUNT(*) FROM posts WHERE user_id = ?",
+                         (person["id"],)).fetchone()[0]
+    can_view = _can_view_profile(uid, person)
+    posts = []
+    if can_view:
+        posts = db.execute("SELECT * FROM posts WHERE user_id = ? "
+                           "ORDER BY id DESC LIMIT 30", (person["id"],)).fetchall()
+    following = bool(uid and is_following(uid, person["id"]))
     return render_template("user_profile.html", user=current_user(), person=person,
                            status=status, fid=fid, streak=user_streak(person["id"]),
                            done_count=done_count, earned=user_badges(person["id"]),
-                           xpinfo=user_xp(person["id"]))
+                           xpinfo=user_xp(person["id"]),
+                           followers_n=followers_n, following_n=following_n,
+                           posts_n=posts_n, can_view=can_view, posts=posts,
+                           following=following)
 
 
 # ---------------------------------------------------------------- friends
@@ -3899,6 +4195,8 @@ def friend_accept(fid):
                      "AND status='pending'", (fid, session["user_id"])).fetchone()
     if row:
         db.execute("UPDATE friendships SET status='accepted' WHERE id = ?", (fid,))
+        make_follow(row["from_id"], session["user_id"])   # friends follow each other
+        make_follow(session["user_id"], row["from_id"])
         notify(row["from_id"], "friend_acc", actor=current_user()["username"],
                link=url_for("user_profile", username=current_user()["username"]))
         db.commit()
@@ -3971,10 +4269,12 @@ def group_page(group_id):
     members = db.execute(
         "SELECT u.id, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id "
         "WHERE gm.group_id = ? ORDER BY u.username", (group_id,)).fetchall()
+    g_cleared = chat_cleared_id(session["user_id"], "group", group_id)
     messages = db.execute(
         "SELECT m.*, u.username, u.plus AS uplus FROM group_messages m "
         "JOIN users u ON u.id = m.user_id "
-        "WHERE m.group_id = ? ORDER BY m.id DESC LIMIT 100", (group_id,)).fetchall()
+        "WHERE m.group_id = ? AND m.id > ? ORDER BY m.id DESC LIMIT 100",
+        (group_id, g_cleared)).fetchall()
     gplans = db.execute(
         "SELECT p.*, u.username FROM group_plans p JOIN users u ON u.id = p.user_id "
         "WHERE p.group_id = ? ORDER BY p.pinned DESC, "
@@ -4062,6 +4362,7 @@ def group_page(group_id):
                            reactions=reactions, quotes=quotes, polls=polls,
                            challenges=chs, glb=glb, levels=levels,
                            avatars={m["id"]: avatar_url(m["id"]) for m in members},
+                           muted=chat_muted(session["user_id"], "group", group_id),
                            REACTIONS=REACTION_EMOJIS)
 
 
@@ -4114,7 +4415,8 @@ def group_message(group_id):
                        actor=current_user()["username"], link=link)
         for m in db.execute("SELECT user_id FROM group_members WHERE group_id = ? "
                             "AND user_id != ?", (group_id, session["user_id"])):
-            if m["user_id"] not in mentioned:
+            if m["user_id"] not in mentioned and \
+                    not chat_muted(m["user_id"], "group", group_id):
                 notify(m["user_id"], "group_msg", actor=g_row["name"], link=link)
         db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
@@ -4155,7 +4457,8 @@ def group_chat_poll(group_id):
     member_group_or_403(group_id)
     db = get_db()
     uid = session["user_id"]
-    after = request.args.get("after", 0, type=int)
+    after = max(request.args.get("after", 0, type=int),
+                chat_cleared_id(uid, "group", group_id))
     clear_notifs("group_msg", prefix=url_for("group_page", group_id=group_id))
     rows = db.execute(
         "SELECT m.*, u.username, u.plus AS uplus, "
@@ -4735,7 +5038,8 @@ def dm_thread(username):
     friend = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
     if friend is None:
         abort(404)
-    if not are_friends(uid, friend["id"]):
+    if not are_friends(uid, friend["id"]) and friend["id"] != uid and \
+            not friend["allow_dm_all"]:
         abort(403)
     if request.method == "POST":
         content = request.form.get("content", "").strip()
@@ -4779,20 +5083,22 @@ def dm_thread(username):
                                              reply_to))
             sent = True
         if sent:
-            notify(friend["id"], "dm", actor=current_user()["username"],
-                   link=url_for("dm_thread", username=current_user()["username"]))
+            if not chat_muted(friend["id"], "dm", uid):
+                notify(friend["id"], "dm", actor=current_user()["username"],
+                       link=url_for("dm_thread", username=current_user()["username"]))
             db.commit()
         return redirect(url_for("dm_thread", username=username))
     db.execute("UPDATE dms SET is_read = 1 WHERE from_id = ? AND to_id = ?",
                (friend["id"], uid))
     db.commit()
     clear_notifs("dm", prefix=request.path)   # chat opened -> its notification is done
+    cleared = chat_cleared_id(uid, "dm", friend["id"])
     thread = db.execute(
         "SELECT m.*, r.content AS r_content, r.kind AS r_kind, r.from_id AS r_from, "
         "r.orig_name AS r_orig FROM dms m LEFT JOIN dms r ON r.id = m.reply_to "
-        "WHERE (m.from_id = ? AND m.to_id = ?) "
-        "OR (m.from_id = ? AND m.to_id = ?) ORDER BY m.id DESC LIMIT 200",
-        (uid, friend["id"], friend["id"], uid)).fetchall()
+        "WHERE m.id > ? AND ((m.from_id = ? AND m.to_id = ?) "
+        "OR (m.from_id = ? AND m.to_id = ?)) ORDER BY m.id DESC LIMIT 200",
+        (cleared, uid, friend["id"], friend["id"], uid)).fetchall()
     thread = list(reversed(thread))
     reacts = {}
     if thread:
@@ -4812,6 +5118,7 @@ def dm_thread(username):
             pass
     return render_template("dm.html", user=current_user(), friend=friend,
                            thread=thread, reacts=reacts,
+                           muted=chat_muted(uid, "dm", friend["id"]),
                            pres={"online": online, "at": friend["last_seen"] or ""},
                            REACTIONS=REACTION_EMOJIS)
 
@@ -4822,13 +5129,14 @@ def dm_poll(username):
     """Live chat: return messages newer than ?after=<id> as JSON (no refresh)."""
     db = get_db()
     uid = session["user_id"]
-    friend = db.execute("SELECT id, last_seen FROM users WHERE username = ?",
-                        (username,)).fetchone()
+    friend = db.execute("SELECT id, last_seen, allow_dm_all FROM users "
+                        "WHERE username = ?", (username,)).fetchone()
     if friend is None:
         abort(404)
-    if not are_friends(uid, friend["id"]):
+    if not are_friends(uid, friend["id"]) and not friend["allow_dm_all"]:
         abort(403)
-    after = request.args.get("after", 0, type=int)
+    after = max(request.args.get("after", 0, type=int),
+                chat_cleared_id(uid, "dm", friend["id"]))
     # reader has the thread open -> mark incoming as read (powers live checkmarks)
     db.execute("UPDATE dms SET is_read = 1 WHERE from_id = ? AND to_id = ? "
                "AND is_read = 0", (friend["id"], uid))
@@ -4893,10 +5201,11 @@ def dm_delete(username):
     """Delete my own message for everyone (WhatsApp style)."""
     db = get_db()
     uid = session["user_id"]
-    friend = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    friend = db.execute("SELECT id, allow_dm_all FROM users WHERE username = ?",
+                        (username,)).fetchone()
     if friend is None:
         abort(404)
-    if not are_friends(uid, friend["id"]):
+    if not are_friends(uid, friend["id"]) and not friend["allow_dm_all"]:
         abort(403)
     msg_id = request.form.get("msg_id", type=int)
     m = db.execute("SELECT * FROM dms WHERE id = ? AND from_id = ? AND to_id = ?",
@@ -4919,10 +5228,11 @@ def dm_delete(username):
 def dm_react(username):
     db = get_db()
     uid = session["user_id"]
-    friend = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    friend = db.execute("SELECT id, allow_dm_all FROM users WHERE username = ?",
+                        (username,)).fetchone()
     if friend is None:
         abort(404)
-    if not are_friends(uid, friend["id"]):
+    if not are_friends(uid, friend["id"]) and not friend["allow_dm_all"]:
         abort(403)
     msg_id = request.form.get("msg_id", type=int)
     emoji = request.form.get("emoji", "")

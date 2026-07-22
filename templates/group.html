@@ -156,7 +156,42 @@
       <div class="card" id="chat" style="margin-bottom:20px">
         <h2 style="display:flex; align-items:center">💬 {{ t('discussion') }}
           <button type="button" class="icon-btn" style="margin-inline-start:auto"
-                  onclick="gSearchToggle()">🔍</button></h2>
+                  onclick="gSearchToggle()">🔍</button>
+          <button type="button" class="icon-btn" onclick="csOpen()"
+                  title="{{ t('chat_set_t') }}">⚙️</button></h2>
+
+        <!-- chat settings sheet -->
+        <div class="kpov" id="csOv">
+          <div class="kpsheet" style="max-height:72vh">
+            <div class="kpgrab"></div>
+            <div class="kphead"><span class="kpt">⚙️ {{ t('chat_set_t') }}</span>
+              <button type="button" class="kpx" onclick="csClose()">✕</button></div>
+            <div class="kplist" id="csList">
+              <div class="kpo" onclick="csMembers()">
+                <span class="ke">👥</span>
+                <span class="kn">{{ t('members_t') }} ({{ members|length }})</span></div>
+              <div class="kpo" onclick="csPins()">
+                <span class="ke">📌</span><span class="kn">{{ t('pinned_t') }}</span></div>
+              <div class="kpo" onclick="csMute(this)">
+                <span class="ke">{{ '🔕' if muted else '🔔' }}</span>
+                <span class="kn">{{ t('unmute_t') if muted else t('mute_t') }}</span></div>
+              <div class="kpo" onclick="csClear()">
+                <span class="ke">🧹</span><span class="kn">{{ t('clear_t') }}</span></div>
+            </div>
+            <div id="csPinsList" style="display:none; overflow-y:auto"></div>
+            <div id="csMembersList" style="display:none; overflow-y:auto">
+              {% for m in members %}
+              <a class="kpo" style="margin-bottom:7px; text-decoration:none; color:inherit"
+                 href="{{ url_for('user_profile', username=m.username) }}">
+                {{ avi(m.id, m.username, 38, '1rem') }}
+                <span class="kn">{{ m.username }}
+                  {% if m.id == g.owner_id %} 👑{% endif %}
+                  {% if m.id == cu.id %} · {{ t('you') }}{% endif %}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
         <input id="gSearch" type="search" placeholder="{{ t('search_msgs') }}"
                style="display:none; margin-bottom:10px" oninput="gSearchRun(this.value)">
         <div class="hint">{{ t('no_messages') if not messages else '' }}</div>
@@ -562,8 +597,102 @@
   let lastId = {{ (messages[-1].id if messages else 0)|tojson }};
   let temps = [];
 
-  function scrollBottom() { if (box) box.scrollTop = box.scrollHeight; }
-  scrollBottom();
+  function scrollBottom(instant) {
+    if (!box) return;
+    if (instant) box.style.scrollBehavior = "auto";
+    box.scrollTop = box.scrollHeight;
+    if (instant) requestAnimationFrame(() => { box.style.scrollBehavior = ""; });
+  }
+  scrollBottom(true);
+  window.addEventListener("load", () => scrollBottom(true));
+  setTimeout(() => scrollBottom(true), 250);
+  setTimeout(() => scrollBottom(true), 900);
+
+  /* ---------- chat settings (members / pin / mute / clear) ---------- */
+  const CS_KIND = "group";
+  const CS_TARGET = {{ g.id|tojson }};
+  const PIN_T = {{ t('pin_t')|tojson }};
+  const NO_PINS_T = {{ t('no_pins')|tojson }};
+  const CLEAR_Q_T = {{ t('clear_q')|tojson }};
+  const MUTE_T = {{ t('mute_t')|tojson }};
+  const UNMUTE_T = {{ t('unmute_t')|tojson }};
+  let csMuted = {{ 1 if muted else 0 }};
+  const csOv = document.getElementById("csOv");
+  function csShow(part) {
+    ["csList", "csPinsList", "csMembersList"].forEach((id) => {
+      document.getElementById(id).style.display = id === part ? "" : "none";
+    });
+  }
+  function csOpen() {
+    csShow("csList");
+    csOv.classList.add("on");
+    document.body.style.overflow = "hidden";
+  }
+  function csClose() { csOv.classList.remove("on"); document.body.style.overflow = ""; }
+  csOv.addEventListener("click", (e) => { if (e.target === csOv) csClose(); });
+  function csMembers() { csShow("csMembersList"); }
+  async function csMute(row) {
+    const fd = new FormData();
+    fd.append("kind", CS_KIND); fd.append("target", CS_TARGET);
+    try {
+      const r = await fetch("/chat/mute", { method: "POST", body: fd });
+      const d = await r.json();
+      csMuted = d.muted;
+      row.querySelector(".ke").textContent = csMuted ? "🔕" : "🔔";
+      row.querySelector(".kn").textContent = csMuted ? UNMUTE_T : MUTE_T;
+    } catch (err) {}
+  }
+  async function csClear() {
+    csClose();
+    if (!(await kconfirm(CLEAR_Q_T, "🧹"))) return;
+    const fd = new FormData();
+    fd.append("kind", CS_KIND); fd.append("target", CS_TARGET);
+    try {
+      await fetch("/chat/clear", { method: "POST", body: fd });
+      location.reload();
+    } catch (err) {}
+  }
+  async function csPins() {
+    const list = document.getElementById("csPinsList");
+    csShow("csPinsList");
+    list.innerHTML = '<div class="kpempty">…</div>';
+    try {
+      const r = await fetch("/chat/pins?kind=" + CS_KIND + "&target=" + CS_TARGET);
+      const d = await r.json();
+      list.innerHTML = "";
+      if (!d.pins.length) {
+        list.innerHTML = '<div class="kpempty">📌 ' + NO_PINS_T + "</div>";
+        return;
+      }
+      d.pins.forEach((p) => {
+        const row = document.createElement("div");
+        row.className = "kpo";
+        row.style.marginBottom = "7px";
+        const ke = document.createElement("span");
+        ke.className = "ke"; ke.textContent = "📌";
+        const kn = document.createElement("span");
+        kn.className = "kn";
+        kn.innerHTML = "<b style='color:var(--accent)'>" + p.who + "</b><br>";
+        kn.append(p.text);
+        row.append(ke, kn);
+        row.onclick = () => {
+          csClose();
+          const b = box.querySelector('[data-mid="' + p.id + '"]');
+          if (b) {
+            b.scrollIntoView({ behavior: "smooth", block: "center" });
+            b.classList.add("flash");
+            setTimeout(() => b.classList.remove("flash"), 1300);
+          }
+        };
+        list.appendChild(row);
+      });
+    } catch (err) {}
+  }
+  async function pinMsg(mid) {
+    const fd = new FormData();
+    fd.append("kind", CS_KIND); fd.append("msg_id", mid);
+    try { await fetch("/chat/pin", { method: "POST", body: fd }); } catch (err) {}
+  }
 
   /* ---------- growing composer ---------- */
   function autosize() {
@@ -634,6 +763,15 @@
     hidePick();
   };
   pick.appendChild(rp);
+  const pn = document.createElement("button");
+  pn.type = "button"; pn.textContent = "📌";
+  pn.title = PIN_T;
+  pn.onclick = (e) => {
+    e.stopPropagation();
+    pinMsg(pick._mid);
+    hidePick();
+  };
+  pick.appendChild(pn);
   const dl = document.createElement("button");
   dl.type = "button"; dl.className = "del"; dl.textContent = "🗑";
   dl.onclick = async (e) => {

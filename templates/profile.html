@@ -123,6 +123,38 @@
         {% set u = cu %}
         {% include "_edu.html" %}
 
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        <h2 style="font-size:1rem">🔐 {{ t('privacy_sec') }}</h2>
+        <style>
+          .swrow { display:flex; align-items:center; gap:12px; padding:12px 14px;
+            border:1.5px solid var(--card-border); border-radius:14px;
+            background:var(--input-bg); margin-top:10px; cursor:pointer; }
+          .swrow .swtxt { flex:1; font-size:.85rem; font-weight:600; }
+          .swrow .swhint { font-size:.7rem; color:var(--muted); font-weight:400;
+            margin-top:3px; }
+          .swrow input { display:none; }
+          .sw { width:46px; height:26px; border-radius:99px; background:var(--card-border);
+            position:relative; transition:.25s; flex-shrink:0; }
+          .sw::after { content:""; position:absolute; top:3px; inset-inline-start:3px;
+            width:20px; height:20px; border-radius:50%; background:#fff; transition:.25s; }
+          .swrow input:checked + .sw { background:linear-gradient(135deg, var(--accent), #a855f7); }
+          .swrow input:checked + .sw::after { transform: translateX(20px); }
+          [dir="rtl"] .swrow input:checked + .sw::after { transform: translateX(-20px); }
+        </style>
+        <label class="swrow">
+          <span class="swtxt">🔒 {{ t('private_acc_t') }}
+            <div class="swhint">{{ t('private_acc_hint') }}</div></span>
+          <input type="checkbox" name="is_private" value="1"
+                 {{ 'checked' if cu.is_private }}>
+          <span class="sw"></span>
+        </label>
+        <label class="swrow">
+          <span class="swtxt">✉️ {{ t('allow_dm_t') }}</span>
+          <input type="checkbox" name="allow_dm_all" value="1"
+                 {{ 'checked' if cu.allow_dm_all }}>
+          <span class="sw"></span>
+        </label>
+
         <label>{{ t('pw_keep') }}</label>
         <input type="password" name="new_password" minlength="6" autocomplete="new-password">
         <div style="margin-top:16px">
