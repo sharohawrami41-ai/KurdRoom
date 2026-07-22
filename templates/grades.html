@@ -36,7 +36,7 @@
         <span class="badge high" style="font-size:.8rem">{{ t('sem_gpa') }}: {{ '%.2f'|format(s.gpa) }}</span>
         {% endif %}
         <form method="post" action="{{ url_for('semester_delete', sem_id=s.id) }}"
-              onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+              data-confirm="{{ t('confirm_del_plan') }}">
           <button class="small warn" type="submit">✕</button>
         </form>
       </span>

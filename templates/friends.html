@@ -150,7 +150,7 @@
           <button class="small" type="submit" style="border-color:var(--medium); color:var(--medium)">⚔️</button>
         </form>
         <form method="post" action="{{ url_for('friend_decline', fid=f.fid) }}"
-              onsubmit="return confirm('{{ t('remove_friend') }}?')">
+              data-confirm="{{ t('remove_friend') }}?">
           <button class="small warn" type="submit">✕ {{ t('remove_friend') }}</button>
         </form>
       </div>

@@ -1525,5 +1525,346 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) krPings(); });
 {% endif %}
 </script>
+<style>
+  .ferr-in { border-color:#f87171 !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #f87171 18%, transparent) !important;
+    animation: gshake .3s; }
+  .gfe { color:#f87171; font-size:.76rem; font-weight:600; margin:6px 2px 0;
+    animation: fadeUp .25s ease both; }
+  @keyframes gshake { 0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+</style>
+<script>
+  /* modern field errors: red message under the field instead of browser bubbles */
+  (function () {
+    const FERR = { req: {{ t('ferr_req')|tojson }},
+                   email: {{ t('ferr_email')|tojson }},
+                   short: {{ t('ferr_short')|tojson }},
+                   bad: {{ t('ferr_bad')|tojson }} };
+    function msgFor(el) {
+      const v = el.validity;
+      if (v.valueMissing) return FERR.req;
+      if (v.typeMismatch && el.type === "email") return FERR.email;
+      if (v.tooShort) return FERR.short;
+      return FERR.bad;
+    }
+    function showErr(el) {
+      el.classList.add("ferr-in");
+      let m = el.nextElementSibling;
+      if (!m || !m.classList || !m.classList.contains("gfe")) {
+        m = document.createElement("div");
+        m.className = "gfe";
+        el.insertAdjacentElement("afterend", m);
+      }
+      m.textContent = "⚠️ " + msgFor(el);
+      el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
+    }
+    function clearErr(el) {
+      el.classList.remove("ferr-in");
+      const m = el.nextElementSibling;
+      if (m && m.classList && m.classList.contains("gfe")) m.remove();
+    }
+    document.addEventListener("invalid", function (e) {
+      e.preventDefault();
+      showErr(e.target);
+      const f = e.target.form;
+      if (f && f.querySelector(":invalid") === e.target) {
+        try { e.target.focus({ preventScroll: true });
+              e.target.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        catch (err) {}
+      }
+    }, true);
+    ["input", "change"].forEach((ev) =>
+      document.addEventListener(ev, function (e) {
+        const el = e.target;
+        if (el.classList && el.classList.contains("ferr-in") &&
+            el.checkValidity && el.checkValidity()) clearErr(el);
+      }, true));
+  })();
+</script>
+<style>
+  /* ============ modern option picker (kpick) ============ */
+  .kpick { width:100%; display:flex; align-items:center; gap:10px; padding:12px 14px;
+    margin-top:6px; border-radius:14px; border:1.5px solid var(--card-border);
+    background:var(--input-bg); color:var(--muted); cursor:pointer; font-size:.92rem;
+    font-family:inherit; transition:.18s; text-align:start; }
+  .kpick:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    transform: translateY(-1px); }
+  .kpick.has { color:var(--text); font-weight:600;
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background: color-mix(in srgb, var(--accent) 7%, var(--input-bg)); }
+  .kpick.err { border-color:#ef4444 !important; }
+  .kpick .kpe { font-size:1.15rem; flex-shrink:0; }
+  .kpick .kplb { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .kpick .kpch { margin-inline-start:auto; color:var(--muted); font-size:.75rem; }
+  .kpov { position:fixed; inset:0; z-index:400; display:flex; align-items:flex-end;
+    justify-content:center; background:rgba(8,6,24,.55);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    opacity:0; pointer-events:none; transition:.25s; }
+  .kpov.on { opacity:1; pointer-events:auto; }
+  .kpsheet { width:100%; max-width:540px; max-height:76vh; display:flex;
+    flex-direction:column; background:var(--card); border:1px solid var(--card-border);
+    border-radius:24px 24px 0 0; padding:10px 14px 14px;
+    box-shadow: 0 -18px 60px rgba(0,0,0,.45);
+    transform: translateY(70px); transition:.3s cubic-bezier(.22,.9,.36,1); }
+  .kpov.on .kpsheet { transform:none; }
+  @media (min-width:640px) {
+    .kpov { align-items:center; padding:20px; }
+    .kpsheet { border-radius:24px; transform: translateY(16px) scale(.97); }
+  }
+  .kpgrab { width:44px; height:5px; border-radius:99px; background:var(--card-border);
+    margin:2px auto 10px; flex-shrink:0; }
+  .kphead { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .kphead .kpt { font-weight:800; font-size:1.02rem; }
+  .kpx { margin-inline-start:auto; width:32px; height:32px; border-radius:50%;
+    border:none; background:var(--input-bg); color:var(--muted); cursor:pointer;
+    font-size:.95rem; flex-shrink:0; }
+  .kpsearch { position:relative; margin-bottom:10px; flex-shrink:0; }
+  .kpsearch input { margin:0; padding-inline-start:40px; }
+  .kpsearch .sic { position:absolute; inset-inline-start:14px; top:50%;
+    transform:translateY(-50%); opacity:.55; pointer-events:none; }
+  .kplist { overflow-y:auto; display:grid; gap:7px; padding:2px; flex:1;
+    overscroll-behavior: contain; }
+  .kpo { display:flex; align-items:center; gap:12px; padding:11px 12px;
+    border-radius:14px; border:1.5px solid var(--card-border);
+    background:var(--input-bg); cursor:pointer; transition:.15s;
+    animation: fadeUp .3s ease both; user-select:none; }
+  .kpo:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    transform: translateY(-1px); }
+  .kpo.sel { border-color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .kpo .ke { width:38px; height:38px; border-radius:12px; display:flex;
+    align-items:center; justify-content:center; font-size:1.25rem; flex-shrink:0;
+    background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .kpo .kn { font-size:.9rem; font-weight:600; }
+  .kpo .kck { margin-inline-start:auto; color:var(--accent); font-weight:800;
+    opacity:0; transform:scale(.4); transition:.18s; flex-shrink:0; }
+  .kpo.sel .kck { opacity:1; transform:none; }
+  .kpempty { text-align:center; color:var(--muted); font-size:.85rem; padding:20px 0; }
+</style>
+<script>
+  /* ============ modern option picker (kpick) ============ */
+  window.KPDATA = window.KPDATA || {};   /* name -> [options] */
+  window.KPHOOK = window.KPHOOK || {};   /* name -> fn(value) called after picking */
+  (function () {
+    const KP_SEARCH = {{ t('kp_search')|tojson }};
+    const KP_NONE = {{ t('kp_none')|tojson }};
+    const EMO = [
+      [/medic/i, "🩺"], [/dent/i, "🦷"], [/pharma/i, "💊"], [/nurs/i, "🩹"],
+      [/health/i, "🏥"], [/veterin/i, "🐾"], [/architect/i, "📐"],
+      [/computer|informatic|software|programmer|developer/i, "💻"],
+      [/engineer/i, "⚙️"], [/scien/i, "🔬"], [/agricult|farm/i, "🌾"],
+      [/sport|physical/i, "🏃"], [/language|translat/i, "🗣️"],
+      [/fine art|art/i, "🎨"], [/law|legal|lawyer|judge/i, "⚖️"],
+      [/politic/i, "🏛️"], [/admin|econom|business|account|bank|financ/i, "📊"],
+      [/islamic|religio/i, "🕌"], [/media|communic|journal/i, "📺"],
+      [/tourism/i, "🧳"], [/educat|teach/i, "🎓"], [/polytech/i, "🏢"],
+      [/universit/i, "🏛️"], [/doctor/i, "🩺"],
+      [/police|soldier|military|peshmerga|security/i, "🫡"],
+      [/driver|taxi/i, "🚗"], [/shop|market|trader|seller|store|merchant/i, "🛍️"],
+      [/government|ministry|civil|employee|officer/i, "🏛️"],
+      [/worker|labor|builder|construct/i, "🔧"], [/barber|salon|beauty/i, "💈"],
+      [/cook|chef|restaurant|baker/i, "🍳"], [/tailor|sew/i, "🧵"],
+      [/electric/i, "💡"], [/mechanic/i, "🔩"], [/pilot|aviation/i, "✈️"],
+      [/photograph|design/i, "📸"], [/nurse/i, "🩹"], [/pharmacist/i, "💊"],
+      [/student/i, "📚"], [/retired/i, "🌴"], [/unemployed|looking/i, "🔍"],
+    ];
+    function emojiFor(txt, fall) {
+      for (const [re, e] of EMO) if (re.test(txt)) return e;
+      return fall || "📌";
+    }
+    let kpBtn = null, ov = null, listEl = null, searchEl = null, titleEl = null;
+    function ensure() {
+      if (ov) return;
+      ov = document.createElement("div");
+      ov.className = "kpov";
+      ov.innerHTML =
+        '<div class="kpsheet">' +
+        '  <div class="kpgrab"></div>' +
+        '  <div class="kphead"><span class="kpt"></span>' +
+        '    <button type="button" class="kpx">✕</button></div>' +
+        '  <div class="kpsearch"><span class="sic">🔍</span>' +
+        '    <input type="text" autocomplete="off" placeholder="' + KP_SEARCH + '"></div>' +
+        '  <div class="kplist"></div></div>';
+      document.body.appendChild(ov);
+      listEl = ov.querySelector(".kplist");
+      searchEl = ov.querySelector(".kpsearch input");
+      titleEl = ov.querySelector(".kpt");
+      ov.addEventListener("click", (e) => { if (e.target === ov) kpClose(); });
+      ov.querySelector(".kpx").onclick = kpClose;
+      searchEl.addEventListener("input", () => render(searchEl.value));
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && ov.classList.contains("on")) kpClose();
+      });
+    }
+    function hiddenFor(btn) {
+      return document.querySelector(
+        'input[type=hidden][name="' + btn.dataset.name + '"]');
+    }
+    function render(filter) {
+      const name = kpBtn.dataset.name;
+      const opts = (window.KPDATA[name] || []).filter((o) =>
+        !filter || o.toLowerCase().includes(filter.toLowerCase()));
+      const cur = (hiddenFor(kpBtn) || {}).value || "";
+      listEl.innerHTML = "";
+      if (!opts.length) {
+        listEl.innerHTML = '<div class="kpempty">🔎 ' + KP_NONE + "</div>";
+        return;
+      }
+      opts.forEach((o, i) => {
+        const row = document.createElement("div");
+        row.className = "kpo" + (o === cur ? " sel" : "");
+        row.style.animationDelay = Math.min(i * 22, 260) + "ms";
+        const ke = document.createElement("span"); ke.className = "ke";
+        ke.textContent = emojiFor(o, kpBtn.dataset.icon);
+        const kn = document.createElement("span"); kn.className = "kn";
+        kn.textContent = o;
+        const ck = document.createElement("span"); ck.className = "kck";
+        ck.textContent = "✓";
+        row.append(ke, kn, ck);
+        row.onclick = () => choose(o);
+        listEl.appendChild(row);
+      });
+    }
+    function choose(v) {
+      const name = kpBtn.dataset.name;
+      const hid = hiddenFor(kpBtn);
+      if (hid) {
+        hid.value = v;
+        hid.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      kpBtn.classList.add("has");
+      kpBtn.classList.remove("err");
+      kpBtn.querySelector(".kpe").textContent = emojiFor(v, kpBtn.dataset.icon);
+      kpBtn.querySelector(".kplb").textContent = v;
+      kpClose();
+      if (window.KPHOOK[name]) window.KPHOOK[name](v);
+    }
+    window.kpOpen = function (btn) {
+      ensure();
+      kpBtn = btn;
+      titleEl.textContent = btn.dataset.title || "";
+      searchEl.value = "";
+      render("");
+      ov.classList.add("on");
+      document.body.style.overflow = "hidden";
+      if ((window.KPDATA[btn.dataset.name] || []).length > 8)
+        setTimeout(() => searchEl.focus(), 250);
+    };
+    window.kpClose = function () {
+      if (!ov) return;
+      ov.classList.remove("on");
+      document.body.style.overflow = "";
+    };
+    window.kpReset = function (name) {
+      const hid = document.querySelector('input[type=hidden][name="' + name + '"]');
+      const btn = document.querySelector('.kpick[data-name="' + name + '"]');
+      if (hid) hid.value = "";
+      if (btn) {
+        btn.classList.remove("has");
+        btn.querySelector(".kpe").textContent = btn.dataset.icon || "📌";
+        btn.querySelector(".kplb").textContent = btn.dataset.ph || "…";
+      }
+    };
+  })();
+</script>
+<style>
+  /* ============ modern confirm dialog (kconfirm) ============ */
+  .kcov { position:fixed; inset:0; z-index:500; display:flex; align-items:center;
+    justify-content:center; padding:24px; background:rgba(8,6,24,.6);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    opacity:0; pointer-events:none; transition:.22s; }
+  .kcov.on { opacity:1; pointer-events:auto; }
+  .kccard { width:100%; max-width:360px; background:var(--card);
+    border:1px solid var(--card-border); border-radius:24px; padding:26px 22px 20px;
+    text-align:center; box-shadow: 0 24px 70px rgba(0,0,0,.5);
+    transform: scale(.86) translateY(14px); transition:.28s cubic-bezier(.3,1.4,.5,1); }
+  .kcov.on .kccard { transform:none; }
+  .kcic { width:64px; height:64px; margin:0 auto 12px; border-radius:20px;
+    display:flex; align-items:center; justify-content:center; font-size:1.9rem;
+    background: color-mix(in srgb, #ef4444 14%, transparent);
+    border:1px solid color-mix(in srgb, #ef4444 35%, transparent);
+    animation: kcpop .4s cubic-bezier(.3,1.6,.5,1) both .08s; }
+  @keyframes kcpop { from { transform:scale(.4); opacity:0; } to { transform:none; opacity:1; } }
+  .kct { font-weight:800; font-size:1.1rem; }
+  .kcm { color:var(--muted); font-size:.88rem; margin-top:7px; line-height:1.55; }
+  .kch { color:#f87171; font-size:.72rem; margin-top:9px; opacity:.85; }
+  .kcbtns { display:flex; gap:10px; margin-top:18px; }
+  .kcbtns button { flex:1; padding:12px 10px; border-radius:14px; cursor:pointer;
+    font-family:inherit; font-size:.9rem; font-weight:700; transition:.15s; }
+  .kcno { background:var(--input-bg); border:1.5px solid var(--card-border);
+    color:var(--muted); }
+  .kcno:hover { color:var(--text); }
+  .kcyes { border:none; color:#fff;
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 8px 22px color-mix(in srgb, #ef4444 40%, transparent); }
+  .kcyes:hover { transform: translateY(-1px); }
+</style>
+<script>
+  /* ============ modern confirm dialog (kconfirm) ============ */
+  (function () {
+    const KC_T = {{ t('kc_t')|tojson }};
+    const KC_YES = {{ t('kc_yes')|tojson }};
+    const KC_NO = {{ t('cancel')|tojson }};
+    const KC_HINT = {{ t('kc_hint')|tojson }};
+    let ov = null, resolver = null;
+    function ensure() {
+      if (ov) return;
+      ov = document.createElement("div");
+      ov.className = "kcov";
+      ov.innerHTML =
+        '<div class="kccard">' +
+        '  <div class="kcic">🗑️</div>' +
+        '  <div class="kct">' + KC_T + "</div>" +
+        '  <div class="kcm"></div>' +
+        '  <div class="kch">⚠️ ' + KC_HINT + "</div>" +
+        '  <div class="kcbtns">' +
+        '    <button type="button" class="kcno">' + KC_NO + "</button>" +
+        '    <button type="button" class="kcyes">' + KC_YES + "</button>" +
+        "  </div></div>";
+      document.body.appendChild(ov);
+      ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
+      ov.querySelector(".kcno").onclick = () => done(false);
+      ov.querySelector(".kcyes").onclick = () => done(true);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && ov.classList.contains("on")) done(false);
+      });
+    }
+    function done(v) {
+      ov.classList.remove("on");
+      document.body.style.overflow = "";
+      if (resolver) { resolver(v); resolver = null; }
+    }
+    window.kconfirm = function (msg, icon) {
+      ensure();
+      ov.querySelector(".kcm").textContent = msg || "";
+      ov.querySelector(".kcic").textContent = icon || "🗑️";
+      const ic = ov.querySelector(".kcic");
+      ic.style.animation = "none"; void ic.offsetWidth; ic.style.animation = "";
+      ov.classList.add("on");
+      document.body.style.overflow = "hidden";
+      setTimeout(() => { try { ov.querySelector(".kcno").focus(); } catch (e) {} }, 120);
+      return new Promise((res) => { resolver = res; });
+    };
+    /* forms / submit-buttons with data-confirm get the modern dialog */
+    document.addEventListener("submit", function (e) {
+      const f = e.target;
+      const src = (e.submitter && e.submitter.dataset &&
+                   e.submitter.dataset.confirm !== undefined) ? e.submitter :
+                  (f.dataset && f.dataset.confirm !== undefined ? f : null);
+      if (!src || f.dataset.kcOk) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const sub = e.submitter;
+      kconfirm(src.dataset.confirm).then((ok) => {
+        if (!ok) return;
+        f.dataset.kcOk = "1";
+        if (f.requestSubmit) f.requestSubmit(sub || undefined);
+        else f.submit();
+        setTimeout(() => { delete f.dataset.kcOk; }, 1000);
+      });
+    }, true);
+  })();
+</script>
 </body>
 </html>

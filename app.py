@@ -41,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "5.0"   # shown in the footer — bump this with each release
+APP_VERSION = "5.3"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -1974,6 +1974,44 @@ V23 = {
     },
 }
 for _l, _d in V23.items():
+    T[_l].update(_d)
+
+V24 = {
+    "en": {
+        "ferr_req": "This field is required",
+        "ferr_email": "Please enter a valid email address",
+        "ferr_short": "This is too short",
+        "ferr_bad": "Please check this field",
+        "kp_search": "Search…",
+        "kp_none": "No results found",
+        "kc_t": "Are you sure?",
+        "kc_yes": "Yes, do it",
+        "kc_hint": "This action cannot be undone.",
+    },
+    "ar": {
+        "ferr_req": "هذا الحقل مطلوب",
+        "ferr_email": "يرجى إدخال بريد إلكتروني صحيح",
+        "ferr_short": "قصير جدًا",
+        "ferr_bad": "يرجى التحقق من هذا الحقل",
+        "kp_search": "ابحث…",
+        "kp_none": "لا توجد نتائج",
+        "kc_t": "هل أنت متأكد؟",
+        "kc_yes": "نعم، متأكد",
+        "kc_hint": "لا يمكن التراجع عن هذا الإجراء.",
+    },
+    "ku": {
+        "ferr_req": "ئەم خانەیە پێویستە پڕ بکرێتەوە",
+        "ferr_email": "تکایە ئیمەیڵێکی دروست بنووسە",
+        "ferr_short": "زۆر کورتە",
+        "ferr_bad": "تکایە ئەم خانەیە بپشکنە",
+        "kp_search": "بگەڕێ…",
+        "kp_none": "هیچ ئەنجامێک نەدۆزرایەوە",
+        "kc_t": "دڵنیایت؟",
+        "kc_yes": "بەڵێ، دڵنیام",
+        "kc_hint": "ئەم کردارە ناگەڕێتەوە.",
+    },
+}
+for _l, _d in V24.items():
     T[_l].update(_d)
 
 

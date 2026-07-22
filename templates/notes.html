@@ -30,7 +30,7 @@
           <button class="small" type="submit">💾 {{ t('save') }}</button>
           <button class="small warn" type="submit"
                   formaction="{{ url_for('note_delete', note_id=n.id) }}"
-                  onclick="return confirm('{{ t('confirm_del_plan') }}')">✕ {{ t('delete') }}</button>
+                  data-confirm="{{ t('confirm_del_plan') }}">✕ {{ t('delete') }}</button>
           <span style="font-size:.72rem; color:var(--muted); margin-inline-start:auto">
             {{ n.updated_at[:16].replace('T', ' ') }}</span>
         </div>

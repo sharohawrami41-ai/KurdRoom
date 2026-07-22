@@ -24,7 +24,7 @@
       <button class="small" type="submit">{{ t('undo') if p.done else '✓ ' + t('done') }}</button>
     </form>
     <form method="post" action="{{ url_for('plan_delete', plan_id=p.id) }}"
-          onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+          data-confirm="{{ t('confirm_del_plan') }}">
       <button class="small warn" type="submit">✕ {{ t('delete') }}</button>
     </form>
   </div>

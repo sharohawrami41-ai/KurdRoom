@@ -18,7 +18,8 @@
   .gpill.sel { border-color:var(--accent); color:var(--accent);
     background: color-mix(in srgb, var(--accent) 14%, transparent); }
   .fewrap.bad { animation: wshake .35s ease; }
-  .fewrap.bad input, .fewrap.bad select { border-color:#ef4444 !important; }
+  .fewrap.bad input, .fewrap.bad select,
+  .fewrap.bad .kpick { border-color:#ef4444 !important; }
   .fmsg { display:none; color:#f87171; font-size:.72rem; margin-top:4px; }
   .fewrap.bad .fmsg { display:block; }
   @keyframes wshake { 0%,100% { transform:translateX(0); }
@@ -113,11 +114,15 @@
     <div id="brUni" style="display:none">
       <div class="fewrap" data-f="university">
         <label>🎓 {{ t('uni_l') }}</label>
-        <select name="university">
-          <option value="">{{ t('choose_l') }}</option>
-          {% for un in unis %}<option value="{{ un }}"
-            {{ 'selected' if u.institution == un }}>{{ un }}</option>{% endfor %}
-        </select>
+        {% set uval = u.institution if u.institution in unis else '' %}
+        <input type="hidden" name="university" value="{{ uval }}">
+        <button type="button" class="kpick {{ 'has' if uval }}" data-name="university"
+                data-icon="🏛️" data-title="🎓 {{ t('uni_l') }}"
+                data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+          <span class="kpe">🏛️</span>
+          <span class="kplb">{{ uval or t('choose_l') }}</span>
+          <span class="kpch">▼</span>
+        </button>
         <div class="fmsg">{{ t('err_fill') }}</div>
       </div>
       <label>{{ t('ck_l') }}</label>
@@ -134,17 +139,24 @@
       <div id="brCollege" style="display:none">
         <div class="fewrap" data-f="college">
           <label>{{ t('college_l') }}</label>
-          <select name="college" id="colSel" onchange="fillDeps()">
-            <option value="">{{ t('choose_l') }}</option>
-            {% for c in colleges %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-          </select>
+          <input type="hidden" name="college">
+          <button type="button" class="kpick" data-name="college" data-icon="📚"
+                  data-title="{{ t('college_l') }}" data-ph="{{ t('choose_l') }}"
+                  onclick="kpOpen(this)">
+            <span class="kpe">📚</span><span class="kplb">{{ t('choose_l') }}</span>
+            <span class="kpch">▼</span>
+          </button>
           <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
         <div class="fewrap" data-f="department">
           <label>{{ t('dept_l') }}</label>
-          <select name="department" id="depSel">
-            <option value="">{{ t('choose_l') }}</option>
-          </select>
+          <input type="hidden" name="department">
+          <button type="button" class="kpick" data-name="department" data-icon="🧪"
+                  data-title="{{ t('dept_l') }}" data-ph="{{ t('choose_l') }}"
+                  onclick="kpOpen(this)">
+            <span class="kpe">🧪</span><span class="kplb">{{ t('choose_l') }}</span>
+            <span class="kpch">▼</span>
+          </button>
           <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
       </div>
@@ -172,11 +184,15 @@
     <div id="brJob" style="display:none">
       <div class="fewrap" data-f="job">
         <label>💼 {{ t('job_l') }}</label>
-        <select name="job">
-          <option value="">{{ t('choose_l') }}</option>
-          {% for j in jobs %}<option value="{{ j }}"
-            {{ 'selected' if u.job_title == j }}>{{ j }}</option>{% endfor %}
-        </select>
+        {% set jval = u.job_title if u.job_title in jobs else '' %}
+        <input type="hidden" name="job" value="{{ jval }}">
+        <button type="button" class="kpick {{ 'has' if jval }}" data-name="job"
+                data-icon="💼" data-title="💼 {{ t('job_l') }}"
+                data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+          <span class="kpe">💼</span>
+          <span class="kplb">{{ jval or t('choose_l') }}</span>
+          <span class="kpch">▼</span>
+        </button>
         <div class="fmsg">{{ t('err_fill') }}</div>
       </div>
     </div>
@@ -190,6 +206,22 @@
 <script>
   const DEPS = {{ deps|tojson }};
   const form = document.getElementById("wform");
+
+  window.KPDATA = window.KPDATA || {};
+  window.KPHOOK = window.KPHOOK || {};
+  KPDATA.university = {{ unis|tojson }};
+  KPDATA.college = {{ colleges|tojson }};
+  KPDATA.department = [];
+  KPDATA.job = {{ jobs|tojson }};
+  KPHOOK.university = () => markBad("university", false);
+  KPHOOK.college = (v) => {
+    KPDATA.department = DEPS[v] || [];
+    kpReset("department");
+    markBad("college", false);
+  };
+  KPHOOK.department = () => markBad("department", false);
+  KPHOOK.job = () => markBad("job", false);
+
   function markBad(name, bad) {
     const w = form.querySelector('.fewrap[data-f="' + name + '"]');
     if (!w) return;
@@ -243,16 +275,6 @@
       el.dataset.v === "college" ? "" : "none";
     document.getElementById("brInstitute").style.display =
       el.dataset.v === "institute" ? "" : "none";
-  }
-  function fillDeps() {
-    const col = val("college");
-    const sel = document.getElementById("depSel");
-    sel.innerHTML = '<option value="">{{ t("choose_l") }}</option>';
-    (DEPS[col] || []).forEach((d) => {
-      const o = document.createElement("option");
-      o.value = d; o.textContent = d;
-      sel.appendChild(o);
-    });
   }
   form.addEventListener("submit", (e) => {
     let ok = 1;

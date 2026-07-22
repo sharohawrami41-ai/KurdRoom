@@ -376,7 +376,7 @@
     e.stopPropagation();
     const mid = pick._mid;
     hidePick();
-    if (!confirm(DELCONF_T)) return;
+    if (!(await kconfirm(DELCONF_T))) return;
     const fd = new FormData();
     fd.append("msg_id", mid);
     try {

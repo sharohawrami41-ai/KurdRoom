@@ -161,10 +161,13 @@
       <div id="brUni" style="display:none">
         <div class="fewrap" data-f="university">
           <label>🎓 {{ t('uni_l') }}</label>
-          <select name="university" id="uniSel">
-            <option value="">{{ t('choose_l') }}</option>
-            {% for u in unis %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
-          </select>
+          <input type="hidden" name="university">
+          <button type="button" class="kpick" data-name="university" data-icon="🏛️"
+                  data-title="🎓 {{ t('uni_l') }}" data-ph="{{ t('choose_l') }}"
+                  onclick="kpOpen(this)">
+            <span class="kpe">🏛️</span><span class="kplb">{{ t('choose_l') }}</span>
+            <span class="kpch">▼</span>
+          </button>
           <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
         <label>{{ t('ck_l') }}</label>
@@ -181,17 +184,24 @@
         <div id="brCollege" style="display:none">
           <div class="fewrap" data-f="college">
             <label>{{ t('college_l') }}</label>
-            <select name="college" id="colSel" onchange="fillDeps()">
-              <option value="">{{ t('choose_l') }}</option>
-              {% for c in colleges %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-            </select>
+            <input type="hidden" name="college">
+            <button type="button" class="kpick" data-name="college" data-icon="📚"
+                    data-title="{{ t('college_l') }}" data-ph="{{ t('choose_l') }}"
+                    onclick="kpOpen(this)">
+              <span class="kpe">📚</span><span class="kplb">{{ t('choose_l') }}</span>
+              <span class="kpch">▼</span>
+            </button>
             <div class="fmsg">{{ t('err_fill') }}</div>
           </div>
           <div class="fewrap" data-f="department">
             <label>{{ t('dept_l') }}</label>
-            <select name="department" id="depSel">
-              <option value="">{{ t('choose_l') }}</option>
-            </select>
+            <input type="hidden" name="department">
+            <button type="button" class="kpick" data-name="department" data-icon="🧪"
+                    data-title="{{ t('dept_l') }}" data-ph="{{ t('choose_l') }}"
+                    onclick="kpOpen(this)">
+              <span class="kpe">🧪</span><span class="kplb">{{ t('choose_l') }}</span>
+              <span class="kpch">▼</span>
+            </button>
             <div class="fmsg">{{ t('err_fill') }}</div>
           </div>
         </div>
@@ -220,10 +230,13 @@
       <div id="brJob" style="display:none">
         <div class="fewrap" data-f="job">
           <label>💼 {{ t('job_l') }}</label>
-          <select name="job">
-            <option value="">{{ t('choose_l') }}</option>
-            {% for j in jobs %}<option value="{{ j }}">{{ j }}</option>{% endfor %}
-          </select>
+          <input type="hidden" name="job">
+          <button type="button" class="kpick" data-name="job" data-icon="💼"
+                  data-title="💼 {{ t('job_l') }}" data-ph="{{ t('choose_l') }}"
+                  onclick="kpOpen(this)">
+            <span class="kpe">💼</span><span class="kplb">{{ t('choose_l') }}</span>
+            <span class="kpch">▼</span>
+          </button>
           <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
       </div>
@@ -269,10 +282,25 @@
   const DEPS = {{ deps|tojson }};
   const form = document.getElementById("wform");
 
+  window.KPDATA = window.KPDATA || {};
+  window.KPHOOK = window.KPHOOK || {};
+  KPDATA.university = {{ unis|tojson }};
+  KPDATA.college = {{ colleges|tojson }};
+  KPDATA.department = [];
+  KPDATA.job = {{ jobs|tojson }};
+  KPHOOK.university = () => markBad("university", false);
+  KPHOOK.college = (v) => {
+    KPDATA.department = DEPS[v] || [];
+    kpReset("department");
+    markBad("college", false);
+  };
+  KPHOOK.department = () => markBad("department", false);
+  KPHOOK.job = () => markBad("job", false);
+
   function markBad(name, bad) {
     const w = form.querySelector('.fewrap[data-f="' + name + '"]');
     if (!w) return;
-    const inp = w.querySelector("input:not([type=hidden]), select");
+    const inp = w.querySelector("input:not([type=hidden]), select, .kpick");
     if (inp) inp.classList.toggle("err", bad);
     if (bad) {
       w.classList.remove("bad"); void w.offsetWidth; w.classList.add("bad");
@@ -379,18 +407,6 @@
     document.getElementById("brInstitute").style.display =
       el.dataset.v === "institute" ? "" : "none";
   }
-  function fillDeps() {
-    const col = val("college");
-    const sel = document.getElementById("depSel");
-    sel.innerHTML = '<option value="">{{ t("choose_l") }}</option>';
-    (DEPS[col] || []).forEach((d) => {
-      const o = document.createElement("option");
-      o.value = d; o.textContent = d;
-      sel.appendChild(o);
-    });
-    markBad("college", false);
-  }
-
   function pwCheck() {
     const p = document.getElementById("pw1").value;
     const rules = {

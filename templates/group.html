@@ -123,14 +123,14 @@
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px">
         {% if is_owner %}
           <form method="post" action="{{ url_for('group_delete', group_id=g.id) }}"
-                onsubmit="return confirm('{{ t('confirm_del_group') }}')">
+                data-confirm="{{ t('confirm_del_group') }}">
             <button class="small" type="submit"
                     style="background:rgba(0,0,0,.25); border-color:rgba(255,255,255,.4); color:#fff">
               🗑 {{ t('delete_group') }}</button>
           </form>
         {% else %}
           <form method="post" action="{{ url_for('group_leave', group_id=g.id) }}"
-                onsubmit="return confirm('{{ t('confirm_leave') }}')">
+                data-confirm="{{ t('confirm_leave') }}">
             <button class="small" type="submit"
                     style="background:rgba(0,0,0,.25); border-color:rgba(255,255,255,.4); color:#fff">
               🚪 {{ t('leave_group') }}</button>
@@ -344,7 +344,7 @@
             </form>
             {% if p.user_id == cu.id or is_owner %}
             <form method="post" action="{{ url_for('gplan_delete', plan_id=p.id) }}"
-                  onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+                  data-confirm="{{ t('confirm_del_plan') }}">
               <button class="small warn" type="submit">✕</button>
             </form>
             {% endif %}
@@ -388,7 +388,7 @@
                href="{{ url_for('gfile_download', file_id=f.id) }}">⬇ {{ t('download') }}</a>
             {% if f.user_id == cu.id or is_owner %}
             <form method="post" action="{{ url_for('gfile_delete', file_id=f.id) }}"
-                  onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+                  data-confirm="{{ t('confirm_del_plan') }}">
               <button class="small warn" type="submit">✕</button>
             </form>
             {% endif %}
@@ -640,7 +640,7 @@
     e.stopPropagation();
     const mid = pick._mid;
     hidePick();
-    if (!confirm(DELCONF_T)) return;
+    if (!(await kconfirm(DELCONF_T))) return;
     try {
       await fetch("/msg/" + mid + "/delete", { method: "POST",
         headers: { "X-Requested-With": "fetch" } });

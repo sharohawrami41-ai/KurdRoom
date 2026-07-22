@@ -37,7 +37,7 @@
           {{ t('done_today') if h.done_today else '○ ' + t('mark_today') }}</button>
       </form>
       <form method="post" action="{{ url_for('habit_delete', habit_id=h.id) }}"
-            onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+            data-confirm="{{ t('confirm_del_plan') }}">
         <button class="small warn" type="submit">✕</button>
       </form>
     </div>

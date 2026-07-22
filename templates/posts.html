@@ -59,7 +59,7 @@
         {{ t('cat_' + p.category) }}</span>
       {% if p.user_id == cu.id or cu.is_admin %}
       <form method="post" action="{{ url_for('post_delete', post_id=p.id) }}"
-            onsubmit="return confirm('{{ t('confirm_del_plan') }}')">
+            data-confirm="{{ t('confirm_del_plan') }}">
         <button class="small warn" type="submit">✕</button>
       </form>
       {% endif %}
