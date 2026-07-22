@@ -41,7 +41,7 @@ if DATA_DIR:
 
 from datetime import timedelta as _td
 
-APP_VERSION = "4.2"   # shown in the footer — bump this with each release
+APP_VERSION = "5.0"   # shown in the footer — bump this with each release
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-in-production")
@@ -412,7 +412,15 @@ def init_db():
                  "ALTER TABLE group_messages ADD COLUMN stored TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN plus INTEGER DEFAULT 0",
                  "ALTER TABLE users ADD COLUMN studying_until TEXT DEFAULT ''",
-                 "ALTER TABLE users ADD COLUMN studying_label TEXT DEFAULT ''"):
+                 "ALTER TABLE users ADD COLUMN studying_label TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN first_name TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN middle_name TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN last_name TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN school_level TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN grade TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN college_kind TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0",
+                 "ALTER TABLE users ADD COLUMN profile_v INTEGER DEFAULT 0"):
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
@@ -433,6 +441,65 @@ def init_db():
         "allow_registration": "1",
     }
     for k, v in defaults.items():
+        db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
+    # seed the editable registration option lists (admin can change them later)
+    _REG_DEFAULTS = {
+        "reg_universities": "\n".join([
+            "Salahaddin University-Erbil", "University of Sulaimani",
+            "University of Duhok", "University of Zakho", "Koya University",
+            "Soran University", "University of Raparin", "University of Halabja",
+            "University of Garmian", "Charmo University",
+            "Erbil Polytechnic University", "Sulaimani Polytechnic University",
+            "Duhok Polytechnic University", "University of Kurdistan Hewlêr",
+            "American University of Iraq Sulaimani",
+            "American University of Kurdistan", "Tishk International University",
+            "Cihan University Erbil", "Cihan University Sulaimaniya",
+            "Cihan University Duhok", "Knowledge University",
+            "Catholic University in Erbil", "Lebanese French University",
+            "Bayan University", "Komar University of Science and Technology",
+            "University of Human Development", "Qaiwan International University",
+            "Nawroz University"]),
+        "reg_colleges": "\n".join([
+            "Medicine", "Dentistry", "Pharmacy", "Nursing", "Health Sciences",
+            "Veterinary Medicine", "Engineering", "Science",
+            "Computer Science & IT", "Agriculture", "Education",
+            "Basic Education", "Physical Education & Sport Sciences", "Languages",
+            "Arts & Humanities", "Law", "Political Science",
+            "Administration & Economics", "Fine Arts", "Islamic Sciences",
+            "Media & Communication", "Architecture", "Tourism"]),
+        "reg_departments": "\n".join([
+            "Medicine: General Medicine",
+            "Dentistry: Dentistry",
+            "Pharmacy: Pharmacy",
+            "Nursing: Nursing",
+            "Health Sciences: Medical Laboratory Science, Physiotherapy, Radiology, Anesthesia, Public Health, Nutrition, Optometry",
+            "Veterinary Medicine: Veterinary Medicine",
+            "Engineering: Civil, Electrical, Mechanical, Architectural, Software, Computer, Chemical, Petroleum, Water Resources, Surveying, Aviation, Mechatronics",
+            "Science: Mathematics, Physics, Chemistry, Biology, Geology, Environmental Science, Statistics",
+            "Computer Science & IT: Computer Science, Information Technology, Software Engineering, Cybersecurity, Artificial Intelligence, Computer Networks, Information Systems",
+            "Agriculture: Plant Production, Animal Production, Food Science, Forestry, Horticulture, Soil & Water",
+            "Education: Kurdish Language, English Language, Arabic Language, Mathematics, Physics, Chemistry, Biology, History, Geography, Psychology, Special Education",
+            "Basic Education: General Science, Social Science, Kurdish Language, English Language, Mathematics, Kindergarten",
+            "Physical Education & Sport Sciences: Physical Education",
+            "Languages: Kurdish, English, Arabic, Persian, French, German, Turkish, Translation",
+            "Arts & Humanities: History, Geography, Archaeology, Philosophy, Psychology, Sociology, Social Work, Anthropology",
+            "Law: Law",
+            "Political Science: Political Science, International Relations, Diplomacy",
+            "Administration & Economics: Business Administration, Accounting, Economics, Finance & Banking, Marketing, Statistics & Informatics, Tourism Administration, Management Information Systems",
+            "Fine Arts: Music, Theatre, Cinema, Painting, Design, Sculpture",
+            "Islamic Sciences: Islamic Studies, Sharia, Usul al-Din",
+            "Media & Communication: Journalism, Media, Public Relations, Digital Media",
+            "Architecture: Architecture, Interior Design",
+            "Tourism: Tourism Management, Hotel Management"]),
+        "reg_jobs": "\n".join([
+            "Teacher", "Lecturer", "Doctor", "Nurse", "Pharmacist", "Engineer",
+            "Lawyer", "Judge", "Accountant", "Government Employee",
+            "Police / Security Forces", "Peshmerga", "Business Owner",
+            "Shop Owner", "Trader", "Farmer", "Driver", "Craftsman",
+            "Freelancer", "Programmer / IT", "Designer", "Journalist", "Artist",
+            "Athlete", "Housewife", "Retired", "Job Seeker", "Other"]),
+    }
+    for k, v in _REG_DEFAULTS.items():
         db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (k, v))
     # generate the push-notification (VAPID) keypair once, keep it in settings
     if not db.execute("SELECT 1 FROM settings WHERE key = 'vapid_private'").fetchone():
@@ -1745,6 +1812,170 @@ V22 = {
 for _l, _d in V22.items():
     T[_l].update(_d)
 
+V23 = {
+    "en": {
+        "first_name_l": "First name", "middle_name_l": "Second name",
+        "last_name_l": "Last name",
+        "email_hint2": "Required — used only for verification & password reset. Nobody ever sees it.",
+        "step_account": "Account", "step_edu": "Your study", "step_pw": "Security",
+        "edu_q": "What describes you best?",
+        "wl_school": "School student", "wl_uni": "University student",
+        "wl_master": "Master's", "wl_phd": "PhD", "wl_prof": "Professor",
+        "wl_other": "Work / Other",
+        "school_name_l": "Your school's name", "school_lvl_l": "School stage",
+        "s_elem": "Elementary", "s_inter": "Intermediate", "s_high": "High school",
+        "grade_l": "Grade", "uni_l": "Your university",
+        "ck_l": "College or institute?", "ck_college": "College",
+        "ck_institute": "Institute", "college_l": "Your college",
+        "dept_l": "Department", "inst_name_l": "Institute name",
+        "inst_dept_l": "Institute department", "job_l": "Your work",
+        "choose_l": "Choose…", "next_t": "Next", "back_t": "Back",
+        "create_acc": "Create account 🚀",
+        "pw_rules_t": "A strong password has:",
+        "rule_len": "At least 8 characters", "rule_upper": "An UPPERCASE letter",
+        "rule_lower": "a lowercase letter", "rule_num": "A number (0-9)",
+        "rule_sym": "A symbol !@#$ (bonus)",
+        "err_fill": "Please complete the highlighted fields.",
+        "err_email": "Please enter a valid email address.",
+        "err_email_used": "This email is already registered.",
+        "err_pw_weak": "Password too weak — follow the checklist.",
+        "err_email_send": "Email could not be sent — please contact the admin.",
+        "verify_t": "Verify your email", "verify_sent": "We sent a 6-digit code to",
+        "verify_code_l": "Enter the code", "verify_btn": "Verify ✓",
+        "resend_code": "Resend code", "code_resent": "A new code was sent 📩",
+        "err_code": "Wrong code — check your email and try again.",
+        "code_expired": "The code expired — please start again.",
+        "verify_subject": "Your verification code",
+        "verify_body": "Welcome! Your verification code is:",
+        "reset_body": "Your password reset code is:",
+        "forgot_t": "Forgot password?",
+        "forgot_hint": "Type your account's email — we'll send you a reset code.",
+        "send_code": "Send code 📩",
+        "code_sent_maybe": "If that email exists, a code is on its way 📩",
+        "reset_t": "Set a new password", "pw_reset_ok": "Password changed — log in! ✅",
+        "complete_t": "Welcome back! One quick step",
+        "complete_sub": "KurdRoom got a big upgrade — please confirm your details once. Your username stays yours.",
+        "stats_t": "Statistics", "open_stats": "📊 Full statistics",
+        "st_users": "All users", "st_plus": "Plus members",
+        "st_verified": "Verified emails", "st_active": "Active this week",
+        "st_completed": "Completed profiles", "st_bylevel": "By education level",
+        "st_unis": "Universities", "st_colleges": "Colleges",
+        "st_deps": "Departments", "st_school": "School stages",
+        "st_grades": "Grades", "st_jobs": "Jobs", "st_growth": "New users per month",
+        "smtp_t": "Email sending (SMTP)",
+        "regopts_t": "Registration options (one per line)",
+    },
+    "ar": {
+        "first_name_l": "الاسم الأول", "middle_name_l": "الاسم الثاني",
+        "last_name_l": "اسم العائلة",
+        "email_hint2": "مطلوب — يُستخدم فقط للتحقق واستعادة كلمة المرور. لا يراه أحد أبدًا.",
+        "step_account": "الحساب", "step_edu": "دراستك", "step_pw": "الأمان",
+        "edu_q": "ما الذي يصفك أفضل؟",
+        "wl_school": "طالب مدرسة", "wl_uni": "طالب جامعة",
+        "wl_master": "ماجستير", "wl_phd": "دكتوراه", "wl_prof": "أستاذ",
+        "wl_other": "عمل / أخرى",
+        "school_name_l": "اسم مدرستك", "school_lvl_l": "المرحلة الدراسية",
+        "s_elem": "ابتدائية", "s_inter": "متوسطة", "s_high": "إعدادية",
+        "grade_l": "الصف", "uni_l": "جامعتك",
+        "ck_l": "كلية أم معهد؟", "ck_college": "كلية",
+        "ck_institute": "معهد", "college_l": "كليتك",
+        "dept_l": "القسم", "inst_name_l": "اسم المعهد",
+        "inst_dept_l": "قسم المعهد", "job_l": "عملك",
+        "choose_l": "اختر…", "next_t": "التالي", "back_t": "رجوع",
+        "create_acc": "أنشئ الحساب 🚀",
+        "pw_rules_t": "كلمة المرور القوية تحتوي:",
+        "rule_len": "8 أحرف على الأقل", "rule_upper": "حرف كبير (A-Z)",
+        "rule_lower": "حرف صغير (a-z)", "rule_num": "رقم (0-9)",
+        "rule_sym": "رمز !@#$ (إضافي)",
+        "err_fill": "يرجى إكمال الحقول المحددة.",
+        "err_email": "يرجى إدخال بريد إلكتروني صحيح.",
+        "err_email_used": "هذا البريد مسجل بالفعل.",
+        "err_pw_weak": "كلمة المرور ضعيفة — اتبع القائمة.",
+        "err_email_send": "تعذر إرسال البريد — تواصل مع الإدارة.",
+        "verify_t": "تحقق من بريدك", "verify_sent": "أرسلنا رمزًا من 6 أرقام إلى",
+        "verify_code_l": "أدخل الرمز", "verify_btn": "تحقق ✓",
+        "resend_code": "إعادة إرسال الرمز", "code_resent": "تم إرسال رمز جديد 📩",
+        "err_code": "رمز خاطئ — تحقق من بريدك وحاول مجددًا.",
+        "code_expired": "انتهت صلاحية الرمز — ابدأ من جديد.",
+        "verify_subject": "رمز التحقق الخاص بك",
+        "verify_body": "مرحبًا! رمز التحقق الخاص بك هو:",
+        "reset_body": "رمز استعادة كلمة المرور هو:",
+        "forgot_t": "نسيت كلمة المرور؟",
+        "forgot_hint": "اكتب بريد حسابك — سنرسل لك رمز الاستعادة.",
+        "send_code": "أرسل الرمز 📩",
+        "code_sent_maybe": "إذا كان البريد موجودًا، فالرمز في الطريق 📩",
+        "reset_t": "كلمة مرور جديدة", "pw_reset_ok": "تم تغيير كلمة المرور — سجّل الدخول! ✅",
+        "complete_t": "أهلًا بعودتك! خطوة سريعة",
+        "complete_sub": "حصل كوردروم على تحديث كبير — أكّد بياناتك مرة واحدة. اسم المستخدم يبقى لك.",
+        "stats_t": "الإحصائيات", "open_stats": "📊 الإحصائيات الكاملة",
+        "st_users": "كل المستخدمين", "st_plus": "أعضاء بلس",
+        "st_verified": "بريد موثّق", "st_active": "نشط هذا الأسبوع",
+        "st_completed": "ملفات مكتملة", "st_bylevel": "حسب المستوى الدراسي",
+        "st_unis": "الجامعات", "st_colleges": "الكليات",
+        "st_deps": "الأقسام", "st_school": "المراحل المدرسية",
+        "st_grades": "الصفوف", "st_jobs": "الأعمال", "st_growth": "مستخدمون جدد شهريًا",
+        "smtp_t": "إرسال البريد (SMTP)",
+        "regopts_t": "خيارات التسجيل (واحد في كل سطر)",
+    },
+    "ku": {
+        "first_name_l": "ناوی یەکەم", "middle_name_l": "ناوی دووەم",
+        "last_name_l": "ناوی خێزان",
+        "email_hint2": "پێویستە — تەنها بۆ پشتڕاستکردنەوە و گەڕاندنەوەی وشەی نهێنی بەکاردێت. هیچ کەس نایبینێت.",
+        "step_account": "هەژمار", "step_edu": "خوێندنەکەت", "step_pw": "پاراستن",
+        "edu_q": "کامیان باشتر باست دەکات؟",
+        "wl_school": "خوێندکاری قوتابخانە", "wl_uni": "خوێندکاری زانکۆ",
+        "wl_master": "ماستەر", "wl_phd": "دکتۆرا", "wl_prof": "پرۆفیسۆر",
+        "wl_other": "کار / هیتر",
+        "school_name_l": "ناوی قوتابخانەکەت", "school_lvl_l": "قۆناغی خوێندن",
+        "s_elem": "سەرەتایی", "s_inter": "ناوەندی", "s_high": "ئامادەیی",
+        "grade_l": "پۆل", "uni_l": "زانکۆکەت",
+        "ck_l": "کۆلێژ یان پەیمانگا؟", "ck_college": "کۆلێژ",
+        "ck_institute": "پەیمانگا", "college_l": "کۆلێژەکەت",
+        "dept_l": "بەش", "inst_name_l": "ناوی پەیمانگا",
+        "inst_dept_l": "بەشی پەیمانگا", "job_l": "کارەکەت",
+        "choose_l": "هەڵبژێرە…", "next_t": "دواتر", "back_t": "گەڕانەوە",
+        "create_acc": "هەژمار دروست بکە 🚀",
+        "pw_rules_t": "وشەی نهێنی بەهێز ئەمانەی تێدایە:",
+        "rule_len": "لانیکەم 8 پیت", "rule_upper": "پیتێکی گەورە (A-Z)",
+        "rule_lower": "پیتێکی بچووک (a-z)", "rule_num": "ژمارەیەک (0-9)",
+        "rule_sym": "هێمایەک !@#$ (زیادە)",
+        "err_fill": "تکایە خانە دیاریکراوەکان پڕ بکەرەوە.",
+        "err_email": "تکایە ئیمەیڵێکی دروست بنووسە.",
+        "err_email_used": "ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
+        "err_pw_weak": "وشەی نهێنی لاوازە — لیستەکە جێبەجێ بکە.",
+        "err_email_send": "ئیمەیڵ نەنێردرا — پەیوەندی بە بەڕێوەبەر بکە.",
+        "verify_t": "ئیمەیڵەکەت پشتڕاست بکەرەوە",
+        "verify_sent": "کۆدێکی 6 ژمارەییمان نارد بۆ",
+        "verify_code_l": "کۆدەکە بنووسە", "verify_btn": "پشتڕاستکردنەوە ✓",
+        "resend_code": "دووبارە ناردنی کۆد", "code_resent": "کۆدێکی نوێ نێردرا 📩",
+        "err_code": "کۆدەکە هەڵەیە — ئیمەیڵەکەت بپشکنە و دووبارە هەوڵ بدە.",
+        "code_expired": "کۆدەکە بەسەرچوو — تکایە لە سەرەتاوە دەست پێ بکەرەوە.",
+        "verify_subject": "کۆدی پشتڕاستکردنەوەکەت",
+        "verify_body": "بەخێربێیت! کۆدی پشتڕاستکردنەوەکەت ئەمەیە:",
+        "reset_body": "کۆدی گەڕاندنەوەی وشەی نهێنی ئەمەیە:",
+        "forgot_t": "وشەی نهێنیت لەبیر چووە؟",
+        "forgot_hint": "ئیمەیڵی هەژمارەکەت بنووسە — کۆدی گەڕاندنەوەت بۆ دەنێرین.",
+        "send_code": "کۆد بنێرە 📩",
+        "code_sent_maybe": "ئەگەر ئەو ئیمەیڵە هەبێت، کۆدەکە لە ڕێگایە 📩",
+        "reset_t": "وشەی نهێنی نوێ",
+        "pw_reset_ok": "وشەی نهێنی گۆڕدرا — بچۆ ژوورەوە! ✅",
+        "complete_t": "بەخێربێیتەوە! یەک هەنگاوی خێرا",
+        "complete_sub": "کوردڕووم نوێکردنەوەیەکی گەورەی وەرگرت — تەنها جارێک زانیارییەکانت پشتڕاست بکەرەوە. ناوی بەکارهێنەرەکەت هەر هی تۆیە.",
+        "stats_t": "ئامارەکان", "open_stats": "📊 ئاماری تەواو",
+        "st_users": "هەموو بەکارهێنەران", "st_plus": "ئەندامانی پڵەس",
+        "st_verified": "ئیمەیڵی پشتڕاستکراو", "st_active": "چالاک لەم هەفتەیە",
+        "st_completed": "پرۆفایلی تەواوکراو", "st_bylevel": "بەپێی ئاستی خوێندن",
+        "st_unis": "زانکۆکان", "st_colleges": "کۆلێژەکان",
+        "st_deps": "بەشەکان", "st_school": "قۆناغەکانی قوتابخانە",
+        "st_grades": "پۆلەکان", "st_jobs": "کارەکان",
+        "st_growth": "بەکارهێنەری نوێ لە مانگدا",
+        "smtp_t": "ناردنی ئیمەیڵ (SMTP)",
+        "regopts_t": "هەڵبژاردەکانی تۆمارکردن (هەر یەکە لە دێڕێکدا)",
+    },
+}
+for _l, _d in V23.items():
+    T[_l].update(_d)
+
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
@@ -1847,6 +2078,69 @@ def touch_last_seen():
                    (now.isoformat(timespec="seconds"), uid))
         db.commit()
         session["_seen"] = now.isoformat(timespec="seconds")
+
+
+@app.before_request
+def force_complete_profile():
+    uid = session.get("user_id")
+    if uid is None:
+        return
+    ep = request.endpoint or ""
+    if ep in ("complete_profile", "logout", "set_lang", "static", "service_worker",
+              "favicon", "robots_txt", "sitemap_xml", "login", "register",
+              "register_verify", "forgot", "reset_pw_page", "about",
+              "api_pings") or ep.startswith("push_"):
+        return
+    row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
+                           (uid,)).fetchone()
+    if row and (row["profile_v"] or 0) < 2:
+        return redirect(url_for("complete_profile"))
+
+
+@app.route("/welcome-back", methods=["GET", "POST"])
+def complete_profile():
+    uid = session.get("user_id")
+    if uid is None:
+        return redirect(url_for("login"))
+    db = get_db()
+    u = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    if u is None:
+        session.clear()
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        f = request.form
+        first = f.get("first_name", "").strip()[:40]
+        middle = f.get("middle_name", "").strip()[:40]
+        last = f.get("last_name", "").strip()[:40]
+        email = f.get("email", "").strip().lower()[:100]
+        edu, edu_ok = parse_edu_wizard(f)
+        err = None
+        if not (first and middle and last):
+            err = "err_fill"
+        elif not re.fullmatch(EMAIL_RE, email):
+            err = "err_email"
+        elif db.execute("SELECT 1 FROM users WHERE email = ? COLLATE NOCASE AND "
+                        "email != '' AND id != ?", (email, uid)).fetchone():
+            err = "err_email_used"
+        elif not edu_ok:
+            err = "err_fill"
+        if err:
+            flash(tr(err), "error")
+            return render_template("complete_profile.html", u=u, old=f,
+                                   **_wizard_ctx())
+        full = " ".join(x for x in (first, middle, last) if x)
+        db.execute("UPDATE users SET first_name=?, middle_name=?, last_name=?, "
+                   "full_name=?, email=?, edu_level=?, institution=?, "
+                   "school_level=?, grade=?, college=?, department=?, stage=?, "
+                   "job_title=?, college_kind=?, profile_v=2 WHERE id=?",
+                   (first, middle, last, full, email, edu["edu_level"],
+                    edu["institution"], edu["school_level"], edu["grade"],
+                    edu["college"], edu["department"], edu["stage"],
+                    edu["job_title"], edu["college_kind"], uid))
+        db.commit()
+        flash(tr("ok_saved"), "ok")
+        return redirect(url_for("dashboard"))
+    return render_template("complete_profile.html", u=u, old=None, **_wizard_ctx())
 
 
 def login_required(f):
@@ -2269,41 +2563,281 @@ def login():
     return render_template("login.html", quote=random_quote())
 
 
+def send_email(to, subject, body):
+    """Send a plain email using the SMTP settings from the admin panel."""
+    st = get_settings()
+    host = (st.get("smtp_host") or "").strip()
+    user = (st.get("smtp_user") or "").strip()
+    pw = st.get("smtp_pass") or ""
+    if not host or not user:
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = (st.get("smtp_from") or "").strip() or user
+        msg["To"] = to
+        port = int((st.get("smtp_port") or "587").strip() or 587)
+        with smtplib.SMTP(host, port, timeout=20) as srv:
+            srv.starttls()
+            srv.login(user, pw)
+            srv.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
+def smtp_ready():
+    st = get_settings()
+    return bool((st.get("smtp_host") or "").strip() and
+                (st.get("smtp_user") or "").strip())
+
+
+def reg_options():
+    st = get_settings()
+    unis = [u.strip() for u in (st.get("reg_universities") or "").split("\n") if u.strip()]
+    colleges = [c.strip() for c in (st.get("reg_colleges") or "").split("\n") if c.strip()]
+    jobs = [j.strip() for j in (st.get("reg_jobs") or "").split("\n") if j.strip()]
+    deps = {}
+    for line in (st.get("reg_departments") or "").split("\n"):
+        if ":" in line:
+            c, rest = line.split(":", 1)
+            deps[c.strip()] = [d.strip() for d in rest.split(",") if d.strip()]
+    return unis, colleges, deps, jobs
+
+
+EMAIL_RE = r"[^@\s]+@[^@\s]+\.[^@\s]+"
+
+
+def strong_pw(pw):
+    return (len(pw) >= 8 and re.search(r"[A-Z]", pw)
+            and re.search(r"[a-z]", pw) and re.search(r"[0-9]", pw))
+
+
+def parse_edu_wizard(form):
+    """Validate the education step. Returns (data, ok)."""
+    lvl = form.get("edu_level", "")
+    d = dict(edu_level="", institution="", school_level="", grade="", college="",
+             department="", stage="", job_title="", college_kind="")
+    if lvl == "school":
+        d["edu_level"] = "school"
+        d["institution"] = form.get("school_name", "").strip()[:100]
+        d["school_level"] = form.get("school_level", "")
+        d["grade"] = (form.get("grade", "") or "").strip()[:4]
+        rng = {"elementary": (1, 6), "intermediate": (7, 9),
+               "high": (10, 12)}.get(d["school_level"])
+        try:
+            g = int(d["grade"])
+        except ValueError:
+            g = -1
+        if not d["institution"] or not rng or not rng[0] <= g <= rng[1]:
+            return d, False
+    elif lvl in ("university", "master", "phd", "professor"):
+        d["edu_level"] = "bachelor" if lvl == "university" else lvl
+        unis, colleges, deps, _ = reg_options()
+        d["institution"] = form.get("university", "").strip()[:120]
+        kind = form.get("college_kind", "")
+        d["college_kind"] = kind
+        if d["institution"] not in unis or kind not in ("college", "institute"):
+            return d, False
+        if kind == "college":
+            d["college"] = form.get("college", "").strip()[:120]
+            d["department"] = form.get("department", "").strip()[:120]
+            if d["college"] not in colleges or                     d["department"] not in deps.get(d["college"], []):
+                return d, False
+        else:
+            d["college"] = form.get("institute_name", "").strip()[:120]
+            d["department"] = form.get("institute_dept", "").strip()[:120]
+            if not d["college"] or not d["department"]:
+                return d, False
+        if lvl == "university":
+            d["stage"] = form.get("stage", "").strip()[:40]
+            if not d["stage"]:
+                return d, False
+    elif lvl == "others":
+        d["edu_level"] = "graduate"
+        _, _, _, jobs = reg_options()
+        d["job_title"] = form.get("job", "").strip()[:80]
+        if d["job_title"] not in jobs:
+            return d, False
+    else:
+        return d, False
+    return d, True
+
+
+def _wizard_ctx():
+    unis, colleges, deps, jobs = reg_options()
+    return dict(unis=unis, colleges=colleges, deps=deps, jobs=jobs)
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if get_settings().get("allow_registration") != "1":
         flash(tr("err_reg_closed"), "error")
-        return render_template("register.html", quote=random_quote(), closed=True)
+        return render_template("register.html", quote=random_quote(), closed=True,
+                               **_wizard_ctx())
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        confirm = request.form.get("confirm", "")
-        import re
+        db = get_db()
+        f = request.form
+        username = f.get("username", "").strip()
+        first = f.get("first_name", "").strip()[:40]
+        middle = f.get("middle_name", "").strip()[:40]
+        last = f.get("last_name", "").strip()[:40]
+        email = f.get("email", "").strip().lower()[:100]
+        password = f.get("password", "")
+        edu, edu_ok = parse_edu_wizard(f)
+        err = None
         if not re.fullmatch(USERNAME_RE, username):
-            flash(tr("err_username"), "error")
-        elif len(password) < 6:
-            flash(tr("err_pw_short"), "error")
-        elif password != confirm:
-            flash(tr("err_pw_match"), "error")
+            err = "err_username"
+        elif db.execute("SELECT 1 FROM users WHERE username = ? COLLATE NOCASE",
+                        (username,)).fetchone():
+            err = "err_user_exists"
+        elif not (first and middle and last):
+            err = "err_fill"
+        elif not re.fullmatch(EMAIL_RE, email):
+            err = "err_email"
+        elif db.execute("SELECT 1 FROM users WHERE email = ? COLLATE NOCASE AND "
+                        "email != ''", (email,)).fetchone():
+            err = "err_email_used"
+        elif not edu_ok:
+            err = "err_fill"
+        elif not strong_pw(password):
+            err = "err_pw_weak"
+        if err:
+            flash(tr(err), "error")
+            return render_template("register.html", quote=random_quote(),
+                                   closed=False, old=f, **_wizard_ctx())
+        pending = dict(username=username, first=first, middle=middle, last=last,
+                       email=email, pw_hash=generate_password_hash(password), **edu)
+        if smtp_ready():
+            code = f"{secrets.randbelow(900000) + 100000}"
+            if send_email(email, tr("verify_subject"),
+                          tr("verify_body") + " " + code):
+                session["preg"] = pending
+                session["preg_code"] = code
+                session["preg_t"] = time.time()
+                session["preg_tries"] = 0
+                session["preg_resends"] = 0
+                return redirect(url_for("register_verify"))
+            flash(tr("err_email_send"), "error")
+            return render_template("register.html", quote=random_quote(),
+                                   closed=False, old=f, **_wizard_ctx())
+        # no SMTP configured -> create the account directly
+        return _create_user_from_pending(pending, verified=False)
+    return render_template("register.html", quote=random_quote(), closed=False,
+                           old=None, **_wizard_ctx())
+
+
+def _create_user_from_pending(p, verified):
+    db = get_db()
+    full = " ".join(x for x in (p["first"], p["middle"], p["last"]) if x)
+    try:
+        cur = db.execute(
+            "INSERT INTO users(username, password_hash, created_at, full_name, "
+            "email, first_name, middle_name, last_name, edu_level, institution, "
+            "school_level, grade, college, department, stage, job_title, "
+            "college_kind, email_verified, profile_v, lang) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (p["username"], p["pw_hash"],
+             datetime.utcnow().isoformat(timespec="seconds"), full, p["email"],
+             p["first"], p["middle"], p["last"], p["edu_level"], p["institution"],
+             p["school_level"], p["grade"], p["college"], p["department"],
+             p["stage"], p["job_title"], p["college_kind"],
+             1 if verified else 0, 2, session.get("lang", "en")))
+    except sqlite3.IntegrityError:
+        flash(tr("err_user_exists"), "error")
+        return redirect(url_for("register"))
+    db.commit()
+    session.clear()
+    session.permanent = True
+    session["user_id"] = cur.lastrowid
+    flash(tr("ok_registered"), "ok")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/register/verify", methods=["GET", "POST"])
+def register_verify():
+    p = session.get("preg")
+    if not p:
+        return redirect(url_for("register"))
+    if time.time() - session.get("preg_t", 0) > 900:
+        session.pop("preg", None)
+        flash(tr("code_expired"), "error")
+        return redirect(url_for("register"))
+    if request.method == "POST":
+        if request.form.get("resend"):
+            if session.get("preg_resends", 0) < 3:
+                code = f"{secrets.randbelow(900000) + 100000}"
+                if send_email(p["email"], tr("verify_subject"),
+                              tr("verify_body") + " " + code):
+                    session["preg_code"] = code
+                    session["preg_t"] = time.time()
+                    session["preg_resends"] = session.get("preg_resends", 0) + 1
+                    flash(tr("code_resent"), "ok")
+            return redirect(url_for("register_verify"))
+        code = request.form.get("code", "").strip()
+        session["preg_tries"] = session.get("preg_tries", 0) + 1
+        if session["preg_tries"] > 6:
+            session.pop("preg", None)
+            flash(tr("code_expired"), "error")
+            return redirect(url_for("register"))
+        if code == session.get("preg_code"):
+            return _create_user_from_pending(p, verified=True)
+        flash(tr("err_code"), "error")
+    return render_template("verify.html", email=p["email"], mode="register")
+
+
+# ------------------------------------------------------------- forgot password
+@app.route("/forgot", methods=["GET", "POST"])
+def forgot():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not smtp_ready():
+            flash(tr("err_email_send"), "error")
+            return redirect(url_for("forgot"))
+        u = get_db().execute("SELECT id FROM users WHERE email = ? COLLATE NOCASE "
+                             "AND email != ''", (email,)).fetchone()
+        if u:
+            code = f"{secrets.randbelow(900000) + 100000}"
+            if send_email(email, tr("verify_subject"),
+                          tr("reset_body") + " " + code):
+                session["fp_uid"] = u["id"]
+                session["fp_code"] = code
+                session["fp_t"] = time.time()
+                session["fp_tries"] = 0
+        # always claim success so nobody can probe which emails exist
+        flash(tr("code_sent_maybe"), "ok")
+        return redirect(url_for("reset_pw_page"))
+    return render_template("forgot.html")
+
+
+@app.route("/reset", methods=["GET", "POST"])
+def reset_pw_page():
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        pw = request.form.get("password", "")
+        uid = session.get("fp_uid")
+        ok_time = time.time() - session.get("fp_t", 0) < 900
+        session["fp_tries"] = session.get("fp_tries", 0) + 1
+        if not uid or not ok_time or session["fp_tries"] > 6:
+            session.pop("fp_uid", None)
+            flash(tr("code_expired"), "error")
+            return redirect(url_for("forgot"))
+        if code != session.get("fp_code"):
+            flash(tr("err_code"), "error")
+        elif not strong_pw(pw):
+            flash(tr("err_pw_weak"), "error")
         else:
             db = get_db()
-            try:
-                cur = db.execute(
-                    "INSERT INTO users(username, password_hash, created_at, full_name, "
-                    "email) VALUES(?,?,?,?,?)",
-                    (username, generate_password_hash(password),
-                     datetime.utcnow().isoformat(timespec="seconds"),
-                     request.form.get("full_name", "").strip()[:60],
-                     request.form.get("email", "").strip()[:80]))
-                session.permanent = True
-                session["user_id"] = cur.lastrowid
-                save_edu_fields(cur.lastrowid)
-                db.commit()
-                flash(tr("ok_registered"), "ok")
-                return redirect(url_for("dashboard"))
-            except sqlite3.IntegrityError:
-                flash(tr("err_user_exists"), "error")
-    return render_template("register.html", quote=random_quote(), closed=False)
+            db.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                       (generate_password_hash(pw), uid))
+            db.commit()
+            for k in ("fp_uid", "fp_code", "fp_t", "fp_tries"):
+                session.pop(k, None)
+            flash(tr("pw_reset_ok"), "ok")
+            return redirect(url_for("login"))
+    return render_template("reset.html")
 
 
 @app.route("/logout")
@@ -4996,7 +5530,9 @@ def admin_settings():
               "ai_api_key", "ai_model", "sponsor_name", "sponsor_url", "plus_price",
               "fib_link", "fastpay_link", "about_text", "about_en", "about_ar",
               "about_ku", "social_instagram",
-              "social_facebook", "social_website", "social_email", "plus_phone"]
+              "social_facebook", "social_website", "social_email", "plus_phone",
+              "smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from",
+              "reg_universities", "reg_colleges", "reg_departments", "reg_jobs"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
@@ -5138,6 +5674,50 @@ def handle_error(e):
 
 # ---------------------------------------------------------------- main
 init_db()
+
+@app.route("/admin/stats")
+@admin_required
+def admin_stats():
+    db = get_db()
+
+    def rows(q, *a):
+        return db.execute(q, a).fetchall()
+
+    def one(q, *a):
+        return db.execute(q, a).fetchone()[0]
+
+    total = one("SELECT COUNT(*) FROM users")
+    week_ago = (datetime.utcnow() - _td(days=7)).isoformat(timespec="seconds")
+    cards = dict(
+        total=total,
+        plus=one("SELECT COUNT(*) FROM users WHERE plus = 1"),
+        verified=one("SELECT COUNT(*) FROM users WHERE email_verified = 1"),
+        active7=one("SELECT COUNT(*) FROM users WHERE last_seen > ?", week_ago),
+        completed=one("SELECT COUNT(*) FROM users WHERE profile_v >= 2"),
+    )
+    lvls = rows("SELECT COALESCE(NULLIF(edu_level, ''), 'unset') AS k, COUNT(*) AS n "
+                "FROM users GROUP BY k ORDER BY n DESC")
+    unis = rows("SELECT institution AS k, COUNT(*) AS n FROM users WHERE edu_level "
+                "IN ('bachelor','master','phd','professor') AND institution != '' "
+                "GROUP BY k ORDER BY n DESC")
+    colleges = rows("SELECT college AS k, COUNT(*) AS n FROM users WHERE "
+                    "college != '' GROUP BY k ORDER BY n DESC LIMIT 25")
+    deps = rows("SELECT department AS k, COUNT(*) AS n FROM users WHERE "
+                "department != '' GROUP BY k ORDER BY n DESC LIMIT 25")
+    slvls = rows("SELECT COALESCE(NULLIF(school_level, ''), '?') AS k, COUNT(*) AS n "
+                 "FROM users WHERE edu_level = 'school' GROUP BY k ORDER BY n DESC")
+    grades = rows("SELECT grade AS k, COUNT(*) AS n FROM users WHERE "
+                  "edu_level = 'school' AND grade != '' GROUP BY k "
+                  "ORDER BY CAST(k AS INTEGER)")
+    jobs = rows("SELECT job_title AS k, COUNT(*) AS n FROM users WHERE "
+                "job_title != '' GROUP BY k ORDER BY n DESC LIMIT 25")
+    months = rows("SELECT substr(created_at, 1, 7) AS k, COUNT(*) AS n FROM users "
+                  "GROUP BY k ORDER BY k DESC LIMIT 12")
+    return render_template("admin_stats.html", user=current_user(), cards=cards,
+                           lvls=lvls, unis=unis, colleges=colleges, deps=deps,
+                           slvls=slvls, grades=grades, jobs=jobs,
+                           months=list(reversed(months)))
+
 
 # ---------------------------------------------------------------- reminders
 def _emit_reminder(con, uid, lang, kind, actor, link, priv, site):

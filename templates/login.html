@@ -32,6 +32,10 @@
         </div>
         <div style="margin-top:20px">
           <button class="primary" type="submit">{{ t('login') }} {{ '←' if is_rtl else '→' }}</button>
+        <div style="text-align:center; margin-top:10px">
+          <a href="{{ url_for('forgot') }}" style="font-size:.8rem; color:var(--muted)">
+            🔑 {{ t('forgot_t') }}</a>
+        </div>
         </div>
       </form>
       <p style="margin-top:18px; font-size:.85rem; color:var(--muted); text-align:center">

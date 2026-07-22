@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:430px; margin:8vh auto 0; padding:36px 28px">
+  <div style="text-align:center">
+    <div style="font-size:2.6rem">🔒</div>
+    <h2 style="margin-top:10px">{{ t('reset_t') }}</h2>
+  </div>
+  <form method="post" style="margin-top:14px">
+    <label>{{ t('verify_code_l') }}</label>
+    <input name="code" maxlength="6" inputmode="numeric" required dir="ltr"
+           style="text-align:center; font-size:1.4rem; letter-spacing:.4em; font-weight:800">
+    <label>{{ t('password') }}</label>
+    <input type="password" name="password" id="pw1" required maxlength="80"
+           autocomplete="new-password" oninput="pwCheck()">
+    <div style="font-size:.74rem; color:var(--muted); margin-top:8px">{{ t('pw_rules_t') }}</div>
+    <div style="display:grid; gap:5px; margin-top:6px">
+      {% for id, k in [('r_len','rule_len'), ('r_up','rule_upper'),
+                       ('r_low','rule_lower'), ('r_num','rule_num')] %}
+      <div id="{{ id }}" style="font-size:.78rem; color:var(--muted)">○ {{ t(k) }}</div>
+      {% endfor %}
+    </div>
+    <button class="primary" type="submit" style="margin-top:16px">{{ t('save') }}</button>
+  </form>
+</div>
+<script>
+  function pwCheck() {
+    const p = document.getElementById("pw1").value;
+    const rules = { r_len: p.length >= 8, r_up: /[A-Z]/.test(p),
+                    r_low: /[a-z]/.test(p), r_num: /[0-9]/.test(p) };
+    Object.keys(rules).forEach((id) => {
+      const el = document.getElementById(id);
+      el.style.color = rules[id] ? "#4ade80" : "var(--muted)";
+      el.textContent = (rules[id] ? "✓ " : "○ ") + el.textContent.slice(2);
+    });
+  }
+</script>
+{% endblock %}

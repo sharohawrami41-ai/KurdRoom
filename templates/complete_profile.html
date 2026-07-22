@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .ocards { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:10px; margin:8px 0 4px; }
+  .ocard { border:1.5px solid var(--card-border); border-radius:16px; padding:14px 10px;
+    text-align:center; cursor:pointer; background:var(--input-bg); transition:.18s;
+    user-select:none; }
+  .ocard.sel { border-color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .ocard .oe { font-size:1.7rem; }
+  .ocard .ol { font-size:.78rem; font-weight:700; margin-top:6px; }
+  .pillrow { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }
+  .gpill { min-width:46px; padding:10px 0; text-align:center; border-radius:12px;
+    border:1.5px solid var(--card-border); background:var(--input-bg); cursor:pointer;
+    font-weight:700; user-select:none; }
+  .gpill.sel { border-color:var(--accent); color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .fewrap.bad { animation: wshake .35s ease; }
+  .fewrap.bad input, .fewrap.bad select { border-color:#ef4444 !important; }
+  .fmsg { display:none; color:#f87171; font-size:.72rem; margin-top:4px; }
+  .fewrap.bad .fmsg { display:block; }
+  @keyframes wshake { 0%,100% { transform:translateX(0); }
+    25% { transform:translateX(-7px); } 50% { transform:translateX(7px); }
+    75% { transform:translateX(-4px); } }
+</style>
+
+<div class="card" style="max-width:560px; margin:3vh auto 0; padding:28px 26px">
+  <div style="text-align:center; margin-bottom:16px">
+    <div style="font-size:2.4rem">👋</div>
+    <h2 style="margin-top:6px">{{ t('complete_t') }}</h2>
+    <p style="color:var(--muted); font-size:.84rem; margin-top:6px">{{ t('complete_sub') }}</p>
+    <span class="badge medium" style="margin-top:8px">@{{ u.username }}</span>
+  </div>
+
+  <form method="post" id="wform" novalidate>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px">
+      {% set parts = (u.full_name or '').split(' ') %}
+      <div class="fewrap" data-f="first_name">
+        <label>{{ t('first_name_l') }}</label>
+        <input name="first_name" maxlength="40"
+               value="{{ u.first_name or (parts[0] if parts|length > 0 else '') }}">
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+      <div class="fewrap" data-f="middle_name">
+        <label>{{ t('middle_name_l') }}</label>
+        <input name="middle_name" maxlength="40"
+               value="{{ u.middle_name or (parts[1] if parts|length > 1 else '') }}">
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+      <div class="fewrap" data-f="last_name">
+        <label>{{ t('last_name_l') }}</label>
+        <input name="last_name" maxlength="40"
+               value="{{ u.last_name or (parts[2] if parts|length > 2 else '') }}">
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+    </div>
+    <div class="fewrap" data-f="email">
+      <label>✉️ {{ t('email_addr') }}</label>
+      <input type="email" name="email" maxlength="100" value="{{ u.email or '' }}">
+      <div style="font-size:.7rem; color:var(--muted); margin-top:4px">
+        🔒 {{ t('email_hint2') }}</div>
+      <div class="fmsg">{{ t('err_email') }}</div>
+    </div>
+
+    <hr style="margin:18px 0; border-color:var(--card-border)">
+    <label>{{ t('edu_q') }}</label>
+    <input type="hidden" name="edu_level" id="eduLevel">
+    <div class="fewrap" data-f="edu_level">
+      <div class="ocards" id="lvlCards">
+        {% for v, e, k in [('school','🏫','wl_school'), ('university','🎓','wl_uni'),
+                           ('master','📜','wl_master'), ('phd','🧑‍🔬','wl_phd'),
+                           ('professor','👨‍🏫','wl_prof'), ('others','💼','wl_other')] %}
+        <div class="ocard" data-v="{{ v }}" onclick="lvlPick(this)">
+          <div class="oe">{{ e }}</div><div class="ol">{{ t(k) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+
+    <div id="brSchool" style="display:none">
+      <div class="fewrap" data-f="school_name">
+        <label>🏫 {{ t('school_name_l') }}</label>
+        <input name="school_name" maxlength="100"
+               value="{{ u.institution if u.edu_level == 'school' else '' }}">
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+      <label>{{ t('school_lvl_l') }}</label>
+      <input type="hidden" name="school_level">
+      <div class="fewrap" data-f="school_level">
+        <div class="ocards" style="grid-template-columns:repeat(3,1fr)">
+          {% for v, e, k in [('elementary','✏️','s_elem'), ('intermediate','📗','s_inter'),
+                             ('high','📘','s_high')] %}
+          <div class="ocard" data-v="{{ v }}" onclick="slvlPick(this)">
+            <div class="oe">{{ e }}</div><div class="ol">{{ t(k) }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+      <div id="gradeWrap" style="display:none">
+        <label>{{ t('grade_l') }}</label>
+        <input type="hidden" name="grade">
+        <div class="fewrap" data-f="grade">
+          <div class="pillrow" id="gradePills"></div>
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="brUni" style="display:none">
+      <div class="fewrap" data-f="university">
+        <label>🎓 {{ t('uni_l') }}</label>
+        <select name="university">
+          <option value="">{{ t('choose_l') }}</option>
+          {% for un in unis %}<option value="{{ un }}"
+            {{ 'selected' if u.institution == un }}>{{ un }}</option>{% endfor %}
+        </select>
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+      <label>{{ t('ck_l') }}</label>
+      <input type="hidden" name="college_kind">
+      <div class="fewrap" data-f="college_kind">
+        <div class="ocards" style="grid-template-columns:1fr 1fr">
+          <div class="ocard" data-v="college" onclick="ckPick(this)">
+            <div class="oe">🏛</div><div class="ol">{{ t('ck_college') }}</div></div>
+          <div class="ocard" data-v="institute" onclick="ckPick(this)">
+            <div class="oe">🏢</div><div class="ol">{{ t('ck_institute') }}</div></div>
+        </div>
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+      <div id="brCollege" style="display:none">
+        <div class="fewrap" data-f="college">
+          <label>{{ t('college_l') }}</label>
+          <select name="college" id="colSel" onchange="fillDeps()">
+            <option value="">{{ t('choose_l') }}</option>
+            {% for c in colleges %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+        <div class="fewrap" data-f="department">
+          <label>{{ t('dept_l') }}</label>
+          <select name="department" id="depSel">
+            <option value="">{{ t('choose_l') }}</option>
+          </select>
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+      </div>
+      <div id="brInstitute" style="display:none">
+        <div class="fewrap" data-f="institute_name">
+          <label>{{ t('inst_name_l') }}</label>
+          <input name="institute_name" maxlength="120">
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+        <div class="fewrap" data-f="institute_dept">
+          <label>{{ t('inst_dept_l') }}</label>
+          <input name="institute_dept" maxlength="120">
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+      </div>
+      <div id="stageWrap" style="display:none">
+        <div class="fewrap" data-f="stage">
+          <label>📚 {{ t('stage') }}</label>
+          <input name="stage" maxlength="40" value="{{ u.stage or '' }}" placeholder="1, 2, 3…">
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="brJob" style="display:none">
+      <div class="fewrap" data-f="job">
+        <label>💼 {{ t('job_l') }}</label>
+        <select name="job">
+          <option value="">{{ t('choose_l') }}</option>
+          {% for j in jobs %}<option value="{{ j }}"
+            {{ 'selected' if u.job_title == j }}>{{ j }}</option>{% endfor %}
+        </select>
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+    </div>
+
+    <button class="primary" type="submit" style="margin-top:20px">💾 {{ t('save') }}</button>
+  </form>
+  <p style="text-align:center; margin-top:14px; font-size:.78rem">
+    <a href="{{ url_for('logout') }}" style="color:var(--muted)">🚪 {{ t('logout') }}</a></p>
+</div>
+
+<script>
+  const DEPS = {{ deps|tojson }};
+  const form = document.getElementById("wform");
+  function markBad(name, bad) {
+    const w = form.querySelector('.fewrap[data-f="' + name + '"]');
+    if (!w) return;
+    if (bad) { w.classList.remove("bad"); void w.offsetWidth; w.classList.add("bad"); }
+    else w.classList.remove("bad");
+  }
+  function val(n) { return (form[n] && form[n].value || "").trim(); }
+  function need(name, ok) { markBad(name, !ok); return ok ? 1 : 0; }
+  function pickCard(container, el) {
+    container.querySelectorAll(".ocard").forEach((c) => c.classList.remove("sel"));
+    el.classList.add("sel");
+  }
+  function lvlPick(el) {
+    pickCard(document.getElementById("lvlCards"), el);
+    const v = el.dataset.v;
+    form.edu_level.value = v;
+    markBad("edu_level", false);
+    document.getElementById("brSchool").style.display = v === "school" ? "" : "none";
+    document.getElementById("brUni").style.display =
+      ["university", "master", "phd", "professor"].includes(v) ? "" : "none";
+    document.getElementById("brJob").style.display = v === "others" ? "" : "none";
+    document.getElementById("stageWrap").style.display = v === "university" ? "" : "none";
+  }
+  function slvlPick(el) {
+    pickCard(el.parentElement, el);
+    form.school_level.value = el.dataset.v;
+    markBad("school_level", false);
+    const ranges = { elementary: [1, 6], intermediate: [7, 9], high: [10, 12] };
+    const r = ranges[el.dataset.v];
+    const row = document.getElementById("gradePills");
+    row.innerHTML = "";
+    for (let g = r[0]; g <= r[1]; g++) {
+      const p = document.createElement("div");
+      p.className = "gpill"; p.textContent = g;
+      p.onclick = () => {
+        row.querySelectorAll(".gpill").forEach((x) => x.classList.remove("sel"));
+        p.classList.add("sel");
+        form.grade.value = g;
+        markBad("grade", false);
+      };
+      row.appendChild(p);
+    }
+    form.grade.value = "";
+    document.getElementById("gradeWrap").style.display = "";
+  }
+  function ckPick(el) {
+    pickCard(el.parentElement, el);
+    form.college_kind.value = el.dataset.v;
+    markBad("college_kind", false);
+    document.getElementById("brCollege").style.display =
+      el.dataset.v === "college" ? "" : "none";
+    document.getElementById("brInstitute").style.display =
+      el.dataset.v === "institute" ? "" : "none";
+  }
+  function fillDeps() {
+    const col = val("college");
+    const sel = document.getElementById("depSel");
+    sel.innerHTML = '<option value="">{{ t("choose_l") }}</option>';
+    (DEPS[col] || []).forEach((d) => {
+      const o = document.createElement("option");
+      o.value = d; o.textContent = d;
+      sel.appendChild(o);
+    });
+  }
+  form.addEventListener("submit", (e) => {
+    let ok = 1;
+    ok &= need("first_name", !!val("first_name"));
+    ok &= need("middle_name", !!val("middle_name"));
+    ok &= need("last_name", !!val("last_name"));
+    ok &= need("email", /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("email")));
+    const lvl = val("edu_level");
+    ok &= need("edu_level", !!lvl);
+    if (lvl === "school") {
+      ok &= need("school_name", !!val("school_name"));
+      ok &= need("school_level", !!val("school_level"));
+      ok &= need("grade", !!val("grade"));
+    } else if (["university", "master", "phd", "professor"].includes(lvl)) {
+      ok &= need("university", !!val("university"));
+      const ck = val("college_kind");
+      ok &= need("college_kind", !!ck);
+      if (ck === "college") {
+        ok &= need("college", !!val("college"));
+        ok &= need("department", !!val("department"));
+      } else if (ck === "institute") {
+        ok &= need("institute_name", !!val("institute_name"));
+        ok &= need("institute_dept", !!val("institute_dept"));
+      }
+      if (lvl === "university") ok &= need("stage", !!val("stage"));
+    } else if (lvl === "others") {
+      ok &= need("job", !!val("job"));
+    }
+    if (!ok) e.preventDefault();
+  });
+</script>
+{% endblock %}

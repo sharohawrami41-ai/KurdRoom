@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:430px; margin:8vh auto 0; text-align:center; padding:36px 28px">
+  <div style="font-size:2.6rem">🔑</div>
+  <h2 style="margin-top:10px">{{ t('forgot_t') }}</h2>
+  <p style="color:var(--muted); font-size:.88rem; margin-top:8px">{{ t('forgot_hint') }}</p>
+  <form method="post" style="margin-top:16px">
+    <label>✉️ {{ t('email_addr') }}</label>
+    <input type="email" name="email" required autofocus dir="ltr">
+    <button class="primary" type="submit" style="margin-top:16px">{{ t('send_code') }}</button>
+  </form>
+  <p style="margin-top:16px; font-size:.82rem">
+    <a href="{{ url_for('login') }}">← {{ t('login') }}</a></p>
+</div>
+{% endblock %}

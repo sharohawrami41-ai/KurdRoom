@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2 style="font-size:1.4rem; margin:8px 0 18px">🛠 {{ t('admin_panel') }}</h2>
+  <style> .xfb, .xqt { display:none; } </style>
+  <div style="display:flex; align-items:center; gap:10px; margin:8px 0 18px">
+    <h2 style="font-size:1.4rem">🛠 {{ t('admin_panel') }}</h2>
+    <a class="pill" href="{{ url_for('admin_stats') }}"
+       style="margin-inline-start:auto; border-color:var(--accent); color:var(--accent)">
+      {{ t('open_stats') }}</a>
+  </div>
 
   <!-- ===================== users ===================== -->
   <div class="card" style="margin-bottom:22px; overflow-x:auto">
@@ -64,6 +70,14 @@
         ▼ {{ t('show_more') }} ({{ users|length - 3 }})</button>
     </div>
     <script>
+      function moreList(btn, cls) {
+        const rows = document.querySelectorAll("." + cls);
+        if (!rows.length) return;
+        const hidden = getComputedStyle(rows[0]).display === "none";
+        rows.forEach((r) => { r.style.display = hidden ? "block" : "none"; });
+        btn.innerHTML = (hidden ? "▲ {{ t('show_less') }}"
+                                : "▼ {{ t('show_more') }} (" + rows.length + ")");
+      }
       function toggleUsers() {
         const rows = document.querySelectorAll("tr.xtrau");
         const btn = document.getElementById("moreUsersBtn");
@@ -83,8 +97,9 @@
         ⭐ {{ avg_rating }} / 5 · {{ n_ratings }} {{ t('ratings_n') }}</span>{% endif %}</h2>
     <div class="hint"></div>
     {% for f in fb %}
-    <div class="plan {{ 'medium' if not f.resolved else 'low' }}"
-         style="flex-direction:column; align-items:stretch; gap:6px">
+    <div class="plan {{ 'medium' if not f.resolved else 'low' }} {{ 'xfb' if loop.index > 3 }}"
+         style="flex-direction:column; align-items:stretch; gap:6px;
+         {{ 'display:none' if loop.index > 3 }}">
       <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap">
         <strong>{{ f.username }}{% if f.uplus %} <span class="badge high" style="font-size:.6rem">⭐ PLUS</span>{% endif %}
           {% if f.rating %}<span class="badge medium" dir="ltr">{{ '⭐' * f.rating }}</span>{% endif %}</strong>
@@ -100,6 +115,13 @@
       {% if f.message %}<div style="font-size:.88rem; white-space:pre-wrap">{{ f.message }}</div>{% endif %}
     </div>
     {% endfor %}
+    {% if fb|length > 3 %}
+    <div style="text-align:center; margin-top:12px">
+      <button class="small" type="button" onclick="moreList(this, 'xfb')"
+              style="padding:9px 26px; border-color:var(--accent); color:var(--accent)">
+        ▼ {{ t('show_more') }} ({{ fb|length - 3 }})</button>
+    </div>
+    {% endif %}
   </div>
 
   <div class="grid2">
@@ -168,6 +190,34 @@
         <label>⚡ {{ t('fp_link_l') }}</label>
         <input name="fastpay_link" maxlength="200" dir="ltr"
                value="{{ settings.get('fastpay_link','') }}" placeholder="https://…">
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        <h2 style="font-size:1rem">📮 {{ t('smtp_t') }}</h2>
+        <label>Host</label>
+        <input name="smtp_host" dir="ltr" value="{{ settings.get('smtp_host','') }}"
+               placeholder="smtp.gmail.com">
+        <label>Port</label>
+        <input name="smtp_port" dir="ltr" value="{{ settings.get('smtp_port','') }}"
+               placeholder="587">
+        <label>User</label>
+        <input name="smtp_user" dir="ltr" value="{{ settings.get('smtp_user','') }}"
+               placeholder="you@gmail.com">
+        <label>Password</label>
+        <input type="password" name="smtp_pass" dir="ltr" autocomplete="off"
+               value="{{ settings.get('smtp_pass','') }}">
+        <label>From ({{ t('optional') }})</label>
+        <input name="smtp_from" dir="ltr" value="{{ settings.get('smtp_from','') }}">
+
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        <h2 style="font-size:1rem">🎓 {{ t('regopts_t') }}</h2>
+        <label>{{ t('st_unis') }}</label>
+        <textarea name="reg_universities" rows="5" dir="ltr">{{ settings.get('reg_universities','') }}</textarea>
+        <label>{{ t('st_colleges') }}</label>
+        <textarea name="reg_colleges" rows="4" dir="ltr">{{ settings.get('reg_colleges','') }}</textarea>
+        <label>{{ t('st_deps') }} — College: dept1, dept2</label>
+        <textarea name="reg_departments" rows="5" dir="ltr">{{ settings.get('reg_departments','') }}</textarea>
+        <label>{{ t('st_jobs') }}</label>
+        <textarea name="reg_jobs" rows="4" dir="ltr">{{ settings.get('reg_jobs','') }}</textarea>
+
         <label>📷 {{ t('fib_qr_l') }}</label>
         <input type="file" name="fib_qr" accept=".png,.jpg,.jpeg,.webp">
         {% if fib_qr_img %}
@@ -209,7 +259,8 @@
       <h2>✦ {{ t('quotes') }} ({{ quotes|length }})</h2>
       <div class="hint"></div>
       {% for q in quotes %}
-      <div class="plan medium" style="align-items:center">
+      <div class="plan medium {{ 'xqt' if loop.index > 3 }}"
+           style="align-items:center; {{ 'display:none' if loop.index > 3 }}">
         <div class="plan-body">
           <div style="font-size:.88rem">{{ q.text_en }}</div>
           {% if q.text_ar %}<div class="plan-details" dir="rtl">{{ q.text_ar }}</div>{% endif %}
@@ -220,6 +271,13 @@
         </form>
       </div>
       {% endfor %}
+      {% if quotes|length > 3 %}
+      <div style="text-align:center; margin-top:10px">
+        <button class="small" type="button" onclick="moreList(this, 'xqt')"
+                style="padding:8px 22px; border-color:var(--accent); color:var(--accent)">
+          ▼ {{ t('show_more') }} ({{ quotes|length - 3 }})</button>
+      </div>
+      {% endif %}
       <form method="post" action="{{ url_for('admin_quote_add') }}" style="margin-top:14px">
         <label>{{ t('quote_en') }}</label>
         <input name="text_en" required maxlength="200">

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .stcards { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:12px; margin-bottom:20px; }
+  .stcard { background:var(--card); border:1px solid var(--card-border);
+    border-radius:16px; padding:16px; text-align:center;
+    animation: fadeUp .4s ease both; }
+  .stcard .n { font-size:1.9rem; font-weight:800; color:var(--accent); }
+  .stcard .l { font-size:.7rem; color:var(--muted); margin-top:2px; }
+  .hbar { display:flex; align-items:center; gap:10px; margin:7px 0; }
+  .hbar .lb { width:190px; font-size:.78rem; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; flex-shrink:0; }
+  .hbar .tr { flex:1; height:16px; border-radius:99px; background:var(--input-bg);
+    overflow:hidden; }
+  .hbar .fl { height:100%; border-radius:99px;
+    background: linear-gradient(90deg, var(--accent), #a855f7);
+    transition: width .8s cubic-bezier(.22,.9,.36,1); }
+  .hbar .nn { min-width:56px; font-size:.76rem; color:var(--muted); text-align:end;
+    font-variant-numeric: tabular-nums; }
+  .vbarrow { display:flex; align-items:flex-end; gap:8px; height:130px; margin-top:10px; }
+  .vbarcol { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .vbarcol .vb { width:100%; max-width:44px; border-radius:8px 8px 3px 3px;
+    background: linear-gradient(180deg, #a855f7, var(--accent)); }
+  .vbarcol .vl { font-size:.6rem; color:var(--muted); }
+  .vbarcol .vn { font-size:.72rem; font-weight:800; color:var(--accent); }
+</style>
+
+<div style="display:flex; align-items:center; gap:10px; margin:8px 0 18px">
+  <h2 style="font-size:1.4rem">📊 {{ t('stats_t') }}</h2>
+  <a class="pill" href="{{ url_for('admin') }}" style="margin-inline-start:auto">
+    🛠 {{ t('admin_panel') }} {{ '←' if is_rtl else '→' }}</a>
+</div>
+
+<div class="stcards">
+  <div class="stcard"><div class="n">{{ cards.total }}</div><div class="l">👥 {{ t('st_users') }}</div></div>
+  <div class="stcard"><div class="n">{{ cards.active7 }}</div><div class="l">🟢 {{ t('st_active') }}</div></div>
+  <div class="stcard"><div class="n">{{ cards.plus }}</div><div class="l">⭐ {{ t('st_plus') }}</div></div>
+  <div class="stcard"><div class="n">{{ cards.verified }}</div><div class="l">✉️ {{ t('st_verified') }}</div></div>
+  <div class="stcard"><div class="n">{{ cards.completed }}</div><div class="l">✅ {{ t('st_completed') }}</div></div>
+</div>
+
+{% macro bars(rows, labels={}) %}
+  {% set mx = (rows | map(attribute='n') | max) if rows else 1 %}
+  {% for r in rows %}
+  <div class="hbar">
+    <span class="lb" title="{{ r.k }}">{{ labels.get(r.k, r.k) }}</span>
+    <div class="tr"><div class="fl" style="width:{{ (r.n * 100 / mx)|round(1) }}%"></div></div>
+    <span class="nn" dir="ltr">{{ r.n }} · {{ (r.n * 100 / cards.total)|round(1) }}%</span>
+  </div>
+  {% endfor %}
+  {% if not rows %}<div class="hint" style="display:block">—</div>{% endif %}
+{% endmacro %}
+
+<div class="card" style="margin-bottom:18px">
+  <h2>🎓 {{ t('st_bylevel') }}</h2>
+  <div class="hint"></div>
+  {{ bars(lvls, {'school': '🏫 ' + t('wl_school'), 'bachelor': '🎓 ' + t('wl_uni'),
+                 'master': '📜 ' + t('wl_master'), 'phd': '🧑‍🔬 ' + t('wl_phd'),
+                 'professor': '👨‍🏫 ' + t('wl_prof'), 'graduate': '💼 ' + t('wl_other'),
+                 'unset': '❔ —'}) }}
+</div>
+
+<div class="grid2">
+  <div class="card" style="margin-bottom:18px">
+    <h2>🏛 {{ t('st_unis') }}</h2>
+    <div class="hint"></div>
+    {{ bars(unis) }}
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>📚 {{ t('st_colleges') }}</h2>
+    <div class="hint"></div>
+    {{ bars(colleges) }}
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>🧪 {{ t('st_deps') }}</h2>
+    <div class="hint"></div>
+    {{ bars(deps) }}
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>🏫 {{ t('st_school') }}</h2>
+    <div class="hint"></div>
+    {{ bars(slvls, {'elementary': '✏️ ' + t('s_elem'), 'intermediate': '📗 ' + t('s_inter'),
+                    'high': '📘 ' + t('s_high'), '?': '❔'}) }}
+    <h2 style="margin-top:16px">{{ t('st_grades') }}</h2>
+    <table>
+      <tr><th>{{ t('grade_l') }}</th><th>👥</th></tr>
+      {% for g in grades %}<tr><td>{{ g.k }}</td><td>{{ g.n }}</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>💼 {{ t('st_jobs') }}</h2>
+    <div class="hint"></div>
+    {{ bars(jobs) }}
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>📈 {{ t('st_growth') }}</h2>
+    <div class="hint"></div>
+    {% set mmx = (months | map(attribute='n') | max) if months else 1 %}
+    <div class="vbarrow">
+      {% for m in months %}
+      <div class="vbarcol">
+        <span class="vn">{{ m.n }}</span>
+        <div class="vb" style="height:{{ [(m.n * 100 / mmx)|round(0)|int, 4]|max }}px"></div>
+        <span class="vl" dir="ltr">{{ m.k[2:] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

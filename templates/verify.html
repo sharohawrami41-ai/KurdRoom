@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:430px; margin:8vh auto 0; text-align:center; padding:36px 28px">
+  <div style="font-size:2.6rem">📩</div>
+  <h2 style="margin-top:10px">{{ t('verify_t') }}</h2>
+  <p style="color:var(--muted); font-size:.88rem; margin-top:8px">
+    {{ t('verify_sent') }}<br><strong dir="ltr">{{ email }}</strong></p>
+  <form method="post" style="margin-top:18px">
+    <label>{{ t('verify_code_l') }}</label>
+    <input name="code" maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+           required dir="ltr" autofocus
+           style="text-align:center; font-size:1.6rem; letter-spacing:.5em;
+           font-weight:800; padding:14px">
+    <button class="primary" type="submit" style="margin-top:16px">
+      {{ t('verify_btn') }}</button>
+  </form>
+  <form method="post" style="margin-top:12px">
+    <input type="hidden" name="resend" value="1">
+    <button type="submit" style="background:none; border:none; color:var(--accent);
+            cursor:pointer; font-size:.82rem">↻ {{ t('resend_code') }}</button>
+  </form>
+</div>
+{% endblock %}

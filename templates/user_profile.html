@@ -9,9 +9,6 @@
       <span class="badge high" style="font-size:.68rem; vertical-align:middle">
         {{ t('level') }} {{ xpinfo.level }}</span></div>
     <div style="color:var(--accent); font-weight:600; font-size:1.02rem">@{{ person.username }}</div>
-    {% if person.email and status == 'friends' %}
-      <div style="color:var(--muted); font-size:.88rem; margin-top:6px">✉ {{ person.email }}</div>
-    {% endif %}
     {% if person.bio %}
       <p style="margin-top:14px; font-size:.94rem; white-space:pre-wrap">{{ person.bio }}</p>
     {% endif %}

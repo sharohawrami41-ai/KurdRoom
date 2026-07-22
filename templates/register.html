@@ -1,71 +1,410 @@
 {% extends "base.html" %}
-{% from "_widgets.html" import edu_fields with context %}
 {% block content %}
-<div class="auth-shell">
-  <div class="auth-panel">
-    <div class="auth-hero">
-      {% if site_logo %}
-        <img src="{{ site_logo }}" alt="" class="hero-logo">
-      {% endif %}
-      <h1>{{ settings.site_name }}</h1>
-      <div class="hero-tag">{{ tagline }}</div>
-      <div class="feat">📋 {{ t('planning') }} · {{ t('habits') }} · {{ t('focus') }}</div>
-      <div class="feat">🎓 {{ t('university') }} · {{ t('flashcards') }}</div>
-      <div class="feat">👥 {{ t('friends') }} · {{ t('groups') }} · {{ t('messages_t') }}</div>
-      <div class="feat">🏆 {{ t('leaderboard') }} · {{ t('badges_t') }}</div>
-      {% if quote %}<div class="mini-quote">✦ {{ quote }}</div>{% endif %}
+<style>
+  .wiz { max-width: 560px; margin: 3vh auto 0; }
+  .wiz-head { text-align:center; margin-bottom:18px; }
+  .wiz-head h1 { font-size:1.6rem; font-weight:800;
+    background: linear-gradient(90deg, var(--accent), #e879f9);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .wsteps { display:flex; gap:8px; margin:18px 0 22px; }
+  .wstep { flex:1; text-align:center; font-size:.72rem; color:var(--muted); }
+  .wstep .bar { height:5px; border-radius:99px; background:var(--card-border);
+    margin-bottom:6px; transition:.4s; }
+  .wstep.on { color:var(--accent); font-weight:700; }
+  .wstep.on .bar { background: linear-gradient(90deg, var(--accent), #a855f7); }
+  .wpane { display:none; animation: fadeUp .3s cubic-bezier(.22,.9,.36,1) both; }
+  .wpane.on { display:block; }
+  .ocards { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:10px; margin:8px 0 4px; }
+  .ocard { border:1.5px solid var(--card-border); border-radius:16px; padding:14px 10px;
+    text-align:center; cursor:pointer; background:var(--input-bg); transition:.18s;
+    user-select:none; }
+  .ocard:hover { transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .ocard.sel { border-color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .ocard .oe { font-size:1.7rem; }
+  .ocard .ol { font-size:.78rem; font-weight:700; margin-top:6px; }
+  .pillrow { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }
+  .gpill { min-width:46px; padding:10px 0; text-align:center; border-radius:12px;
+    border:1.5px solid var(--card-border); background:var(--input-bg); cursor:pointer;
+    font-weight:700; transition:.15s; user-select:none; }
+  .gpill.sel { border-color:var(--accent); color:var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .fewrap { position:relative; }
+  input.err, select.err { border-color:#ef4444 !important; }
+  .fmsg { display:none; color:#f87171; font-size:.72rem; margin-top:4px;
+    animation: fadeUp .2s ease both; }
+  .fewrap.bad .fmsg { display:block; }
+  .fewrap.bad { animation: wshake .35s ease; }
+  @keyframes wshake { 0%,100% { transform:translateX(0); }
+    25% { transform:translateX(-7px); } 50% { transform:translateX(7px); }
+    75% { transform:translateX(-4px); } }
+  .pwrules { margin-top:10px; display:grid; gap:5px; }
+  .pwrule { display:flex; align-items:center; gap:8px; font-size:.78rem;
+    color:var(--muted); transition:.2s; }
+  .pwrule .ic { width:19px; height:19px; border-radius:50%; display:inline-flex;
+    align-items:center; justify-content:center; font-size:.6rem;
+    border:1.5px solid var(--card-border); transition:.2s; color:transparent; }
+  .pwrule.ok { color:#4ade80; }
+  .pwrule.ok .ic { background:#22c55e; border-color:#22c55e; color:#fff; }
+  .wnav { display:flex; gap:10px; margin-top:22px; }
+  .wnav .primary { flex:1; }
+  .wnav .ghost { padding:12px 22px; border-radius:14px; cursor:pointer;
+    background:none; border:1px solid var(--card-border); color:var(--muted); }
+</style>
+
+<div class="wiz card" style="padding:28px 26px">
+  <div class="wiz-head">
+    <h1>{{ settings.site_name }} ✨</h1>
+    <div style="color:var(--muted); font-size:.85rem">{{ tagline }}</div>
+  </div>
+
+  {% if closed %}
+  <div class="flash error">{{ t('err_reg_closed') }}</div>
+  {% else %}
+
+  <div class="wsteps">
+    <div class="wstep on" id="ws1"><div class="bar"></div>👤 {{ t('step_account') }}</div>
+    <div class="wstep" id="ws2"><div class="bar"></div>🎓 {{ t('step_edu') }}</div>
+    <div class="wstep" id="ws3"><div class="bar"></div>🔒 {{ t('step_pw') }}</div>
+  </div>
+
+  <form method="post" id="wform" novalidate>
+    <!-- ================= STEP 1 : account ================= -->
+    <div class="wpane on" id="wp1">
+      <div class="fewrap" data-f="username">
+        <label>@ {{ t('username') }}</label>
+        <input name="username" minlength="3" maxlength="20" autocomplete="username"
+               value="{{ old.username if old else '' }}">
+        <div class="fmsg">{{ t('err_username') }}</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px">
+        <div class="fewrap" data-f="first_name">
+          <label>{{ t('first_name_l') }}</label>
+          <input name="first_name" maxlength="40" value="{{ old.first_name if old else '' }}">
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+        <div class="fewrap" data-f="middle_name">
+          <label>{{ t('middle_name_l') }}</label>
+          <input name="middle_name" maxlength="40" value="{{ old.middle_name if old else '' }}">
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+        <div class="fewrap" data-f="last_name">
+          <label>{{ t('last_name_l') }}</label>
+          <input name="last_name" maxlength="40" value="{{ old.last_name if old else '' }}">
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+      </div>
+      <div class="fewrap" data-f="email">
+        <label>✉️ {{ t('email_addr') }}</label>
+        <input type="email" name="email" maxlength="100" autocomplete="email"
+               value="{{ old.email if old else '' }}">
+        <div style="font-size:.7rem; color:var(--muted); margin-top:4px">
+          🔒 {{ t('email_hint2') }}</div>
+        <div class="fmsg">{{ t('err_email') }}</div>
+      </div>
+      <div class="wnav">
+        <button type="button" class="primary" onclick="wgo(2)">{{ t('next_t') }} {{ '←' if is_rtl else '→' }}</button>
+      </div>
     </div>
 
-    <div class="auth-form">
-      <div class="auth-title">{{ t('register') }} ✨</div>
-      <div class="auth-sub">{{ tagline }}</div>
-      {% if not closed %}
-      <form method="post">
-        <div class="inp">
-          <span class="ico">@</span>
-          <input name="username" required autofocus minlength="3" maxlength="20"
-                 pattern="[A-Za-z0-9_.]+" autocomplete="username"
-                 placeholder="{{ t('username') }}">
+    <!-- ================= STEP 2 : education ================= -->
+    <div class="wpane" id="wp2">
+      <label>{{ t('edu_q') }}</label>
+      <input type="hidden" name="edu_level" id="eduLevel">
+      <div class="fewrap" data-f="edu_level">
+        <div class="ocards" id="lvlCards">
+          {% for v, e, k in [('school','🏫','wl_school'), ('university','🎓','wl_uni'),
+                             ('master','📜','wl_master'), ('phd','🧑‍🔬','wl_phd'),
+                             ('professor','👨‍🏫','wl_prof'), ('others','💼','wl_other')] %}
+          <div class="ocard" data-v="{{ v }}" onclick="lvlPick(this)">
+            <div class="oe">{{ e }}</div><div class="ol">{{ t(k) }}</div>
+          </div>
+          {% endfor %}
         </div>
-        <div class="inp">
-          <span class="ico">👤</span>
-          <input name="full_name" maxlength="60" autocomplete="name"
-                 placeholder="{{ t('full_name') }} ({{ t('optional') }})">
+        <div class="fmsg">{{ t('err_fill') }}</div>
+      </div>
+
+      <!-- school branch -->
+      <div id="brSchool" style="display:none">
+        <div class="fewrap" data-f="school_name">
+          <label>🏫 {{ t('school_name_l') }}</label>
+          <input name="school_name" maxlength="100">
+          <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
-        <div class="inp">
-          <span class="ico">✉️</span>
-          <input type="email" name="email" maxlength="80" autocomplete="email"
-                 placeholder="{{ t('email_addr') }} ({{ t('optional') }})">
+        <label>{{ t('school_lvl_l') }}</label>
+        <input type="hidden" name="school_level" id="schoolLevel">
+        <div class="fewrap" data-f="school_level">
+          <div class="ocards" style="grid-template-columns:repeat(3,1fr)">
+            {% for v, e, k in [('elementary','✏️','s_elem'), ('intermediate','📗','s_inter'),
+                               ('high','📘','s_high')] %}
+            <div class="ocard" data-v="{{ v }}" onclick="slvlPick(this)">
+              <div class="oe">{{ e }}</div><div class="ol">{{ t(k) }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
-        {{ edu_fields() }}
-        <div class="inp">
-          <span class="ico">🔒</span>
-          <input type="password" name="password" id="pw1" required minlength="6"
-                 autocomplete="new-password" placeholder="{{ t('password') }}">
-          <button type="button" class="eye" onclick="pwToggle('pw1', this)">👁</button>
+        <div id="gradeWrap" style="display:none">
+          <label>{{ t('grade_l') }}</label>
+          <input type="hidden" name="grade" id="gradeInp">
+          <div class="fewrap" data-f="grade">
+            <div class="pillrow" id="gradePills"></div>
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
         </div>
-        <div class="inp">
-          <span class="ico">🔒</span>
-          <input type="password" name="confirm" id="pw2" required minlength="6"
-                 autocomplete="new-password" placeholder="{{ t('confirm_password') }}">
-          <button type="button" class="eye" onclick="pwToggle('pw2', this)">👁</button>
+      </div>
+
+      <!-- university / master / phd / professor branch -->
+      <div id="brUni" style="display:none">
+        <div class="fewrap" data-f="university">
+          <label>🎓 {{ t('uni_l') }}</label>
+          <select name="university" id="uniSel">
+            <option value="">{{ t('choose_l') }}</option>
+            {% for u in unis %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
+          </select>
+          <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
-        <div style="margin-top:20px">
-          <button class="primary" type="submit">{{ t('register') }} {{ '←' if is_rtl else '→' }}</button>
+        <label>{{ t('ck_l') }}</label>
+        <input type="hidden" name="college_kind" id="ckInp">
+        <div class="fewrap" data-f="college_kind">
+          <div class="ocards" style="grid-template-columns:1fr 1fr">
+            <div class="ocard" data-v="college" onclick="ckPick(this)">
+              <div class="oe">🏛</div><div class="ol">{{ t('ck_college') }}</div></div>
+            <div class="ocard" data-v="institute" onclick="ckPick(this)">
+              <div class="oe">🏢</div><div class="ol">{{ t('ck_institute') }}</div></div>
+          </div>
+          <div class="fmsg">{{ t('err_fill') }}</div>
         </div>
-      </form>
-      {% endif %}
-      <p style="margin-top:18px; font-size:.85rem; color:var(--muted); text-align:center">
-        {{ t('have_account') }} <a href="{{ url_for('login') }}">{{ t('login') }}</a>
-      </p>
+        <div id="brCollege" style="display:none">
+          <div class="fewrap" data-f="college">
+            <label>{{ t('college_l') }}</label>
+            <select name="college" id="colSel" onchange="fillDeps()">
+              <option value="">{{ t('choose_l') }}</option>
+              {% for c in colleges %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+          <div class="fewrap" data-f="department">
+            <label>{{ t('dept_l') }}</label>
+            <select name="department" id="depSel">
+              <option value="">{{ t('choose_l') }}</option>
+            </select>
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+        </div>
+        <div id="brInstitute" style="display:none">
+          <div class="fewrap" data-f="institute_name">
+            <label>{{ t('inst_name_l') }}</label>
+            <input name="institute_name" maxlength="120">
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+          <div class="fewrap" data-f="institute_dept">
+            <label>{{ t('inst_dept_l') }}</label>
+            <input name="institute_dept" maxlength="120">
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+        </div>
+        <div id="stageWrap" style="display:none">
+          <div class="fewrap" data-f="stage">
+            <label>📚 {{ t('stage') }}</label>
+            <input name="stage" maxlength="40" placeholder="1, 2, 3…">
+            <div class="fmsg">{{ t('err_fill') }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- work / others branch -->
+      <div id="brJob" style="display:none">
+        <div class="fewrap" data-f="job">
+          <label>💼 {{ t('job_l') }}</label>
+          <select name="job">
+            <option value="">{{ t('choose_l') }}</option>
+            {% for j in jobs %}<option value="{{ j }}">{{ j }}</option>{% endfor %}
+          </select>
+          <div class="fmsg">{{ t('err_fill') }}</div>
+        </div>
+      </div>
+
+      <div class="wnav">
+        <button type="button" class="ghost" onclick="wgo(1)">{{ t('back_t') }}</button>
+        <button type="button" class="primary" onclick="wgo(3)">{{ t('next_t') }} {{ '←' if is_rtl else '→' }}</button>
+      </div>
     </div>
-  </div>
+
+    <!-- ================= STEP 3 : password ================= -->
+    <div class="wpane" id="wp3">
+      <div class="fewrap" data-f="password">
+        <label>🔒 {{ t('password') }}</label>
+        <input type="password" name="password" id="pw1" maxlength="80"
+               autocomplete="new-password" oninput="pwCheck()">
+        <div class="fmsg">{{ t('err_pw_weak') }}</div>
+      </div>
+      <div style="font-size:.74rem; color:var(--muted); margin-top:8px">
+        {{ t('pw_rules_t') }}</div>
+      <div class="pwrules">
+        <div class="pwrule" id="r_len"><span class="ic">✓</span>{{ t('rule_len') }}</div>
+        <div class="pwrule" id="r_up"><span class="ic">✓</span>{{ t('rule_upper') }}</div>
+        <div class="pwrule" id="r_low"><span class="ic">✓</span>{{ t('rule_lower') }}</div>
+        <div class="pwrule" id="r_num"><span class="ic">✓</span>{{ t('rule_num') }}</div>
+        <div class="pwrule" id="r_sym"><span class="ic">✓</span>{{ t('rule_sym') }}</div>
+      </div>
+      <div class="wnav">
+        <button type="button" class="ghost" onclick="wgo(2)">{{ t('back_t') }}</button>
+        <button type="submit" class="primary">{{ t('create_acc') }}</button>
+      </div>
+    </div>
+  </form>
+
+  <p style="margin-top:18px; font-size:.85rem; color:var(--muted); text-align:center">
+    {{ t('have_account') }} <a href="{{ url_for('login') }}">{{ t('login') }}</a>
+  </p>
+  {% endif %}
 </div>
+
+{% if not closed %}
 <script>
-function pwToggle(id, btn) {
-  const f = document.getElementById(id);
-  f.type = f.type === "password" ? "text" : "password";
-  btn.textContent = f.type === "password" ? "👁" : "🙈";
-}
+  const DEPS = {{ deps|tojson }};
+  const form = document.getElementById("wform");
+
+  function markBad(name, bad) {
+    const w = form.querySelector('.fewrap[data-f="' + name + '"]');
+    if (!w) return;
+    const inp = w.querySelector("input:not([type=hidden]), select");
+    if (inp) inp.classList.toggle("err", bad);
+    if (bad) {
+      w.classList.remove("bad"); void w.offsetWidth; w.classList.add("bad");
+    } else w.classList.remove("bad");
+  }
+  function val(n) { return (form[n] && form[n].value || "").trim(); }
+  function need(name, ok) { markBad(name, !ok); return ok ? 1 : 0; }
+
+  function validStep(n) {
+    let ok = 1;
+    if (n === 1) {
+      ok &= need("username", /^[A-Za-z0-9_.]{3,20}$/.test(val("username")) &&
+                 !val("username").startsWith(".") && !val("username").endsWith(".") &&
+                 val("username").indexOf("..") < 0);
+      ok &= need("first_name", !!val("first_name"));
+      ok &= need("middle_name", !!val("middle_name"));
+      ok &= need("last_name", !!val("last_name"));
+      ok &= need("email", /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("email")));
+    }
+    if (n === 2) {
+      const lvl = val("edu_level");
+      ok &= need("edu_level", !!lvl);
+      if (lvl === "school") {
+        ok &= need("school_name", !!val("school_name"));
+        ok &= need("school_level", !!val("school_level"));
+        ok &= need("grade", !!val("grade"));
+      } else if (["university", "master", "phd", "professor"].includes(lvl)) {
+        ok &= need("university", !!val("university"));
+        const ck = val("college_kind");
+        ok &= need("college_kind", !!ck);
+        if (ck === "college") {
+          ok &= need("college", !!val("college"));
+          ok &= need("department", !!val("department"));
+        } else if (ck === "institute") {
+          ok &= need("institute_name", !!val("institute_name"));
+          ok &= need("institute_dept", !!val("institute_dept"));
+        }
+        if (lvl === "university") ok &= need("stage", !!val("stage"));
+      } else if (lvl === "others") {
+        ok &= need("job", !!val("job"));
+      }
+    }
+    return !!ok;
+  }
+  function wgo(n) {
+    const cur = +document.querySelector(".wpane.on").id.slice(2);
+    if (n > cur && !validStep(cur)) return;
+    [1, 2, 3].forEach((i) => {
+      document.getElementById("wp" + i).classList.toggle("on", i === n);
+      document.getElementById("ws" + i).classList.toggle("on", i <= n);
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  form.addEventListener("submit", (e) => {
+    if (!validStep(1)) { e.preventDefault(); wgo(1); return; }
+    if (!validStep(2)) { e.preventDefault(); wgo(2); return; }
+    if (!pwCheck()) { e.preventDefault(); markBad("password", true); }
+  });
+
+  function pickCard(container, el) {
+    container.querySelectorAll(".ocard").forEach((c) => c.classList.remove("sel"));
+    el.classList.add("sel");
+  }
+  function lvlPick(el) {
+    pickCard(document.getElementById("lvlCards"), el);
+    const v = el.dataset.v;
+    form.edu_level.value = v;
+    markBad("edu_level", false);
+    document.getElementById("brSchool").style.display = v === "school" ? "" : "none";
+    document.getElementById("brUni").style.display =
+      ["university", "master", "phd", "professor"].includes(v) ? "" : "none";
+    document.getElementById("brJob").style.display = v === "others" ? "" : "none";
+    document.getElementById("stageWrap").style.display =
+      v === "university" ? "" : "none";
+  }
+  function slvlPick(el) {
+    pickCard(el.parentElement, el);
+    form.school_level.value = el.dataset.v;
+    markBad("school_level", false);
+    const ranges = { elementary: [1, 6], intermediate: [7, 9], high: [10, 12] };
+    const r = ranges[el.dataset.v];
+    const row = document.getElementById("gradePills");
+    row.innerHTML = "";
+    for (let g = r[0]; g <= r[1]; g++) {
+      const p = document.createElement("div");
+      p.className = "gpill"; p.textContent = g;
+      p.onclick = () => {
+        row.querySelectorAll(".gpill").forEach((x) => x.classList.remove("sel"));
+        p.classList.add("sel");
+        form.grade.value = g;
+        markBad("grade", false);
+      };
+      row.appendChild(p);
+    }
+    form.grade.value = "";
+    document.getElementById("gradeWrap").style.display = "";
+  }
+  function ckPick(el) {
+    pickCard(el.parentElement, el);
+    form.college_kind.value = el.dataset.v;
+    markBad("college_kind", false);
+    document.getElementById("brCollege").style.display =
+      el.dataset.v === "college" ? "" : "none";
+    document.getElementById("brInstitute").style.display =
+      el.dataset.v === "institute" ? "" : "none";
+  }
+  function fillDeps() {
+    const col = val("college");
+    const sel = document.getElementById("depSel");
+    sel.innerHTML = '<option value="">{{ t("choose_l") }}</option>';
+    (DEPS[col] || []).forEach((d) => {
+      const o = document.createElement("option");
+      o.value = d; o.textContent = d;
+      sel.appendChild(o);
+    });
+    markBad("college", false);
+  }
+
+  function pwCheck() {
+    const p = document.getElementById("pw1").value;
+    const rules = {
+      r_len: p.length >= 8,
+      r_up: /[A-Z]/.test(p),
+      r_low: /[a-z]/.test(p),
+      r_num: /[0-9]/.test(p),
+      r_sym: /[^A-Za-z0-9]/.test(p),
+    };
+    Object.keys(rules).forEach((id) =>
+      document.getElementById(id).classList.toggle("ok", rules[id]));
+    markBad("password", false);
+    return rules.r_len && rules.r_up && rules.r_low && rules.r_num;
+  }
 </script>
+{% endif %}
 {% endblock %}
