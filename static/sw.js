@@ -1,9 +1,14 @@
 /* KurdRoom service worker — network first, offline fallback, self-updating.
    BUMP the version below whenever you want to force every device to drop
    its old cache on the next visit. */
-const CACHE = "kurdroom-v11";
+const CACHE = "kurdroom-v12";
+const OFFLINE_URL = "/offline";
 
-self.addEventListener("install", () => {
+self.addEventListener("install", (e) => {
+  // precache the offline fallback page so it's available with no connection
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.add(OFFLINE_URL)).catch(() => {})
+  );
   self.skipWaiting();               // new version activates immediately
 });
 
@@ -25,7 +30,16 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
         return resp;                // always prefer the fresh network copy
       })
-      .catch(() => caches.match(e.request))   // offline → cached copy
+      .catch(async () => {
+        const cached = await caches.match(e.request);
+        if (cached) return cached;                       // offline → cached copy
+        // full-page navigation with nothing cached → show the offline page
+        if (e.request.mode === "navigate") {
+          const off = await caches.match(OFFLINE_URL);
+          if (off) return off;
+        }
+        return Response.error();
+      })
   );
 });
 

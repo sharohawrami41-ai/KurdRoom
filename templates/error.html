@@ -1,15 +1,90 @@
-{% extends "base.html" %}
-{% block content %}
-  <div class="card" style="max-width:760px; margin:6vh auto 0; text-align:center; padding:40px">
-    <div style="font-size:3rem">😵</div>
-    <h2 style="margin-top:12px; font-size:1.4rem">Oops — something went wrong</h2>
-    <p style="color:var(--muted); margin-top:8px; font-size:.9rem">
-      The error has been saved to <code>error.log</code> next to <code>app.py</code>.</p>
+<!doctype html>
+<html lang="{{ lang or 'en' }}" dir="{{ 'rtl' if is_rtl else 'ltr' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ code }} · {{ title }}</title>
+<style>
+  :root{ --accent:#7c5cff; --accent2:#a855f7; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Noto Kufi Arabic",sans-serif;
+    color:#e9e7ff; background:#0b0a15; min-height:100%;
+    display:flex; align-items:center; justify-content:center; padding:26px;
+    background:
+      radial-gradient(900px 500px at 50% -10%, rgba(124,92,255,.28), transparent 60%),
+      radial-gradient(700px 500px at 90% 110%, rgba(168,85,247,.20), transparent 55%),
+      linear-gradient(160deg,#0b0a15,#12102a 60%,#0b0a15);
+    overflow:hidden; position:relative;
+  }
+  .orb{ position:fixed; border-radius:50%; filter:blur(60px); opacity:.5; z-index:0;
+    background:radial-gradient(circle at 30% 30%, var(--accent), transparent 70%); }
+  .orb.a{ width:340px; height:340px; top:-90px; inset-inline-start:-70px; animation:float1 9s ease-in-out infinite; }
+  .orb.b{ width:300px; height:300px; bottom:-90px; inset-inline-end:-60px;
+    background:radial-gradient(circle at 30% 30%, var(--accent2), transparent 70%); animation:float2 11s ease-in-out infinite; }
+  @keyframes float1{ 50%{ transform:translate(30px,26px) scale(1.08);} }
+  @keyframes float2{ 50%{ transform:translate(-26px,-22px) scale(1.1);} }
+
+  .wrap{ position:relative; z-index:1; width:100%; max-width:560px; text-align:center;
+    animation:rise .6s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(18px);} }
+
+  .code{ font-weight:900; line-height:.9; letter-spacing:-3px;
+    font-size:clamp(96px,26vw,190px);
+    background:linear-gradient(180deg,#fff, #b9adff 55%, var(--accent));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 20px 60px rgba(124,92,255,.35);
+    animation:glitch 4.5s steps(1) infinite; }
+  @keyframes glitch{ 0%,92%,100%{ transform:translate(0);} 93%{ transform:translate(-3px,1px);}
+    95%{ transform:translate(3px,-1px);} 97%{ transform:translate(-2px,0);} }
+
+  .icon{ font-size:2.6rem; margin-bottom:6px; display:inline-block;
+    animation:bob 3s ease-in-out infinite; }
+  @keyframes bob{ 50%{ transform:translateY(-9px) rotate(-4deg);} }
+
+  h1{ font-size:1.55rem; margin-top:4px; }
+  p.desc{ color:#b7b2d8; font-size:.98rem; line-height:1.7; margin:12px auto 0; max-width:430px; }
+
+  .btns{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:26px; }
+  .btn{ appearance:none; border:0; cursor:pointer; font-size:.98rem; font-weight:700;
+    padding:14px 26px; border-radius:15px; text-decoration:none; display:inline-flex;
+    align-items:center; gap:9px; transition:transform .15s ease, box-shadow .2s ease; }
+  .btn:hover{ transform:translateY(-3px); }
+  .btn.primary{ color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 12px 30px rgba(124,92,255,.45); }
+  .btn.ghost{ color:#e9e7ff; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(6px); }
+
+  details.tech{ margin-top:26px; text-align:start; }
+  details.tech summary{ cursor:pointer; color:#8f8ac4; font-size:.82rem; list-style:none;
+    display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:10px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); }
+  details.tech summary::-webkit-details-marker{ display:none; }
+  details.tech pre{ direction:ltr; text-align:left; margin-top:12px; padding:16px; border-radius:14px;
+    background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.1); color:#ffb3c1;
+    font-size:.72rem; line-height:1.55; overflow:auto; max-height:320px; white-space:pre-wrap; }
+  .brand{ margin-top:30px; font-size:.72rem; color:#6f6a9b; letter-spacing:.3px; }
+</style>
+</head>
+<body>
+  <div class="orb a"></div><div class="orb b"></div>
+  <div class="wrap">
+    <div class="icon">{{ {403:'🔒',404:'🧭',405:'🚧',502:'🛠️',503:'🛠️'}.get(code,'⚡') }}</div>
+    <div class="code" dir="ltr">{{ code }}</div>
+    <h1>{{ title }}</h1>
+    <p class="desc">{{ desc }}</p>
+    <div class="btns">
+      <button class="btn primary" onclick="location.reload()">↻ {{ t('err_try_again') }}</button>
+      <a class="btn ghost" href="/">⌂ {{ t('err_home') }}</a>
+    </div>
     {% if tb %}
-    <pre dir="ltr" style="text-align:left; margin-top:20px; padding:16px; border-radius:12px;
-         background:rgba(0,0,0,.35); border:1px solid var(--card-border);
-         font-size:.72rem; line-height:1.5; overflow-x:auto; white-space:pre-wrap;
-         color:#ffb3bf">{{ tb }}</pre>
+    <details class="tech">
+      <summary>🛠️ {{ t('err_tech') }}</summary>
+      <pre>{{ tb }}</pre>
+    </details>
     {% endif %}
+    <div class="brand">{{ settings.site_name if settings else 'KurdRoom' }}</div>
   </div>
-{% endblock %}
+</body>
+</html>

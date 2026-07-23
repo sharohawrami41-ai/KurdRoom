@@ -2170,6 +2170,70 @@ V25 = {
 for _l, _d in V25.items():
     T[_l].update(_d)
 
+V26 = {
+    "en": {
+        "err_404_t": "Page not found",
+        "err_404_d": "The page you’re looking for doesn’t exist, was moved, or the link is broken.",
+        "err_403_t": "Access denied",
+        "err_403_d": "You don’t have permission to open this page. Try logging in with the right account.",
+        "err_405_t": "That didn’t work",
+        "err_405_d": "This action isn’t allowed here. Head back and try again.",
+        "err_500_t": "Something went wrong",
+        "err_500_d": "A hiccup on our side stopped this page from loading. It’s not your fault — please try again in a moment.",
+        "err_502_t": "We’ll be right back",
+        "err_502_d": "The server is busy or restarting. Give it a few seconds, then try again.",
+        "err_try_again": "Try again",
+        "err_home": "Back to home",
+        "err_tech": "Technical details",
+        "err_code_l": "Error",
+        "off_t": "You’re offline",
+        "off_d": "We can’t reach the internet right now. Check your Wi-Fi or data — this page reloads by itself the moment you’re back online.",
+        "off_retry": "Retry now",
+        "off_badge": "No connection",
+    },
+    "ar": {
+        "err_404_t": "الصفحة غير موجودة",
+        "err_404_d": "الصفحة التي تبحث عنها غير موجودة أو تم نقلها أو أنّ الرابط معطوب.",
+        "err_403_t": "الوصول مرفوض",
+        "err_403_d": "ليست لديك صلاحية لفتح هذه الصفحة. جرّب تسجيل الدخول بالحساب الصحيح.",
+        "err_405_t": "لم ينجح ذلك",
+        "err_405_d": "هذا الإجراء غير مسموح به هنا. عُد وحاول مرة أخرى.",
+        "err_500_t": "حدث خطأ ما",
+        "err_500_d": "خلل بسيط من جهتنا منع تحميل الصفحة. المشكلة ليست منك — يُرجى المحاولة بعد لحظات.",
+        "err_502_t": "سنعود بعد قليل",
+        "err_502_d": "الخادم مشغول أو يُعاد تشغيله. انتظر ثوانٍ ثم حاول مجددًا.",
+        "err_try_again": "أعد المحاولة",
+        "err_home": "العودة للرئيسية",
+        "err_tech": "تفاصيل تقنية",
+        "err_code_l": "خطأ",
+        "off_t": "أنت غير متصل",
+        "off_d": "تعذّر الوصول إلى الإنترنت الآن. تحقّق من الواي فاي أو البيانات — ستُحمّل الصفحة تلقائيًا فور عودة الاتصال.",
+        "off_retry": "أعد المحاولة الآن",
+        "off_badge": "لا يوجد اتصال",
+    },
+    "ku": {
+        "err_404_t": "پەڕە نەدۆزرایەوە",
+        "err_404_d": "ئەو پەڕەیەی بەدوایدا دەگەڕێیت بوونی نییە یان گواستراوەتەوە یان بەستەرەکە تێکچووە.",
+        "err_403_t": "دەستگەیشتن ڕەتکرایەوە",
+        "err_403_d": "مۆڵەتت نییە ئەم پەڕەیە بکەیتەوە. هەوڵ بدە بە هەژماری ڕاست بچیتە ژوورەوە.",
+        "err_405_t": "ئەوە کارنەکرد",
+        "err_405_d": "ئەم کردارە لێرە ڕێگەپێدراو نییە. بگەڕێوە و دووبارە هەوڵ بدە.",
+        "err_500_t": "هەڵەیەک ڕوویدا",
+        "err_500_d": "کێشەیەکی بچووک لای ئێمە ڕێی لە بارکردنی پەڕەکە گرت. کێشەکە لای تۆ نییە — تکایە دوای چەند چرکەیەک هەوڵ بدەرەوە.",
+        "err_502_t": "بەم زووانە دەگەڕێینەوە",
+        "err_502_d": "سێرڤەرەکە سەرقاڵە یان دووبارە دەستپێدەکاتەوە. چەند چرکەیەک چاوەڕێ بکە و دووبارە هەوڵ بدە.",
+        "err_try_again": "دووبارە هەوڵ بدە",
+        "err_home": "گەڕانەوە بۆ ماڵەوە",
+        "err_tech": "وردەکاری تەکنیکی",
+        "err_code_l": "هەڵە",
+        "off_t": "تۆ ئۆفڵاینیت",
+        "off_d": "ئێستا ناتوانین بگەینە ئینتەرنێت. وای‌فای یان داتاکەت بپشکنە — پەڕەکە خۆکارانە باردەبێتەوە هەرکە گەڕایتەوە سەرهێڵ.",
+        "off_retry": "ئێستا هەوڵ بدەرەوە",
+        "off_badge": "پەیوەندی نییە",
+    },
+}
+for _l, _d in V26.items():
+    T[_l].update(_d)
 
 
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
@@ -2300,7 +2364,7 @@ def force_complete_profile():
     if ep in ("complete_profile", "logout", "set_lang", "static", "service_worker",
               "favicon", "robots_txt", "sitemap_xml", "login", "register",
               "register_verify", "forgot", "reset_pw_page", "about",
-              "api_pings") or ep.startswith("push_"):
+              "api_pings", "offline") or ep.startswith("push_"):
         return
     row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
                            (uid,)).fetchone()
@@ -6049,6 +6113,12 @@ def service_worker():
     return resp
 
 
+@app.route("/offline")
+def offline():
+    # Standalone page the service worker shows when the device has no connection.
+    return render_template("offline.html")
+
+
 # ---------------------------------------------------------------- admin
 @app.route("/admin")
 @admin_required
@@ -6258,25 +6328,50 @@ def admin_quote_delete(quote_id):
 
 
 # ---------------------------------------------------------------- error reporting
+def _err_text(code):
+    """Friendly, user-facing title + reason for an HTTP status code."""
+    key = {403: "403", 404: "404", 405: "405",
+           502: "502", 503: "502", 504: "502"}.get(code, "500")
+    return tr("err_" + key + "_t"), tr("err_" + key + "_d")
+
+
 @app.errorhandler(Exception)
 def handle_error(e):
     from werkzeug.exceptions import HTTPException
-    if isinstance(e, HTTPException):
-        return e                      # keep normal 403/404 behaviour
-    import traceback
-    tb = traceback.format_exc()
+    code = e.code if isinstance(e, HTTPException) else 500
+    tb = None
+    if not isinstance(e, HTTPException):
+        import traceback
+        tb = traceback.format_exc()
+        try:
+            with open(os.path.join(BASE_DIR, "error.log"), "a", encoding="utf-8") as f:
+                f.write("\n==== " + datetime.utcnow().isoformat(timespec="seconds")
+                        + " " + request.path + " ====\n" + tb)
+        except Exception:
+            pass
+    # technical traceback is for logged-in admins only — never a normal visitor
+    show = False
     try:
-        with open(os.path.join(BASE_DIR, "error.log"), "a", encoding="utf-8") as f:
-            f.write("\n==== " + datetime.utcnow().isoformat(timespec="seconds")
-                    + " " + request.path + " ====\n" + tb)
+        cu = current_user()
+        show = bool(cu and cu["is_admin"])
     except Exception:
         pass
-    # show the technical details only on localhost (i.e. to the developer)
-    show = request.remote_addr in ("127.0.0.1", "::1")
+    title, desc = _err_text(code)
     try:
-        return render_template("error.html", tb=tb if show else None), 500
+        return render_template("error.html", code=code, title=title, desc=desc,
+                               tb=tb if show else None), code
     except Exception:
-        return "<h2>Error</h2><pre>" + (tb if show else "See error.log") + "</pre>", 500
+        # last-resort fallback if even the template/context fails to render
+        return (f"<!doctype html><meta charset=utf-8>"
+                f"<body style='background:#0b0a15;color:#e9e7ff;font-family:system-ui;"
+                f"text-align:center;padding:16vh 24px'>"
+                f"<div style='font-size:5rem;font-weight:900;color:#7c5cff'>{code}</div>"
+                f"<h1>{title}</h1><p style='color:#b7b2d8'>{desc}</p>"
+                f"<p><a href='/' style='color:#a855f7'>&#8962; {tr('err_home')}</a></p>"
+                + (f"<pre style='direction:ltr;text-align:left;color:#ffb3c1;"
+                   f"max-width:760px;margin:20px auto;white-space:pre-wrap'>{tb}</pre>"
+                   if (show and tb) else "")
+                + "</body>"), code
 
 
 # ---------------------------------------------------------------- main

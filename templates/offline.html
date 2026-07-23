@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="{{ lang or 'en' }}" dir="{{ 'rtl' if is_rtl else 'ltr' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ t('off_t') }}</title>
+<style>
+  :root{ --accent:#7c5cff; --accent2:#a855f7; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Noto Kufi Arabic",sans-serif;
+    color:#e9e7ff; background:#0b0a15; min-height:100%;
+    display:flex; align-items:center; justify-content:center; padding:26px;
+    background:
+      radial-gradient(900px 500px at 50% -10%, rgba(124,92,255,.24), transparent 60%),
+      radial-gradient(700px 500px at 50% 115%, rgba(168,85,247,.18), transparent 55%),
+      linear-gradient(160deg,#0b0a15,#12102a 60%,#0b0a15);
+    overflow:hidden; position:relative; text-align:center;
+  }
+  .wrap{ position:relative; z-index:1; width:100%; max-width:520px;
+    animation:rise .6s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(18px);} }
+
+  .badge{ display:inline-flex; align-items:center; gap:8px; font-size:.74rem; font-weight:700;
+    color:#ffcf8a; background:rgba(255,180,80,.12); border:1px solid rgba(255,180,80,.35);
+    padding:7px 14px; border-radius:999px; margin-bottom:22px; letter-spacing:.3px; }
+  .badge .dot{ width:8px; height:8px; border-radius:50%; background:#ffb454;
+    box-shadow:0 0 0 0 rgba(255,180,84,.6); animation:pulse 1.8s ease-out infinite; }
+  @keyframes pulse{ 70%{ box-shadow:0 0 0 10px rgba(255,180,84,0);} 100%{ box-shadow:0 0 0 0 rgba(255,180,84,0);} }
+
+  .wifi{ width:150px; height:150px; margin:0 auto 6px; display:block; }
+  .wifi .arc{ fill:none; stroke:var(--accent); stroke-width:9; stroke-linecap:round;
+    opacity:.28; transform-origin:75px 108px; }
+  .wifi .arc.blink{ animation:flick 2.2s ease-in-out infinite; }
+  .wifi .arc.a2{ animation-delay:.15s; } .wifi .arc.a3{ animation-delay:.3s; }
+  .wifi .dot{ fill:var(--accent); }
+  .wifi .slash{ stroke:#ff7089; stroke-width:9; stroke-linecap:round;
+    stroke-dasharray:150; stroke-dashoffset:150; animation:draw .8s .3s ease forwards; }
+  @keyframes flick{ 0%,100%{ opacity:.18;} 50%{ opacity:.5;} }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+
+  h1{ font-size:1.6rem; margin-top:8px; }
+  p.desc{ color:#b7b2d8; font-size:.98rem; line-height:1.7; margin:12px auto 0; max-width:410px; }
+
+  .btn{ appearance:none; border:0; cursor:pointer; font-size:.98rem; font-weight:700; margin-top:26px;
+    padding:14px 30px; border-radius:15px; color:#fff; display:inline-flex; align-items:center; gap:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 12px 30px rgba(124,92,255,.45); transition:transform .15s ease; }
+  .btn:hover{ transform:translateY(-3px); }
+  .btn.checking{ opacity:.7; pointer-events:none; }
+  .brand{ margin-top:30px; font-size:.72rem; color:#6f6a9b; letter-spacing:.3px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="badge"><span class="dot"></span>{{ t('off_badge') }}</span>
+    <svg class="wifi" viewBox="0 0 150 150" aria-hidden="true">
+      <path class="arc blink a3" d="M18 60 A80 80 0 0 1 132 60"></path>
+      <path class="arc blink a2" d="M36 80 A54 54 0 0 1 114 80"></path>
+      <path class="arc blink"    d="M52 98 A30 30 0 0 1 98 98"></path>
+      <circle class="dot" cx="75" cy="118" r="9"></circle>
+      <line class="slash" x1="30" y1="30" x2="120" y2="126"></line>
+    </svg>
+    <h1>{{ t('off_t') }}</h1>
+    <p class="desc">{{ t('off_d') }}</p>
+    <button class="btn" id="retry" onclick="tryNow()">↻ {{ t('off_retry') }}</button>
+    <div class="brand">{{ settings.site_name if settings else 'KurdRoom' }}</div>
+  </div>
+<script>
+  // Reload the instant the connection returns.
+  function tryNow(){
+    var b=document.getElementById('retry');
+    b.classList.add('checking');
+    location.reload();
+  }
+  window.addEventListener('online', function(){ location.reload(); });
+  // Gentle poll in case the 'online' event is unreliable on some browsers.
+  setInterval(function(){
+    if(navigator.onLine){
+      fetch('/favicon.ico',{method:'HEAD',cache:'no-store'})
+        .then(function(){ location.reload(); }).catch(function(){});
+    }
+  }, 5000);
+</script>
+</body>
+</html>
