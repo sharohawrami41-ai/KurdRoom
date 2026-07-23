@@ -39,11 +39,23 @@
               <button class="small" type="submit">
                 {{ t('remove_admin') if u.is_admin else t('make_admin') }}</button>
             </form>
-            <form method="post" action="{{ url_for('admin_toggle_plus', user_id=u.id) }}">
-              <button class="small" type="submit"
-                      style="{{ 'border-color:gold; color:gold' if u.plus }}">
-                {{ t('remove_plus') if u.plus else t('make_plus') }}</button>
+            {% if u.plus %}
+            <form method="post" action="{{ url_for('admin_remove_plus', user_id=u.id) }}">
+              <button class="small" type="submit" style="border-color:gold; color:gold">
+                {{ t('remove_plus') }}</button>
             </form>
+            <span class="badge low" style="font-size:.62rem" dir="ltr">⭐ {{ t('plus_until_l') }}:
+              {{ t('plus_perm') if (u.is_admin or not u.plus_until) else u.plus_until[:10] }}</span>
+            {% else %}
+            <form method="post" action="{{ url_for('admin_grant_plus', user_id=u.id) }}">
+              <input type="hidden" name="span" value="month">
+              <button class="small" type="submit">{{ t('plus_month') }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_grant_plus', user_id=u.id) }}">
+              <input type="hidden" name="span" value="year">
+              <button class="small" type="submit">{{ t('plus_year') }}</button>
+            </form>
+            {% endif %}
             <form method="post" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
                   data-confirm="{{ t('confirm_del_user') }}">
               <button class="small warn" type="submit">✕ {{ t('delete_user') }}</button>

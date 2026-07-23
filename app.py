@@ -411,6 +411,7 @@ def init_db():
                  "ALTER TABLE group_messages ADD COLUMN kind TEXT DEFAULT 'text'",
                  "ALTER TABLE group_messages ADD COLUMN stored TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN plus INTEGER DEFAULT 0",
+                 "ALTER TABLE users ADD COLUMN plus_until TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN studying_until TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN studying_label TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN first_name TEXT DEFAULT ''",
@@ -634,6 +635,8 @@ def init_db():
             "INSERT INTO users(username, password_hash, is_admin, created_at) VALUES(?,?,1,?)",
             ("sharo", generate_password_hash("Sharo@2006"),
              datetime.utcnow().isoformat(timespec="seconds")))
+    # admins always have permanent premium (never expires)
+    db.execute("UPDATE users SET plus = 1, plus_until = '' WHERE is_admin = 1")
     db.commit()
     db.close()
 
@@ -1673,6 +1676,8 @@ V19 = {
         "sponsor_name_l": "Sponsor name", "sponsor_url_l": "Sponsor link (https://…)",
         "sponsor_img_l": "Sponsor logo", "sponsor_on": "Show sponsor banner",
         "make_plus": "Give ⭐ Plus", "remove_plus": "Remove ⭐ Plus",
+        "plus_month": "⭐ 1 month", "plus_year": "⭐ 1 year",
+        "plus_until_l": "Plus until", "plus_perm": "Permanent",
         "ntf_weekly": "Your weekly report:", "ntf_mention": "mentioned you 📣",
         "search_msgs": "Search messages…", "search_none": "No matches",
         "join_now": "Join now", "on_kurdroom": "is on",
@@ -1691,6 +1696,8 @@ V19 = {
         "sponsor_name_l": "اسم الراعي", "sponsor_url_l": "رابط الراعي (https://…)",
         "sponsor_img_l": "شعار الراعي", "sponsor_on": "إظهار لافتة الراعي",
         "make_plus": "منح ⭐ بلس", "remove_plus": "إزالة ⭐ بلس",
+        "plus_month": "⭐ شهر واحد", "plus_year": "⭐ سنة واحدة",
+        "plus_until_l": "بلس حتى", "plus_perm": "دائم",
         "ntf_weekly": "تقريرك الأسبوعي:", "ntf_mention": "أشار إليك 📣",
         "search_msgs": "ابحث في الرسائل…", "search_none": "لا نتائج",
         "join_now": "انضم الآن", "on_kurdroom": "موجود على",
@@ -1709,6 +1716,8 @@ V19 = {
         "sponsor_name_l": "ناوی پاڵپشت", "sponsor_url_l": "لینکی پاڵپشت (https://…)",
         "sponsor_img_l": "لۆگۆی پاڵپشت", "sponsor_on": "پیشاندانی بانەری پاڵپشت",
         "make_plus": "پێدانی ⭐ پڵەس", "remove_plus": "لابردنی ⭐ پڵەس",
+        "plus_month": "⭐ ١ مانگ", "plus_year": "⭐ ١ ساڵ",
+        "plus_until_l": "پڵەس تا", "plus_perm": "هەمیشەیی",
         "ntf_weekly": "ڕاپۆرتی هەفتانەت:", "ntf_mention": "ئاماژەی پێکردیت 📣",
         "search_msgs": "لە نامەکاندا بگەڕێ…", "search_none": "هیچ نەدۆزرایەوە",
         "join_now": "ئێستا بەشدار بە", "on_kurdroom": "لەسەر",
@@ -1832,6 +1841,7 @@ V22 = {
         "pay_success": "Payment successful ✅ — wait for the activation, your ⭐ is coming soon!",
         "ntf_plus_wait": "Payment received for review:",
         "ntf_plus_on": "Your ⭐ Plus is now active! Enjoy!",
+        "ntf_plus_off": "Your ⭐ Plus has expired. Renew to keep the extras.",
         "about_t": "About Us", "about_l": "About Us text",
         "social_l": "Links (Instagram · Facebook · Website · Email)",
         "fib_link_l": "FIB payment link (from your FIB app: Request → Share link)",
@@ -1850,6 +1860,7 @@ V22 = {
         "pay_success": "تم الدفع بنجاح ✅ — انتظر التفعيل، نجمتك ⭐ قادمة قريبًا!",
         "ntf_plus_wait": "دفعة قيد المراجعة:",
         "ntf_plus_on": "تم تفعيل ⭐ بلس الخاص بك! استمتع!",
+        "ntf_plus_off": "انتهت صلاحية ⭐ بلس. جدّد للاحتفاظ بالمزايا.",
         "about_t": "من نحن", "about_l": "نص من نحن",
         "social_l": "الروابط (إنستغرام · فيسبوك · الموقع · البريد)",
         "fib_link_l": "رابط دفع FIB (من تطبيقك: طلب → مشاركة الرابط)",
@@ -1868,6 +1879,7 @@ V22 = {
         "pay_success": "پارەدان سەرکەوتوو بوو ✅ — چاوەڕێی چالاککردن بە، ئەستێرەکەت ⭐ بەم زووانە دێت!",
         "ntf_plus_wait": "پارەدانێک بۆ پێداچوونەوە:",
         "ntf_plus_on": "⭐ پڵەسەکەت چالاک کرا! چێژی لێ ببینە!",
+        "ntf_plus_off": "⭐ پڵەسەکەت بەسەرچوو. نوێی بکەرەوە بۆ هێشتنەوەی تایبەتمەندییەکان.",
         "about_t": "دەربارەی ئێمە", "about_l": "دەقی دەربارەی ئێمە",
         "social_l": "لینکەکان (ئینستاگرام · فەیسبووک · ماڵپەڕ · ئیمەیڵ)",
         "fib_link_l": "لینکی پارەدانی FIB (لە ئەپەکەتەوە: داواکردن → هاوبەشکردنی لینک)",
@@ -2264,6 +2276,22 @@ def touch_last_seen():
 
 
 @app.before_request
+def expire_plus():
+    """Revoke timed Plus the moment it lapses. Admins never expire."""
+    uid = session.get("user_id")
+    if uid is None:
+        return
+    db = get_db()
+    row = db.execute("SELECT plus, plus_until, is_admin FROM users "
+                     "WHERE id = ?", (uid,)).fetchone()
+    if (row and row["plus"] and not row["is_admin"] and row["plus_until"]
+            and row["plus_until"] < datetime.utcnow().isoformat(timespec="seconds")):
+        db.execute("UPDATE users SET plus = 0, plus_until = '' WHERE id = ?", (uid,))
+        notify(uid, "plus_off", link=url_for("plus_page"))
+        db.commit()
+
+
+@app.before_request
 def force_complete_profile():
     uid = session.get("user_id")
     if uid is None:
@@ -2367,7 +2395,7 @@ NOTIF_ICONS = {"friend_req": "👥", "friend_acc": "🤝", "group_msg": "💬",
                "duel_acc": "⚔️", "duel_end": "🏆", "deadline": "⏰",
                "overdue": "🚨", "exam_soon": "📚", "homework": "📝",
                "weekly": "🏆", "mention": "📣", "plus_wait": "💳", "plus_on": "⭐",
-               "follow": "➕"}
+               "plus_off": "⌛", "follow": "➕"}
 
 
 def push_text(lang, kind, actor):
@@ -2379,7 +2407,7 @@ def push_text(lang, kind, actor):
     if kind in ("group_msg", "group_add", "duel_end", "deadline", "overdue",
                 "exam_soon", "homework", "weekly", "plus_wait"):
         return f"{txt} “{actor}”"
-    if kind == "plus_on":
+    if kind in ("plus_on", "plus_off"):
         return txt
     return f"{actor} {txt}"
 
@@ -5866,8 +5894,9 @@ def tool_ai():
 # ---------------------------------------------------------------- Plus tools
 def plus_gate_or_none(icon, name_key):
     """Free users see a beautiful upgrade screen instead of the tool."""
-    if not current_user()["plus"]:
-        return render_template("plus_gate.html", user=current_user(),
+    cu = current_user()
+    if not (cu["plus"] or cu["is_admin"]):
+        return render_template("plus_gate.html", user=cu,
                                tool_icon=icon, tool_key=name_key)
     return None
 
@@ -6121,18 +6150,43 @@ def admin_settings():
     return redirect(url_for("admin"))
 
 
-@app.route("/admin/user/<int:user_id>/plus", methods=["POST"])
+def _plus_expiry(span):
+    """Return an ISO timestamp one month or one year from now (calendar-correct)."""
+    import calendar
+    now = datetime.utcnow()
+    if span == "year":
+        y, m = now.year + 1, now.month
+    else:  # month
+        y, m = (now.year + 1, 1) if now.month == 12 else (now.year, now.month + 1)
+    d = min(now.day, calendar.monthrange(y, m)[1])   # clamp e.g. Jan 31 -> Feb 28
+    return now.replace(year=y, month=m, day=d).isoformat(timespec="seconds")
+
+
+@app.route("/admin/user/<int:user_id>/plus/grant", methods=["POST"])
 @admin_required
-def admin_toggle_plus(user_id):
+def admin_grant_plus(user_id):
+    span = request.form.get("span", "month")
+    if span not in ("month", "year"):
+        span = "month"
     db = get_db()
     row = db.execute("SELECT plus FROM users WHERE id = ?", (user_id,)).fetchone()
     if row:
-        db.execute("UPDATE users SET plus = ? WHERE id = ?",
-                   (0 if row["plus"] else 1, user_id))
-        if not row["plus"]:   # just activated -> congratulate them instantly
+        db.execute("UPDATE users SET plus = 1, plus_until = ? WHERE id = ?",
+                   (_plus_expiry(span), user_id))
+        if not row["plus"]:   # newly activated -> congratulate them instantly
             notify(user_id, "plus_on", link=url_for("plus_page"))
         db.commit()
         flash(tr("ok_saved"), "ok")
+    return redirect(request.referrer or url_for("admin"))
+
+
+@app.route("/admin/user/<int:user_id>/plus/remove", methods=["POST"])
+@admin_required
+def admin_remove_plus(user_id):
+    db = get_db()
+    db.execute("UPDATE users SET plus = 0, plus_until = '' WHERE id = ?", (user_id,))
+    db.commit()
+    flash(tr("ok_saved"), "ok")
     return redirect(request.referrer or url_for("admin"))
 
 
@@ -6386,6 +6440,14 @@ def _scan_reminders(con):
             continue
         _emit_reminder(con, e["user_id"], e["lang"], "exam_soon", e["subject"],
                        link, priv, site)
+    # expire timed Plus memberships (admins keep it permanently)
+    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    for u in con.execute(
+            "SELECT id, lang FROM users WHERE plus = 1 AND is_admin = 0 "
+            "AND plus_until != '' AND plus_until < ?", (now_iso,)):
+        con.execute("UPDATE users SET plus = 0, plus_until = '' WHERE id = ?",
+                    (u["id"],))
+        _emit_reminder(con, u["id"], u["lang"], "plus_off", "", "/plus", priv, site)
     con.commit()
 
 
