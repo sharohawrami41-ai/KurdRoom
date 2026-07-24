@@ -598,28 +598,49 @@ button, .pill, .tab, .icon-btn, .bottombar a { position: relative; overflow: hid
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* ---------- native-app page transitions (View Transitions API) ---------- */
+/* ---------- native page transitions: horizontal slide (Instagram / Telegram) ---------- */
 @view-transition { navigation: auto; }
 
-/* Only the content animates; the top bar and bottom nav stay perfectly still,
-   exactly like a professional native app. */
+/* the bars stay put; only the page content slides underneath them */
 .topbar    { view-transition-name: kr-topbar; }
 .bottombar { view-transition-name: kr-botbar; }
 .container { view-transition-name: kr-page; }
 
-/* content: a soft lift + fade — the outgoing page settles down and dims, the
-   incoming page glides up into place with a gentle spring-like ease. */
-::view-transition-old(kr-page) { animation: krPageOut .16s cubic-bezier(.4,0,1,1) both; }
-::view-transition-new(kr-page) { animation: krPageIn  .34s cubic-bezier(.16,.84,.34,1) both; }
-@keyframes krPageOut { to   { opacity: 0; transform: translateY(6px)  scale(.992); } }
-@keyframes krPageIn  { from { opacity: 0; transform: translateY(18px) scale(.992); } }
+/* NO white flash: the transition backdrop uses the app background, and the
+   background layer never animates — the pages slide over a solid dark canvas. */
+html { background: #0d0b1e; }
+html:has(body.light) { background: #f2f0fb; }
+::view-transition-group(root) { animation: none !important; }
 
-/* the background just cross-fades gently — the bars never drift */
-::view-transition-old(root) { animation: krRootFade .2s ease both; }
-::view-transition-new(root) { animation: krRootFade .2s ease reverse both; }
-@keyframes krRootFade { from { opacity: 1; } to { opacity: 0; } }
+/* one shared slide feel for the content pages */
+::view-transition-old(kr-page),
+::view-transition-new(kr-page) {
+  animation-duration: .34s;
+  animation-timing-function: cubic-bezier(.33, 0, .15, 1);
+  animation-fill-mode: both;
+}
 
-/* accessibility: no motion for people who ask for none */
+/* FORWARD (opening a page): the new screen slides in from the trailing edge and
+   covers the old one, which parallaxes out a little and dims — just like iOS/Telegram. */
+::view-transition-old(kr-page) { animation-name: kr-out-left; }
+::view-transition-new(kr-page) { animation-name: kr-in-right; z-index: 2; }
+@keyframes kr-out-left { to   { transform: translateX(-24%); filter: brightness(.82); } }
+@keyframes kr-in-right { from { transform: translateX(100%); } }
+
+/* BACK (going back): the current screen slides off the trailing edge, revealing
+   the previous screen that eases back in from behind. */
+html.kr-back::view-transition-old(kr-page) { animation-name: kr-out-right; z-index: 2; }
+html.kr-back::view-transition-new(kr-page) { animation-name: kr-in-left;  z-index: 1; }
+@keyframes kr-out-right { to   { transform: translateX(100%); } }
+@keyframes kr-in-left   { from { transform: translateX(-24%); filter: brightness(.82); } }
+
+/* RTL (Arabic / Kurdish): mirror the slide direction */
+html[dir="rtl"]::view-transition-old(kr-page) { animation-name: kr-out-right; }
+html[dir="rtl"]::view-transition-new(kr-page) { animation-name: kr-in-left; }
+html[dir="rtl"].kr-back::view-transition-old(kr-page) { animation-name: kr-out-left; }
+html[dir="rtl"].kr-back::view-transition-new(kr-page) { animation-name: kr-in-right; }
+
+/* accessibility: honour reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
@@ -1899,6 +1920,29 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
         setTimeout(() => { delete f.dataset.kcOk; }, 1000);
       });
     }, true);
+  })();
+</script>
+<script>
+  /* Direction-aware page slide: reverse the animation when the user goes BACK,
+     exactly like Instagram / Telegram. Falls back to a forward slide where the
+     Navigation API isn't available. */
+  (function () {
+    if (!window.navigation || !("addEventListener" in window)) return;
+    function isBack(act) {
+      try {
+        return !!(act && act.navigationType === "traverse" &&
+                  act.from && act.entry && act.entry.index < act.from.index);
+      } catch (e) { return false; }
+    }
+    // The incoming page owns the transition, so decide direction on reveal.
+    window.addEventListener("pagereveal", function (e) {
+      if (!e || !e.viewTransition) return;
+      var back = isBack(navigation.activation);
+      document.documentElement.classList.toggle("kr-back", back);
+      e.viewTransition.finished.finally(function () {
+        document.documentElement.classList.remove("kr-back");
+      });
+    });
   })();
 </script>
 </body>
