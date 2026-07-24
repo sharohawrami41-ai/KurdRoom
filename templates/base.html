@@ -94,7 +94,22 @@ body.light {
 }
 a { color: var(--accent); text-decoration: none; }
 html, body { overflow-x: hidden; max-width: 100vw; }  /* never scroll sideways */
-.container { max-width: 1050px; margin: 0 auto; padding: 24px 18px 60px; }
+.container {
+  max-width: 1050px; margin: 0 auto; padding: 24px 18px 60px;
+  min-height: 100vh;
+  /* opaque page background: during a slide transition the incoming page fully
+     covers the outgoing one, so the two pages never show through each other */
+  background:
+    radial-gradient(1200px 700px at 15% -10%, #2b1f5c 0%, transparent 55%),
+    radial-gradient(1000px 600px at 110% 10%, #3d1a4f 0%, transparent 50%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
+}
+body.light .container {
+  background:
+    radial-gradient(1200px 700px at 15% -10%, #dcd4ff 0%, transparent 55%),
+    radial-gradient(1000px 600px at 110% 10%, #ffd9f2 0%, transparent 50%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
+}
 
 /* ---------- organized top bar ---------- */
 .topbar {
@@ -615,8 +630,8 @@ html:has(body.light) { background: #f2f0fb; }
 /* one shared slide feel for the content pages */
 ::view-transition-old(kr-page),
 ::view-transition-new(kr-page) {
-  animation-duration: .34s;
-  animation-timing-function: cubic-bezier(.33, 0, .15, 1);
+  animation-duration: .24s;
+  animation-timing-function: cubic-bezier(.3, 0, .2, 1);
   animation-fill-mode: both;
 }
 
@@ -1922,27 +1937,79 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     }, true);
   })();
 </script>
+{% if cu %}
 <script>
-  /* Direction-aware page slide: reverse the animation when the user goes BACK,
-     exactly like Instagram / Telegram. Falls back to a forward slide where the
-     Navigation API isn't available. */
+  window.__krTabs = [
+    "{{ url_for('dashboard') }}",
+    "{{ url_for('focus') }}",
+    "{{ url_for('university') }}",
+    "{{ url_for('groups') }}",
+    "{{ url_for('notifications') }}"
+  ];
+</script>
+{% endif %}
+<script>
+  /* Direction-aware page slide (Instagram / Telegram) + swipe navigation. */
   (function () {
-    if (!window.navigation || !("addEventListener" in window)) return;
     function isBack(act) {
       try {
         return !!(act && act.navigationType === "traverse" &&
                   act.from && act.entry && act.entry.index < act.from.index);
       } catch (e) { return false; }
     }
-    // The incoming page owns the transition, so decide direction on reveal.
-    window.addEventListener("pagereveal", function (e) {
-      if (!e || !e.viewTransition) return;
-      var back = isBack(navigation.activation);
-      document.documentElement.classList.toggle("kr-back", back);
-      e.viewTransition.finished.finally(function () {
-        document.documentElement.classList.remove("kr-back");
+    // The incoming page owns the transition, so decide slide direction on reveal.
+    if ("addEventListener" in window) {
+      window.addEventListener("pagereveal", function (e) {
+        if (!e || !e.viewTransition) return;
+        var back = window.navigation ? isBack(window.navigation.activation) : false;
+        try {
+          var forced = sessionStorage.getItem("krDir");
+          sessionStorage.removeItem("krDir");
+          if (forced === "back") back = true;
+          else if (forced === "fwd") back = false;
+        } catch (_) {}
+        document.documentElement.classList.toggle("kr-back", back);
+        e.viewTransition.finished.finally(function () {
+          document.documentElement.classList.remove("kr-back");
+        });
       });
-    });
+    }
+
+    /* ---- swipe left/right to move between the main tabs, like Instagram ---- */
+    var TABS = window.__krTabs || [];
+    if (!TABS.length) return;
+    function blocksSwipe(el) {
+      while (el && el.nodeType === 1 && el !== document.body) {
+        if (el.matches && el.matches(
+            "input,textarea,select,[data-noswipe],pre,table,.dm,.dm-scroll,.chatbox,.tt-scroll,canvas"))
+          return true;
+        var s = getComputedStyle(el), ox = s.overflowX;
+        if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 4) return true;
+        el = el.parentNode;
+      }
+      return false;
+    }
+    var x0 = null, y0 = 0, t0 = 0, startEl = null;
+    window.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1) { x0 = null; return; }
+      var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; t0 = Date.now(); startEl = e.target;
+    }, { passive: true });
+    window.addEventListener("touchend", function (e) {
+      if (x0 == null) return;
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0, dt = Date.now() - t0;
+      x0 = null;
+      if (dt > 500 || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return; // clear, fast, horizontal
+      if (blocksSwipe(startEl)) return;                       // don't hijack scrollers/inputs/chats
+      var here = location.pathname.replace(/\/+$/, "") || "/";
+      var idx = TABS.map(function (u) { return u.replace(/\/+$/, "") || "/"; }).indexOf(here);
+      if (idx < 0) return;                                    // only on the 5 main tabs
+      var step = dx < 0 ? 1 : -1;                             // swipe left → next tab
+      if (document.documentElement.dir === "rtl") step = -step;
+      var ni = idx + step;
+      if (ni < 0 || ni >= TABS.length) return;
+      try { sessionStorage.setItem("krDir", step > 0 ? "fwd" : "back"); } catch (_) {}
+      location.href = TABS[ni];
+    }, { passive: true });
   })();
 </script>
 </body>
