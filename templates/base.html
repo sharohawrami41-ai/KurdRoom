@@ -598,12 +598,33 @@ button, .pill, .tab, .icon-btn, .bottombar a { position: relative; overflow: hid
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* ---------- smooth cross-page transitions (modern browsers) ---------- */
+/* ---------- native-app page transitions (View Transitions API) ---------- */
 @view-transition { navigation: auto; }
-::view-transition-old(root) { animation: vtOut .14s ease both; }
-::view-transition-new(root) { animation: vtIn .22s cubic-bezier(.22,.9,.36,1) both; }
-@keyframes vtOut { to { opacity: 0; transform: translateY(8px) scale(.995); } }
-@keyframes vtIn { from { opacity: 0; transform: translateY(-8px) scale(.995); } }
+
+/* Only the content animates; the top bar and bottom nav stay perfectly still,
+   exactly like a professional native app. */
+.topbar    { view-transition-name: kr-topbar; }
+.bottombar { view-transition-name: kr-botbar; }
+.container { view-transition-name: kr-page; }
+
+/* content: a soft lift + fade — the outgoing page settles down and dims, the
+   incoming page glides up into place with a gentle spring-like ease. */
+::view-transition-old(kr-page) { animation: krPageOut .16s cubic-bezier(.4,0,1,1) both; }
+::view-transition-new(kr-page) { animation: krPageIn  .34s cubic-bezier(.16,.84,.34,1) both; }
+@keyframes krPageOut { to   { opacity: 0; transform: translateY(6px)  scale(.992); } }
+@keyframes krPageIn  { from { opacity: 0; transform: translateY(18px) scale(.992); } }
+
+/* the background just cross-fades gently — the bars never drift */
+::view-transition-old(root) { animation: krRootFade .2s ease both; }
+::view-transition-new(root) { animation: krRootFade .2s ease reverse both; }
+@keyframes krRootFade { from { opacity: 1; } to { opacity: 0; } }
+
+/* accessibility: no motion for people who ask for none */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
 
 /* ---------- app launch splash ---------- */
 #splash {
@@ -1776,23 +1797,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   })();
 </script>
 <style>
-  /* ============ silky page transitions (View Transitions API) ============ */
-  @media (prefers-reduced-motion: no-preference) {
-    @view-transition { navigation: auto; }
-    ::view-transition-old(root) {
-      animation: vtOut .16s ease both;
-    }
-    ::view-transition-new(root) {
-      animation: vtIn .3s cubic-bezier(.22,.9,.36,1) both;
-    }
-    @keyframes vtOut {
-      to { opacity: 0; transform: translateY(-8px) scale(.995); }
-    }
-    @keyframes vtIn {
-      from { opacity: 0; transform: translateY(14px) scale(.99); }
-      to { opacity: 1; transform: none; }
-    }
-  }
+  /* page transitions are defined once, higher up (View Transitions API) */
   /* GPU-friendly hover/press feel everywhere */
   a, button, .pill, .ocard, .gpill, .kpick, .kpo { -webkit-tap-highlight-color: transparent; }
   button:active, .pill:active, .ocard:active, .gpill:active,
