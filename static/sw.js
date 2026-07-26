@@ -1,7 +1,7 @@
 /* KurdRoom service worker — network first, offline fallback, self-updating.
    BUMP the version below whenever you want to force every device to drop
    its old cache on the next visit. */
-const CACHE = "kurdroom-v13";
+const CACHE = "kurdroom-v14";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (e) => {

@@ -151,7 +151,18 @@
       if (IS_DESIGN) { var ex = krExtractImagePrompt(full); clean = ex.clean; prompt = ex.prompt; }
       turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
         '<div class="kr-md">' + krMarked(clean) + '</div>';
-      if (IS_DESIGN && prompt) addImage(turn, prompt);
+      // Images appear for the visual focuses. If the model didn't include an
+      // IMAGE_PROMPT (e.g. a long answer), fall back to the student's own brief
+      // so a picture is ALWAYS generated.
+      var tv = targetVal();
+      if (IS_DESIGN && (tv === "concept" || tv === "space")) {
+        if (!prompt) {
+          var brief = (history[0] && history[0].content) || text || "";
+          if (text && text !== brief) brief += ", " + text;
+          prompt = brief.slice(0, 300);
+        }
+        if (prompt) addImage(turn, prompt);
+      }
     } catch (err) {
       turn.innerHTML = '<div class="flash error">' + krEsc(T.error) + ' ' +
         krEsc((err && err.message) || "") + '</div>';

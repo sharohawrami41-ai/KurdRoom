@@ -5999,7 +5999,7 @@ def call_ai_stream(messages, system, key, model):
     import urllib.request
     import urllib.error
     body = _json.dumps({
-        "model": model, "max_tokens": 1600, "system": system,
+        "model": model, "max_tokens": 3200, "system": system,
         "stream": True, "messages": messages,
     }).encode()
     req = urllib.request.Request(
