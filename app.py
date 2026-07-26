@@ -6630,24 +6630,23 @@ def tool_render():
 
 # ===================== Project Reviewer (vision + grade /100) =====================
 REVIEW_SYSTEM = (
-    "You are a fair but rigorous senior architecture design-studio critic and examiner "
-    "grading a student's project. The student uploads images of their work (drawings, "
-    "boards, plans, sections, renders or models) and may include the assignment brief. "
-    "Study the images carefully and refer to what you actually see. Produce, with clear "
-    "Markdown headings:\n"
+    "You are a fair but rigorous university examiner grading a student's project or "
+    "assignment. The student uploads images of their work — which could be drawings, "
+    "boards, plans, renders, slides, code screenshots, reports, spreadsheets, diagrams, "
+    "lab work or models — and may include the assignment brief and their field of study. "
+    "Study the images carefully and refer to what you actually see. ADAPT your assessment "
+    "criteria to the student's field and the type of work in front of you (e.g. code "
+    "quality & correctness for computing; argument & sourcing for law/essays; clarity & "
+    "analysis for business; concept, plan & presentation for architecture; method & "
+    "accuracy for lab/science work). Produce, with clear Markdown headings:\n"
     "1) Overview — what the project is and your honest first impression.\n"
     "2) Strengths — what genuinely works, specific and referenced to the images.\n"
-    "3) Weak points — the real problems (concept clarity, plan & circulation, function, "
-    "structure/feasibility, site response, drawing conventions, presentation, missing "
-    "deliverables). For each: why it matters and how to fix it.\n"
-    "4) Rubric score — score each category and SHOW the numbers:\n"
-    "   • Concept & idea /20\n   • Function & planning /20\n   • Form & aesthetics /15\n"
-    "   • Technical & feasibility /15\n   • Site & context response /10\n"
-    "   • Presentation & drawings /20\n"
-    "   Add them up.\n"
+    "3) Weak points — the real problems, each with why it matters and how to fix it.\n"
+    "4) Rubric score — choose 4–6 assessment categories that FIT this field and type of "
+    "work, give each a weight, score each, and SHOW the numbers so they add up to 100.\n"
     "5) FINAL MARK — state it clearly in bold as **Mark: X / 100**, with a one-sentence "
     "justification and the single most important thing to raise the grade.\n"
-    "Be honest and specific like a real jury — not flattery. If images are blurry or "
+    "Be honest and specific like a real examiner — not flattery. If images are blurry or "
     "deliverables are missing, say so and factor it in. Begin your answer by reminding the "
     "student, in one short line, that this is an AI estimate to help them improve and NOT "
     "their official grade.")
@@ -6667,6 +6666,7 @@ def api_review():
     data = request.get_json(silent=True) or {}
     images = data.get("images") or []
     brief = (data.get("brief") or "").strip()[:200000]
+    field = (data.get("field") or "").strip()[:120]
 
     blocks = []
     for im in images[:6]:
@@ -6681,7 +6681,9 @@ def api_review():
                        "source": {"type": "base64", "media_type": media, "data": b64}})
     if not blocks:
         return jsonify(error="no_image"), 400
-    instr = "Please review and grade my architecture project shown in the image(s)."
+    instr = "Please review and grade my project/assignment shown in the image(s)."
+    if field:
+        instr += "\nMy field of study is: " + field + "."
     if brief:
         instr += "\n\nThe assignment brief / requirements were:\n" + brief
     blocks.append({"type": "text", "text": instr})
@@ -6707,8 +6709,9 @@ def tool_review():
     if gate:
         return gate
     configured = bool((get_settings().get("ai_api_key") or "").strip())
+    field = (request.args.get("field") or "").strip()[:80]
     return render_template("tools_review.html", user=current_user(),
-                           configured=configured)
+                           configured=configured, field=field)
 
 
 SITE_BOARD_SYSTEM = (
@@ -7193,7 +7196,7 @@ def ws_text(tool_id, field, lang):
 WORKSPACE_DEPTS = [
     dict(id="arch", icon="📐",
          name=dict(en="Architecture & Design", ar="العمارة والتصميم", ku="تەلارسازی و دیزاین"),
-         tools=[{"route": "render"}, {"route": "design"}, {"route": "site"}, {"route": "review"}]),
+         tools=[{"route": "render"}, {"route": "design"}, {"route": "site"}]),
     dict(id="civil", icon="🏗️",
          name=dict(en="Civil Engineering", ar="الهندسة المدنية", ku="ئەندازیاری شارستانی"),
          tools=["civil_calc", "civil_boq", "civil_report"]),
@@ -7259,14 +7262,14 @@ def workspace_catalog(lang):
                 cards.append(dict(url=url_for("tool_plus", tool="design"), icon="📐",
                                   title=tr.get("tool_design", "AI Design Studio"),
                                   desc=tr.get("design_ph", "")))
-            elif ref.get("route") == "review":
-                cards.append(dict(url=url_for("tool_review"), icon="📝",
-                                  title=tr.get("tool_review", "Project Reviewer"),
-                                  desc=tr.get("review_intro", "")))
             elif ref.get("route") == "site":
                 cards.append(dict(url=url_for("tool_site"), icon="🗺️",
                                   title=tr.get("tool_site", "Site Analysis"),
                                   desc=tr.get("site_intro", "")))
+        # Project Reviewer is available in EVERY department, tailored to the field.
+        cards.append(dict(url=url_for("tool_review", field=d["name"]["en"]), icon="📝",
+                          title=tr.get("tool_review", "Project Reviewer"),
+                          desc=tr.get("review_intro", "")))
         cats.append(dict(id=d["id"], icon=d["icon"],
                          name=d["name"].get(lang, d["name"]["en"]), cards=cards))
     return cats

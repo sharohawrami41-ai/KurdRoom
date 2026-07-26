@@ -101,7 +101,8 @@
     try {
       var res = await fetch("/api/review", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: imgs, brief: (briefEl.value || "").trim() })
+        body: JSON.stringify({ images: imgs, brief: (briefEl.value || "").trim(),
+                               field: {{ field|tojson }} })
       });
       if (!res.ok) {
         var m = "server error (" + res.status + ")";
