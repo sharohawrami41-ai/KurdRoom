@@ -30,7 +30,7 @@
       </div>
       {% endif %}
       <label>{{ t(cfg.ph) }}</label>
-      <textarea name="text" rows="7" required maxlength="12000"
+      <textarea name="text" rows="7" required
                 placeholder="{{ t(cfg.ph) }}">{{ text }}</textarea>
       <div style="margin-top:14px">
         <button class="primary" type="submit" style="width:auto; padding:12px 30px"
@@ -42,7 +42,7 @@
     <div id="krChat"></div>
     <div id="krFollow" style="display:none; margin-top:6px">
       <div class="kr-followup">
-        <input id="krFollowIn" type="text" maxlength="4000"
+        <input id="krFollowIn" type="text"
                placeholder="{{ t('kr_followup_ph') }}">
         <button class="primary" id="krFollowBtn" type="button"
                 style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>
@@ -130,8 +130,7 @@
         '</div>' +
         '<div class="kr-btnrow">' +
           '<button type="button" class="kr-regen">' + krEsc(T.regen) + '</button>' +
-          '<a class="kr-mini kr-dl" href="' + url + '" target="_blank" rel="noopener">' +
-            krEsc(T.download) + '</a>' +
+          '<button type="button" class="kr-mini kr-dl">' + krEsc(T.download) + '</button>' +
         '</div>';
       var wrap = card.querySelector(".kr-img-wrap");
       var img = card.querySelector("img");
@@ -146,6 +145,8 @@
       img.src = url;
       var rg = card.querySelector(".kr-regen");
       rg.onclick = function () { render(Math.floor(Math.random() * 99999) + 1); };
+      var dl = card.querySelector(".kr-dl");
+      if (dl) dl.onclick = function () { krDownload(url, "kurdroom-design.jpg"); };
     }
     render(Math.floor(Math.random() * 99999) + 1);
   }

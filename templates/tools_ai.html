@@ -26,7 +26,7 @@
         <option value="improve" {{ 'selected' if task == 'improve' }}>✨ {{ t('ai_improve') }}</option>
       </select>
       <label>{{ t('ai_input') }}</label>
-      <textarea name="text" rows="9" required maxlength="12000">{{ text }}</textarea>
+      <textarea name="text" rows="9" required>{{ text }}</textarea>
       <div style="margin-top:14px">
         <button class="primary" type="submit" style="width:auto; padding:12px 34px">
           🤖 {{ t('ai_run') }}</button>
@@ -36,7 +36,7 @@
     <div id="krChat"></div>
     <div id="krFollow" style="display:none; margin-top:6px">
       <div class="kr-followup">
-        <input id="krFollowIn" type="text" maxlength="4000"
+        <input id="krFollowIn" type="text"
                placeholder="{{ t('kr_followup_ph') }}">
         <button class="primary" id="krFollowBtn" type="button"
                 style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>

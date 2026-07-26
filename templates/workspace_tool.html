@@ -16,7 +16,7 @@
                 style="padding:10px 16px; border-radius:12px">{{ t('assign_upload') }}</button>
         <span id="krPdfStatus" style="margin-inline-start:10px; font-size:.82rem; color:var(--muted)"></span>
       </div>
-      <textarea name="text" rows="7" required maxlength="12000"
+      <textarea name="text" rows="7" required
                 placeholder="{{ tw.ph }}"></textarea>
       <div style="margin-top:14px">
         <button class="primary" type="submit" style="width:auto; padding:12px 30px"
@@ -27,7 +27,7 @@
     <div id="krChat"></div>
     <div id="krFollow" style="display:none; margin-top:6px">
       <div class="kr-followup">
-        <input id="krFollowIn" type="text" maxlength="4000"
+        <input id="krFollowIn" type="text"
                placeholder="{{ t('kr_followup_ph') }}">
         <button class="primary" id="krFollowBtn" type="button"
                 style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>

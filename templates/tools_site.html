@@ -20,7 +20,7 @@
          border:1px solid var(--card-border); z-index:0"></div>
     <div id="krAddr" style="font-size:.82rem; color:var(--muted); margin-top:8px; min-height:18px"></div>
 
-    <textarea id="krNotes" rows="3" maxlength="4000" style="margin-top:10px"
+    <textarea id="krNotes" rows="3" style="margin-top:10px"
               placeholder="{{ t('site_notes_ph') }}"></textarea>
     <div style="margin-top:14px">
       <button class="primary" type="button" id="krSiteBtn"
@@ -30,7 +30,7 @@
     <div id="krChat"></div>
     <div id="krFollow" style="display:none; margin-top:6px">
       <div class="kr-followup">
-        <input id="krFollowIn" type="text" maxlength="4000" placeholder="{{ t('kr_followup_ph') }}">
+        <input id="krFollowIn" type="text" placeholder="{{ t('kr_followup_ph') }}">
         <button class="primary" id="krFollowBtn" type="button"
                 style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>
       </div>

@@ -32,9 +32,25 @@
     </div>
 
     <label>{{ t('render_prompt_ph') }}</label>
-    <textarea id="krPrompt" rows="3" maxlength="1500"
+    <textarea id="krPrompt" rows="3"
               placeholder="{{ t('render_prompt_ph') }}"></textarea>
     <div style="font-size:.76rem; color:var(--muted); line-height:1.5; margin-top:6px">{{ t('render_tip') }}</div>
+
+    <div id="krPHRow" style="margin-top:10px; display:none">
+      <button type="button" class="kr-mini" id="krPHBtn"
+              style="padding:10px 16px; border-radius:12px">{{ t('render_suggest') }}</button>
+    </div>
+    <div id="krPHBox" style="display:none; margin-top:10px; padding:14px; border-radius:14px;
+         border:1px solid var(--card-border); background:color-mix(in srgb,var(--accent) 8%,var(--card))">
+      <div id="krPHText" class="kr-md" style="font-size:.9rem"></div>
+      <div class="kr-btnrow">
+        <button type="button" class="primary kr-mini" id="krPHUse">{{ t('render_use') }}</button>
+      </div>
+      <div class="kr-followup" style="margin-top:8px">
+        <input id="krPHRefine" type="text" placeholder="{{ t('render_refine_ph') }}">
+        <button type="button" class="primary kr-mini" id="krPHSend">{{ t('kr_send') }}</button>
+      </div>
+    </div>
 
     <div id="krStrengthRow" style="margin-top:14px; display:none">
       <label>{{ t('render_strength') }}</label>
@@ -57,7 +73,8 @@
   var T = {{ {
     "making": t('render_making'), "err": t('render_err'),
     "needSketch": t('render_need_sketch'), "needPrompt": t('render_need_prompt'),
-    "noKey": t('render_no_key'), "again": t('render_again'), "download": t('render_download')
+    "noKey": t('render_no_key'), "again": t('render_again'), "download": t('render_download'),
+    "phMaking": t('render_ph_making'), "phErr": t('render_ph_err')
   }|tojson }};
   var fileInp = document.getElementById("krSketch");
   var sketchBtn = document.getElementById("krSketchBtn");
@@ -88,7 +105,57 @@
       uploadRow.style.display = sketchMode ? "" : "none";
       // The Canny model follows the sketch automatically — no strength slider needed.
       strengthRow.style.display = "none";
+      phRow.style.display = (sketchMode && sketchData) ? "" : "none";
+      if (!sketchMode) phBox.style.display = "none";
     });
+  });
+
+  // ---- AI prompt helper (vision) ----
+  var phRow = document.getElementById("krPHRow");
+  var phBtn = document.getElementById("krPHBtn");
+  var phBox = document.getElementById("krPHBox");
+  var phText = document.getElementById("krPHText");
+  var phUse = document.getElementById("krPHUse");
+  var phRefine = document.getElementById("krPHRefine");
+  var phSend = document.getElementById("krPHSend");
+  var phCurrent = "", phBusy = false;
+
+  async function phGen(refine) {
+    if (phBusy || !sketchData) return;
+    phBusy = true; phBtn.disabled = true; phSend.disabled = true;
+    var prevText = phText.innerHTML;
+    phText.innerHTML = '<span class="kr-dots"><i></i><i></i><i></i></span> ' + krEsc(T.phMaking);
+    phBox.style.display = "";
+    try {
+      var res = await fetch("/api/prompt_helper", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: sketchData, note: (promptEl.value || "").trim(),
+                               current: phCurrent, refine: refine || "" })
+      });
+      var data = {}; try { data = await res.json(); } catch (_) {}
+      if (!res.ok || data.error) {
+        phText.innerHTML = '<span style="color:var(--high)">' + krEsc(T.phErr) + ' ' +
+          krEsc(data.error || res.status) + '</span>';
+      } else {
+        phCurrent = data.prompt || "";
+        phText.textContent = phCurrent;
+      }
+    } catch (e) {
+      phText.innerHTML = '<span style="color:var(--high)">' + krEsc(T.phErr) + '</span>';
+    } finally {
+      phBusy = false; phBtn.disabled = false; phSend.disabled = false;
+    }
+  }
+  phBtn.addEventListener("click", function () { phCurrent = ""; phGen(""); });
+  phUse.addEventListener("click", function () {
+    if (phCurrent) { promptEl.value = phCurrent; promptEl.focus(); }
+  });
+  phSend.addEventListener("click", function () {
+    var r = (phRefine.value || "").trim(); if (!r) return;
+    phRefine.value = ""; phGen(r);
+  });
+  phRefine.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); phSend.click(); }
   });
 
   // Downscale a chosen image and keep it as a compact JPEG data URI, so the
@@ -113,6 +180,7 @@
         prevImg.src = sketchData;
         prev.style.display = "";
         sketchBtn.style.display = "none";
+        if (mode === "render") phRow.style.display = "";   // show "Suggest prompt"
       };
       img.src = e.target.result;
     };
@@ -138,11 +206,12 @@
       '<div class="kr-img-wrap"><img alt="render" src="' + url + '"></div>' +
       '<div class="kr-btnrow">' +
         '<button type="button" class="kr-mini" id="krRenderAgain">' + krEsc(T.again) + '</button>' +
-        '<a class="kr-mini" href="' + url + '" target="_blank" rel="noopener" download>' +
-          krEsc(T.download) + '</a>' +
+        '<button type="button" class="kr-mini" id="krRenderDl">' + krEsc(T.download) + '</button>' +
       '</div>';
     var again = document.getElementById("krRenderAgain");
     if (again) again.addEventListener("click", run);
+    var dl = document.getElementById("krRenderDl");
+    if (dl) dl.addEventListener("click", function () { krDownload(url, "kurdroom-render.jpg"); });
   }
 
   async function run() {

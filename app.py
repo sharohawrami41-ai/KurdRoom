@@ -1796,6 +1796,9 @@ V21 = {
         "render_upload": "📎 Upload your sketch / plan", "render_change": "Change image",
         "render_prompt_ph": "Say what the BUILDING is + the view + style — e.g. 'a modern 3-storey concrete house, exterior street view, warm sunset, lots of glass' or 'aerial view of a museum'…",
         "render_tip": "💡 Tip: name the building and the view (e.g. \"a 2-storey villa, exterior\" or \"aerial view\"). The AI follows every line you drew — so circles become windows/skylights only if you say so.",
+        "render_suggest": "✨ Suggest the best prompt from my sketch", "render_use": "Use this prompt",
+        "render_refine_ph": "Reply to improve it — e.g. more modern, aerial view, add glass…",
+        "render_ph_making": "Writing the best prompt…", "render_ph_err": "Couldn't suggest a prompt:",
         "render_strength": "How closely to follow your sketch",
         "render_close": "Follow closely", "render_free": "More creative",
         "render_go": "Generate render ✨", "render_making": "Rendering… this can take 10–30 seconds",
@@ -1863,6 +1866,9 @@ V21 = {
         "render_upload": "📎 ارفع رسمك / مخططك", "render_change": "غيّر الصورة",
         "render_prompt_ph": "اذكر ما هو المبنى + زاوية الرؤية + الأسلوب — مثل: 'منزل خرساني حديث من 3 طوابق، منظر خارجي، غروب دافئ، زجاج كثير' أو 'منظر جوي لمتحف'…",
         "render_tip": "💡 نصيحة: اذكر نوع المبنى وزاوية الرؤية (مثل \"فيلا من طابقين، خارجي\" أو \"منظر جوي\"). الذكاء الاصطناعي يتبع كل خط رسمته — لذا حدّد أن الدوائر نوافذ أو مناور.",
+        "render_suggest": "✨ اقترح أفضل وصف من رسمي", "render_use": "استخدم هذا الوصف",
+        "render_refine_ph": "ردّ لتحسينه — مثل: أحدث، منظر جوي، أضف زجاجًا…",
+        "render_ph_making": "يكتب أفضل وصف…", "render_ph_err": "تعذّر اقتراح وصف:",
         "render_strength": "مدى الالتزام برسمك",
         "render_close": "التزام قريب", "render_free": "إبداع أكثر",
         "render_go": "أنشئ الصورة ✨", "render_making": "جارٍ الإنشاء… قد يستغرق 10–30 ثانية",
@@ -1930,6 +1936,9 @@ V21 = {
         "render_upload": "📎 سکێچ / پلانەکەت باربکە", "render_change": "وێنە بگۆڕە",
         "render_prompt_ph": "بڵێ بیناکە چییە + دیمەن + شێواز — وەک: 'خانووی کۆنکریتی مۆدێرنی ٣ نهۆم، دیمەنی دەرەوە، خۆرئاوای گەرم، شووشەی زۆر' یان 'دیمەنی ئاسمانی مۆزەخانە'…",
         "render_tip": "💡 ئامۆژگاری: جۆری بینا و دیمەنەکە بنووسە (وەک \"ڤێلای دوو نهۆم، دەرەوە\" یان \"دیمەنی ئاسمانی\"). زیرەکی دەستکرد هەموو هێڵێک دەگرێتەخۆ کە کێشاوتە — بۆیە بڵێ بازنەکان پەنجەرەن یان ڕووناکی.",
+        "render_suggest": "✨ باشترین پرۆمپت لە سکێچەکەم پێشنیار بکە", "render_use": "ئەم پرۆمپتە بەکاربهێنە",
+        "render_refine_ph": "وەڵام بدەرەوە بۆ باشترکردنی — وەک: مۆدێرنتر، دیمەنی ئاسمانی، شووشە زیاد بکە…",
+        "render_ph_making": "باشترین پرۆمپت دەنووسێت…", "render_ph_err": "نەتوانرا پرۆمپت پێشنیار بکرێت:",
         "render_strength": "چەند نزیک لە سکێچەکەت بێت",
         "render_close": "نزیک بمێنێتەوە", "render_free": "داهێنەرانەتر",
         "render_go": "وێنە دروست بکە ✨", "render_making": "دروستدەکرێت… لەوانەیە ١٠–٣٠ چرکە بخایەنێت",
@@ -2520,7 +2529,8 @@ def force_complete_profile():
     if ep in ("complete_profile", "logout", "set_lang", "static", "service_worker",
               "favicon", "robots_txt", "sitemap_xml", "login", "register",
               "register_verify", "forgot", "reset_pw_page", "about",
-              "api_pings", "offline", "api_ai_stream", "api_review") or ep.startswith("push_"):
+              "api_pings", "offline", "api_ai_stream", "api_review",
+              "api_prompt_helper") or ep.startswith("push_"):
         return
     row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
                            (uid,)).fetchone()
@@ -6080,8 +6090,8 @@ def call_ai(task, text, lang, system_override=None):
     lang_name = LANG_NAMES.get(lang, "English")
     system = ((system_override or AI_TASKS.get(task, AI_TASKS["explain"]))
               + f" Respond in {lang_name}. Be concise and practical.")
-    body = _json.dumps({"model": model, "max_tokens": 1500, "system": system,
-                        "messages": [{"role": "user", "content": text[:12000]}]}).encode()
+    body = _json.dumps({"model": model, "max_tokens": 8000, "system": system,
+                        "messages": [{"role": "user", "content": text[:200000]}]}).encode()
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages", data=body,
         headers={"x-api-key": key, "anthropic-version": "2023-06-01",
@@ -6130,7 +6140,7 @@ def call_ai_stream(messages, system, key, model):
     import urllib.request
     import urllib.error
     body = _json.dumps({
-        "model": model, "max_tokens": 3200, "system": system,
+        "model": model, "max_tokens": 16000, "system": system,
         "stream": True, "messages": messages,
     }).encode()
     req = urllib.request.Request(
@@ -6196,7 +6206,7 @@ def api_ai_stream():
     msgs = []
     for m in history[-12:]:
         role = "assistant" if m.get("role") == "assistant" else "user"
-        content = (m.get("content") or "")[:12000]
+        content = (m.get("content") or "")[:200000]
         if content.strip():
             msgs.append({"role": role, "content": content})
     if not msgs or msgs[-1]["role"] != "user":
@@ -6488,6 +6498,60 @@ def replicate_generate(key, model, inp):
         return None, str(e)
 
 
+PROMPT_HELPER_SYSTEM = (
+    "You are an expert at writing text-to-image prompts for photorealistic "
+    "ARCHITECTURE renders. Look carefully at the student's sketch. Write ONE vivid, "
+    "specific prompt (2–4 sentences) that turns the sketch into a realistic building: "
+    "state the building type, the VIEW that matches the sketch (aerial/plan, elevation, "
+    "or exterior perspective), real construction materials, an architectural style, "
+    "lighting and mood, and the surrounding context — and make explicit that it is a "
+    "full-scale inhabitable building, not a small object or lamp. Always write the "
+    "prompt in ENGLISH (image models work best in English). Output ONLY the prompt "
+    "text — no preamble, no quotes, no explanation.")
+
+
+@app.route("/api/prompt_helper", methods=["POST"])
+@login_required
+def api_prompt_helper():
+    cu = current_user()
+    if not (cu["plus"] or cu["is_admin"]):
+        return jsonify(error="plus_required"), 403
+    s = get_settings()
+    key = (s.get("ai_api_key") or "").strip()
+    if not key:
+        return jsonify(error="not_configured"), 400
+    data = request.get_json(silent=True) or {}
+    image = data.get("image") or ""
+    note = (data.get("note") or "").strip()[:20000]
+    current = (data.get("current") or "").strip()[:20000]
+    refine = (data.get("refine") or "").strip()[:8000]
+    if not (isinstance(image, str) and image.startswith("data:image")):
+        return jsonify(error="no_image"), 400
+    try:
+        header, b64 = image.split(",", 1)
+        media = header.split(";")[0].split(":", 1)[1]
+    except (ValueError, IndexError):
+        return jsonify(error="bad_image"), 400
+    blocks = [{"type": "image",
+               "source": {"type": "base64", "media_type": media, "data": b64}}]
+    if refine and current:
+        txt = ("Here is the current text-to-image prompt for this sketch:\n" + current +
+               "\n\nThe student wants this change: " + refine +
+               "\n\nRewrite the prompt accordingly. Output ONLY the improved prompt.")
+    else:
+        txt = ("This is a student's architecture sketch. " +
+               (("They describe it as: " + note + ". ") if note else "") +
+               "Write the best single text-to-image prompt to turn THIS sketch into a "
+               "photorealistic building render. Output ONLY the prompt.")
+    blocks.append({"type": "text", "text": txt})
+    messages = [{"role": "user", "content": blocks}]
+    model = (s.get("ai_model") or "").strip() or "claude-haiku-4-5"
+    out = "".join(call_ai_stream(messages, PROMPT_HELPER_SYSTEM, key, model))
+    if "[[ERROR]]" in out:
+        return jsonify(error=out.split("[[ERROR]]").pop().strip()), 502
+    return jsonify(prompt=out.strip().strip('"'))
+
+
 @app.route("/api/render", methods=["POST"])
 @login_required
 def api_render():
@@ -6501,7 +6565,7 @@ def api_render():
 
     data = request.get_json(silent=True) or {}
     mode = data.get("mode", "text")
-    prompt = (data.get("prompt") or "").strip()[:1500]
+    prompt = (data.get("prompt") or "").strip()[:4000]
     image = data.get("image") or ""          # data URI of the student's sketch
     try:
         strength = float(data.get("strength", 0.55))
@@ -6589,7 +6653,7 @@ def api_review():
 
     data = request.get_json(silent=True) or {}
     images = data.get("images") or []
-    brief = (data.get("brief") or "").strip()[:6000]
+    brief = (data.get("brief") or "").strip()[:200000]
 
     blocks = []
     for im in images[:6]:
