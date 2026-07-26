@@ -829,6 +829,43 @@ details { margin-top: 10px; }
 summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 .inline-form { display:flex; gap:6px; align-items:center; }
 .inline-form input { padding: 6px 10px; font-size:.8rem; border-radius: 9px; width: 150px; }
+
+/* ===== AI streaming tools: loader, turns, follow-up, image ===== */
+.kr-thinking { display:flex; align-items:center; gap:12px; padding:16px 4px; color:var(--muted); font-size:.9rem; }
+.kr-dots { display:inline-flex; gap:5px; }
+.kr-dots i { width:9px; height:9px; border-radius:50%; background:var(--accent);
+  display:inline-block; animation: krBounce 1s ease-in-out infinite; }
+.kr-dots i:nth-child(2){ animation-delay:.16s } .kr-dots i:nth-child(3){ animation-delay:.32s }
+@keyframes krBounce { 0%,80%,100%{ transform:scale(.5); opacity:.4 } 40%{ transform:scale(1); opacity:1 } }
+.kr-thinking .kr-shine { background:linear-gradient(90deg,var(--muted) 30%,var(--accent) 50%,var(--muted) 70%);
+  background-size:200% auto; -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation: krShine 1.6s linear infinite; font-weight:600; }
+@keyframes krShine { to { background-position:-200% center } }
+.kr-turn { margin-top:16px; padding:16px 18px; border-radius:16px;
+  background:var(--card); border:1px solid var(--card-border); }
+.kr-turn.kr-user { background:color-mix(in srgb,var(--accent) 12%,var(--card));
+  border-color:color-mix(in srgb,var(--accent) 35%,transparent); }
+.kr-turn .kr-role { font-size:.72rem; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:8px; opacity:.85; }
+.kr-md { line-height:1.75; font-size:.94rem; word-break:break-word; }
+.kr-md h1,.kr-md h2,.kr-md h3 { font-size:1.02rem; margin:14px 0 6px; }
+.kr-md p { margin:8px 0; } .kr-md ul,.kr-md ol { margin:8px 0; padding-inline-start:22px; }
+.kr-md li { margin:3px 0; } .kr-md code { background:rgba(127,127,127,.15); padding:1px 5px; border-radius:5px; font-size:.86em; }
+.kr-md strong { color:var(--text, inherit); }
+.kr-cursor::after { content:"▋"; animation: krBlink 1s steps(1) infinite; color:var(--accent); }
+@keyframes krBlink { 50% { opacity:0 } }
+.kr-img-card { margin-top:14px; }
+.kr-img-wrap { position:relative; border-radius:16px; overflow:hidden; border:1px solid var(--card-border);
+  background:color-mix(in srgb,var(--accent) 8%,var(--card)); min-height:180px;
+  display:flex; align-items:center; justify-content:center; }
+.kr-img-wrap img { width:100%; display:block; }
+.kr-img-load { position:absolute; inset:0; display:flex; flex-direction:column; gap:10px;
+  align-items:center; justify-content:center; color:var(--muted); font-size:.85rem; }
+.kr-followup { display:flex; gap:8px; margin-top:14px; }
+.kr-followup input { flex:1; padding:12px 14px; border-radius:12px; }
+.kr-btnrow { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.kr-btnrow button, .kr-mini { padding:9px 16px; border-radius:11px; font-size:.85rem; cursor:pointer;
+  border:1px solid var(--card-border); background:var(--card); color:inherit; }
 </style>
 </head>
 <body class="{{ theme }}">
@@ -2011,6 +2048,67 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       location.href = TABS[ni];
     }, { passive: true });
   })();
+</script>
+
+<!-- Markdown renderer for AI answers (graceful fallback if it fails to load) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
+<script>
+/* ============ Shared AI streaming helpers (used by the AI tools) ============ */
+window.krEsc = function (s) {
+  return (s || "").replace(/[&<>"']/g, function (c) {
+    return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c];
+  });
+};
+window.krMarked = function (text) {
+  try {
+    if (window.marked) {
+      var r = window.marked.parse(text, { breaks: true, gfm: true });
+      return r;
+    }
+  } catch (_) {}
+  return "<p style='white-space:pre-wrap'>" + window.krEsc(text) + "</p>";
+};
+/* Stream the AI reply. payload -> {tool, task, target, messages:[{role,content}]}.
+   onChunk(fullTextSoFar) is called as tokens arrive. Resolves with full text. */
+window.krStream = async function (payload, onChunk) {
+  var res = await fetch("/api/ai_stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    var msg = "error";
+    try { msg = (await res.json()).error || msg; } catch (_) {}
+    throw new Error(msg);
+  }
+  var reader = res.body.getReader();
+  var dec = new TextDecoder();
+  var full = "";
+  while (true) {
+    var r = await reader.read();
+    if (r.done) break;
+    full += dec.decode(r.value, { stream: true });
+    if (onChunk) onChunk(full);
+  }
+  if (full.indexOf("[[ERROR]]") !== -1) {
+    throw new Error(full.split("[[ERROR]]").pop().trim() || "error");
+  }
+  return full;
+};
+/* Pull an "IMAGE_PROMPT:" line out of a design answer; returns {clean, prompt}. */
+window.krExtractImagePrompt = function (text) {
+  var m = text.match(/IMAGE_PROMPT:\s*(.+)\s*$/i);
+  if (!m) return { clean: text, prompt: "" };
+  return { clean: text.slice(0, m.index).trim(), prompt: m[1].trim() };
+};
+/* Build a text-to-image URL (Pollinations — no API key needed). */
+window.krImageURL = function (prompt, seed) {
+  var p = "architectural rendering, " + prompt +
+          ", professional, highly detailed, realistic lighting";
+  return "https://image.pollinations.ai/prompt/" +
+         encodeURIComponent(p.slice(0, 380)) +
+         "?width=768&height=512&nologo=true&model=flux&seed=" + (seed || 1);
+};
 </script>
 </body>
 </html>

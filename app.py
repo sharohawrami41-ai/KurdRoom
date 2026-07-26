@@ -13,7 +13,7 @@ from datetime import datetime, date
 from functools import wraps
 
 from flask import (Flask, g, render_template, request, redirect, url_for,
-                   session, flash, abort)
+                   session, flash, abort, Response, stream_with_context, jsonify)
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1800,6 +1800,12 @@ V21 = {
         "design_ph": "Describe your project brief or design — site, purpose, users, size, key constraints…",
         "predict_ph": "Paste the chapter or your notes — get the questions your teacher is most likely to ask…",
         "run_t": "Run ✨", "result_t": "Result",
+        "kr_thinking": "Thinking…", "kr_you": "You", "kr_ai": "AI Studio",
+        "kr_followup_ph": "Ask for changes or more detail…", "kr_send": "Send",
+        "kr_regen_img": "New image ↻", "kr_download": "Download",
+        "kr_img_making": "Drawing your design…",
+        "kr_img_fail": "Couldn't load the image — tap to retry.",
+        "kr_retry": "Retry", "kr_error": "Something went wrong:",
     },
     "ar": {
         "tool_mindmap": "صانع الخرائط الذهنية", "tool_sum2": "الملخّص الذكي",
@@ -1818,6 +1824,12 @@ V21 = {
         "design_ph": "صِف مشروعك أو تصميمك — الموقع، الغرض، المستخدمون، المساحة، أهم القيود…",
         "predict_ph": "الصق الفصل أو ملاحظاتك — واحصل على الأسئلة الأكثر احتمالًا…",
         "run_t": "شغّل ✨", "result_t": "النتيجة",
+        "kr_thinking": "يفكّر…", "kr_you": "أنت", "kr_ai": "الاستوديو",
+        "kr_followup_ph": "اطلب تعديلات أو مزيدًا من التفاصيل…", "kr_send": "إرسال",
+        "kr_regen_img": "صورة جديدة ↻", "kr_download": "تحميل",
+        "kr_img_making": "يرسم تصميمك…",
+        "kr_img_fail": "تعذّر تحميل الصورة — اضغط لإعادة المحاولة.",
+        "kr_retry": "إعادة المحاولة", "kr_error": "حدث خطأ:",
     },
     "ku": {
         "tool_mindmap": "دروستکەری نەخشەی مێشک", "tool_sum2": "کورتکەرەوەی زیرەک",
@@ -1836,6 +1848,12 @@ V21 = {
         "design_ph": "پرۆژە یان دیزاینەکەت باس بکە — شوێن، مەبەست، بەکارهێنەران، قەبارە، گرنگترین سنوورەکان…",
         "predict_ph": "بەشەکە یان تێبینیەکانت دابنێ — ئەو پرسیارانە وەربگرە کە زۆرترین ئەگەری هاتنیان هەیە…",
         "run_t": "کاری پێبکە ✨", "result_t": "ئەنجام",
+        "kr_thinking": "بیردەکاتەوە…", "kr_you": "تۆ", "kr_ai": "ستۆدیۆ",
+        "kr_followup_ph": "داوای گۆڕانکاری یان وردەکاری زیاتر بکە…", "kr_send": "ناردن",
+        "kr_regen_img": "وێنەی نوێ ↻", "kr_download": "داگرتن",
+        "kr_img_making": "دیزاینەکەت دەکێشێت…",
+        "kr_img_fail": "نەتوانرا وێنە باربکرێت — بۆ دووبارە هەوڵدان دەستی لێبدە.",
+        "kr_retry": "دووبارە", "kr_error": "هەڵەیەک ڕوویدا:",
     },
 }
 for _l, _d in V21.items():
@@ -2373,7 +2391,7 @@ def force_complete_profile():
     if ep in ("complete_profile", "logout", "set_lang", "static", "service_worker",
               "favicon", "robots_txt", "sitemap_xml", "login", "register",
               "register_verify", "forgot", "reset_pw_page", "about",
-              "api_pings", "offline") or ep.startswith("push_"):
+              "api_pings", "offline", "api_ai_stream") or ep.startswith("push_"):
         return
     row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
                            (uid,)).fetchone()
@@ -5908,6 +5926,19 @@ def tool_quiz():
 
 
 # ---------------------------------------------------------------- AI assistant
+AI_TASKS = {
+    "rate": "You are a fair, encouraging university writing tutor. Rate the essay "
+            "out of 100, then give strengths, weaknesses, and 3 concrete improvements.",
+    "sum": "Summarize the text clearly in short bullet-like lines a student can revise from.",
+    "explain": "Explain the text or topic simply, like teaching a first-year student, "
+               "with a small example.",
+    "improve": "Rewrite the text with better clarity, grammar, and flow. Keep the "
+               "author's voice and meaning. Then list the main changes you made.",
+}
+
+LANG_NAMES = {"en": "English", "ar": "Arabic", "ku": "Kurdish (Sorani)"}
+
+
 def call_ai(task, text, lang, system_override=None):
     import json as _json
     import urllib.request
@@ -5917,17 +5948,8 @@ def call_ai(task, text, lang, system_override=None):
     if not key:
         return None, "not_configured"
     model = (s.get("ai_model") or "").strip() or "claude-haiku-4-5"
-    lang_name = {"en": "English", "ar": "Arabic", "ku": "Kurdish (Sorani)"}.get(lang, "English")
-    tasks = {
-        "rate": "You are a fair, encouraging university writing tutor. Rate the essay "
-                "out of 100, then give strengths, weaknesses, and 3 concrete improvements.",
-        "sum": "Summarize the text clearly in short bullet-like lines a student can revise from.",
-        "explain": "Explain the text or topic simply, like teaching a first-year student, "
-                   "with a small example.",
-        "improve": "Rewrite the text with better clarity, grammar, and flow. Keep the "
-                   "author's voice and meaning. Then list the main changes you made.",
-    }
-    system = ((system_override or tasks.get(task, tasks["explain"]))
+    lang_name = LANG_NAMES.get(lang, "English")
+    system = ((system_override or AI_TASKS.get(task, AI_TASKS["explain"]))
               + f" Respond in {lang_name}. Be concise and practical.")
     body = _json.dumps({"model": model, "max_tokens": 1500, "system": system,
                         "messages": [{"role": "user", "content": text[:12000]}]}).encode()
@@ -5947,6 +5969,118 @@ def call_ai(task, text, lang, system_override=None):
         return None, msg
     except Exception as e:
         return None, str(e)
+
+
+def build_tool_system(tool, task, target, lang):
+    """System prompt for the streaming API, matching each tool's behaviour."""
+    lang_name = LANG_NAMES.get(lang, "English")
+    if tool == "design":
+        if target not in DESIGN_FOCUS:
+            target = "concept"
+        base = DESIGN_BASE + DESIGN_FOCUS[target]
+        if target in ("concept", "space"):
+            base += ("\n\nAfter everything else, output on its OWN final line "
+                     "exactly `IMAGE_PROMPT:` followed by one vivid ENGLISH "
+                     "sentence describing the design visually (building type, "
+                     "form, materials, setting, time of day, mood) for a "
+                     "text-to-image model. Put nothing after that line.")
+    elif tool in PLUS_AI_TOOLS and PLUS_AI_TOOLS[tool].get("system"):
+        base = PLUS_AI_TOOLS[tool]["system"]
+    else:
+        base = AI_TASKS.get(task, AI_TASKS["explain"])
+    return (base + f" Respond in {lang_name}. Format your answer in clean, "
+            "readable Markdown (headings, short paragraphs, bullet lists where "
+            "helpful). Be practical and to the point.")
+
+
+def call_ai_stream(messages, system, key, model):
+    """Yield text chunks from the Anthropic streaming API (SSE)."""
+    import json as _json
+    import urllib.request
+    import urllib.error
+    body = _json.dumps({
+        "model": model, "max_tokens": 1600, "system": system,
+        "stream": True, "messages": messages,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages", data=body,
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01",
+                 "content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            for raw in r:
+                line = raw.decode("utf-8", "ignore").strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload or payload == "[DONE]":
+                    continue
+                try:
+                    ev = _json.loads(payload)
+                except Exception:
+                    continue
+                etype = ev.get("type")
+                if etype == "content_block_delta":
+                    txt = (ev.get("delta") or {}).get("text")
+                    if txt:
+                        yield txt
+                elif etype == "error":
+                    yield "\n[[ERROR]] " + (ev.get("error") or {}).get(
+                        "message", "stream error")
+                    return
+                elif etype == "message_stop":
+                    return
+    except urllib.error.HTTPError as e:
+        try:
+            msg = _json.load(e).get("error", {}).get("message", str(e))
+        except Exception:
+            msg = str(e)
+        yield "\n[[ERROR]] " + msg
+    except Exception as e:
+        yield "\n[[ERROR]] " + str(e)
+
+
+@app.route("/api/ai_stream", methods=["POST"])
+@login_required
+def api_ai_stream():
+    data = request.get_json(silent=True) or {}
+    tool = (data.get("tool") or "").strip()
+    task = (data.get("task") or "").strip()
+    target = (data.get("target") or "").strip()
+    history = data.get("messages") or []
+    lang = session.get("lang", "en")
+
+    # Gate premium tools exactly like the page routes do.
+    if tool in PLUS_AI_TOOLS:
+        cu = current_user()
+        if not (cu["plus"] or cu["is_admin"]):
+            return jsonify(error="plus_required"), 403
+
+    s = get_settings()
+    key = (s.get("ai_api_key") or "").strip()
+    model = (s.get("ai_model") or "").strip() or "claude-haiku-4-5"
+    if not key:
+        return jsonify(error="not_configured"), 400
+
+    msgs = []
+    for m in history[-12:]:
+        role = "assistant" if m.get("role") == "assistant" else "user"
+        content = (m.get("content") or "")[:12000]
+        if content.strip():
+            msgs.append({"role": role, "content": content})
+    if not msgs or msgs[-1]["role"] != "user":
+        return jsonify(error="empty"), 400
+
+    system = build_tool_system(tool, task, target, lang)
+
+    def gen():
+        for chunk in call_ai_stream(msgs, system, key, model):
+            yield chunk
+
+    return Response(stream_with_context(gen()),
+                    mimetype="text/plain; charset=utf-8",
+                    headers={"X-Accel-Buffering": "no",
+                             "Cache-Control": "no-cache"})
 
 
 @app.route("/tools/ai", methods=["GET", "POST"])
@@ -6624,4 +6758,4 @@ if __name__ == "__main__":
     # Port 5001 by default (macOS AirPlay already occupies 5000).
     # Change it any time with:  PORT=8000 python app.py
     port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

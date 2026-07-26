@@ -8,7 +8,7 @@
       <div class="flash error" style="margin-top:10px">🤖 {{ t('ai_key_hint') }}</div>
     {% endif %}
 
-    <form method="post">
+    <form id="krForm" method="post">
       {% if tool == 'design' %}
       <label>{{ t('design_focus') }}</label>
       <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap">
@@ -30,11 +30,159 @@
       </div>
     </form>
 
-    {% if error %}<div class="flash error" style="margin-top:14px">{{ error }}</div>{% endif %}
+    {# Streamed conversation renders here (progressive enhancement). #}
+    <div id="krChat"></div>
+    <div id="krFollow" style="display:none; margin-top:6px">
+      <div class="kr-followup">
+        <input id="krFollowIn" type="text" maxlength="4000"
+               placeholder="{{ t('kr_followup_ph') }}">
+        <button class="primary" id="krFollowBtn" type="button"
+                style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>
+      </div>
+    </div>
+
+    {# No-JS fallback: server-rendered result. #}
+    {% if error %}<noscript><div class="flash error" style="margin-top:14px">{{ error }}</div></noscript>{% endif %}
     {% if result %}
-    <h2 style="margin-top:20px; font-size:1.05rem">✨ {{ t('result_t') }}</h2>
-    <div class="plan medium" style="white-space:pre-wrap; word-break:break-word;
-         font-size:.92rem; line-height:1.75; display:block">{{ result }}</div>
+    <noscript>
+      <h2 style="margin-top:20px; font-size:1.05rem">✨ {{ t('result_t') }}</h2>
+      <div class="plan medium" style="white-space:pre-wrap; word-break:break-word;
+           font-size:.92rem; line-height:1.75; display:block">{{ result }}</div>
+    </noscript>
     {% endif %}
   </div>
+
+{% if configured %}
+<script>
+(function () {
+  var TOOL = {{ tool|tojson }};
+  var IS_DESIGN = TOOL === "design";
+  var form = document.getElementById("krForm");
+  if (!form) return;
+  var chat = document.getElementById("krChat");
+  var follow = document.getElementById("krFollow");
+  var followIn = document.getElementById("krFollowIn");
+  var followBtn = document.getElementById("krFollowBtn");
+  var ta = form.querySelector("textarea[name=text]");
+  var runBtn = form.querySelector("button[type=submit]");
+  var busy = false;
+  var history = [];
+  var T = {{ {
+      "thinking": t("kr_thinking"), "you": t("kr_you"), "ai": t("kr_ai"),
+      "imgMaking": t("kr_img_making"), "imgFail": t("kr_img_fail"),
+      "regen": t("kr_regen_img"), "download": t("kr_download"),
+      "error": t("kr_error")
+  }|tojson }};
+
+  function targetVal() {
+    var r = form.querySelector("input[name=target]:checked");
+    return r ? r.value : "";
+  }
+  function addUser(text) {
+    var d = document.createElement("div");
+    d.className = "kr-turn kr-user";
+    d.innerHTML = '<div class="kr-role">' + krEsc(T.you) + '</div>' +
+                  '<div class="kr-md">' + krMarked(text) + '</div>';
+    chat.appendChild(d);
+    d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  function addThinking() {
+    var d = document.createElement("div");
+    d.className = "kr-turn";
+    d.innerHTML = '<div class="kr-thinking">' +
+      '<span class="kr-dots"><i></i><i></i><i></i></span>' +
+      '<span class="kr-shine">' + krEsc(T.thinking) + '</span></div>';
+    chat.appendChild(d);
+    d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return d;
+  }
+  function addImage(container, prompt) {
+    var card = document.createElement("div");
+    card.className = "kr-img-card";
+    container.appendChild(card);
+    function render(seed) {
+      var url = krImageURL(prompt, seed);
+      card.innerHTML =
+        '<div class="kr-img-wrap">' +
+          '<div class="kr-img-load"><span class="kr-dots"><i></i><i></i><i></i></span>' +
+          '<span>' + krEsc(T.imgMaking) + '</span></div>' +
+          '<img alt="design">' +
+        '</div>' +
+        '<div class="kr-btnrow">' +
+          '<button type="button" class="kr-regen">' + krEsc(T.regen) + '</button>' +
+          '<a class="kr-mini kr-dl" href="' + url + '" target="_blank" rel="noopener">' +
+            krEsc(T.download) + '</a>' +
+        '</div>';
+      var wrap = card.querySelector(".kr-img-wrap");
+      var img = card.querySelector("img");
+      var load = card.querySelector(".kr-img-load");
+      img.style.opacity = 0;
+      img.onload = function () { img.style.opacity = 1; if (load) load.remove(); };
+      img.onerror = function () {
+        if (load) load.innerHTML = '<span>' + krEsc(T.imgFail) + '</span>';
+        wrap.style.cursor = "pointer";
+        wrap.onclick = function () { render(Math.floor(Math.random() * 99999) + 1); };
+      };
+      img.src = url;
+      var rg = card.querySelector(".kr-regen");
+      rg.onclick = function () { render(Math.floor(Math.random() * 99999) + 1); };
+    }
+    render(Math.floor(Math.random() * 99999) + 1);
+  }
+  async function ask(text) {
+    if (busy) return;
+    busy = true;
+    if (runBtn) runBtn.disabled = true;
+    if (followBtn) followBtn.disabled = true;
+    addUser(text);
+    history.push({ role: "user", content: text });
+    var turn = addThinking();
+    try {
+      var full = await krStream(
+        { tool: TOOL, target: targetVal(), messages: history },
+        function (sofar) {
+          var shown = IS_DESIGN ? krExtractImagePrompt(sofar).clean : sofar;
+          turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+            '<div class="kr-md kr-cursor">' + krMarked(shown) + '</div>';
+          turn.scrollIntoView({ block: "nearest" });
+        });
+      history.push({ role: "assistant", content: full });
+      var clean = full, prompt = "";
+      if (IS_DESIGN) { var ex = krExtractImagePrompt(full); clean = ex.clean; prompt = ex.prompt; }
+      turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+        '<div class="kr-md">' + krMarked(clean) + '</div>';
+      if (IS_DESIGN && prompt) addImage(turn, prompt);
+    } catch (err) {
+      turn.innerHTML = '<div class="flash error">' + krEsc(T.error) + ' ' +
+        krEsc((err && err.message) || "") + '</div>';
+    } finally {
+      busy = false;
+      if (runBtn) runBtn.disabled = false;
+      if (followBtn) followBtn.disabled = false;
+      follow.style.display = "";
+      if (followIn) followIn.focus();
+    }
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var text = (ta.value || "").trim();
+    if (!text) return;
+    ta.value = "";
+    form.style.display = "none";   // switch to chat mode after the first ask
+    ask(text);
+  });
+  if (followBtn) followBtn.addEventListener("click", function () {
+    var text = (followIn.value || "").trim();
+    if (!text) return;
+    followIn.value = "";
+    ask(text);
+  });
+  if (followIn) followIn.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); followBtn.click(); }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

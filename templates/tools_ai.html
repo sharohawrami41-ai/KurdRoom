@@ -17,7 +17,7 @@
   </div>
   {% else %}
   <div class="card" style="margin-bottom:20px">
-    <form method="post">
+    <form id="krForm" method="post">
       <label>{{ t('ai_task') }}</label>
       <select name="task">
         <option value="rate" {{ 'selected' if task == 'rate' }}>⭐ {{ t('ai_rate') }}</option>
@@ -28,22 +28,109 @@
       <label>{{ t('ai_input') }}</label>
       <textarea name="text" rows="9" required maxlength="12000">{{ text }}</textarea>
       <div style="margin-top:14px">
-        <button class="primary" type="submit" style="width:auto; padding:12px 34px"
-                onclick="this.textContent='🤖 …'; this.form.submit()">
+        <button class="primary" type="submit" style="width:auto; padding:12px 34px">
           🤖 {{ t('ai_run') }}</button>
       </div>
     </form>
+
+    <div id="krChat"></div>
+    <div id="krFollow" style="display:none; margin-top:6px">
+      <div class="kr-followup">
+        <input id="krFollowIn" type="text" maxlength="4000"
+               placeholder="{{ t('kr_followup_ph') }}">
+        <button class="primary" id="krFollowBtn" type="button"
+                style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>
+      </div>
+    </div>
   </div>
 
-  {% if error %}
-  <div class="flash error">{{ t('ai_err') }} {{ error }}</div>
-  {% endif %}
   {% if result %}
-  <div class="card" style="border-color: color-mix(in srgb, var(--accent) 55%, transparent)">
-    <h2>✨ {{ t('ai_result') }}</h2>
-    <div class="hint"></div>
-    <div style="white-space:pre-wrap; line-height:1.7; font-size:.94rem">{{ result }}</div>
-  </div>
+  <noscript>
+    <div class="card" style="border-color: color-mix(in srgb, var(--accent) 55%, transparent)">
+      <h2>✨ {{ t('ai_result') }}</h2>
+      <div style="white-space:pre-wrap; line-height:1.7; font-size:.94rem">{{ result }}</div>
+    </div>
+  </noscript>
   {% endif %}
+
+<script>
+(function () {
+  var form = document.getElementById("krForm");
+  if (!form) return;
+  var chat = document.getElementById("krChat");
+  var follow = document.getElementById("krFollow");
+  var followIn = document.getElementById("krFollowIn");
+  var followBtn = document.getElementById("krFollowBtn");
+  var ta = form.querySelector("textarea[name=text]");
+  var taskSel = form.querySelector("select[name=task]");
+  var runBtn = form.querySelector("button[type=submit]");
+  var busy = false, history = [], task = "explain";
+  var T = {{ {
+      "thinking": t("kr_thinking"), "you": t("kr_you"), "ai": t("kr_ai"),
+      "error": t("kr_error")
+  }|tojson }};
+
+  function addUser(text) {
+    var d = document.createElement("div");
+    d.className = "kr-turn kr-user";
+    d.innerHTML = '<div class="kr-role">' + krEsc(T.you) + '</div><div class="kr-md">' +
+      krMarked(text) + '</div>';
+    chat.appendChild(d); d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  function addThinking() {
+    var d = document.createElement("div");
+    d.className = "kr-turn";
+    d.innerHTML = '<div class="kr-thinking"><span class="kr-dots"><i></i><i></i><i></i></span>' +
+      '<span class="kr-shine">' + krEsc(T.thinking) + '</span></div>';
+    chat.appendChild(d); d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return d;
+  }
+  async function ask(text) {
+    if (busy) return;
+    busy = true;
+    if (runBtn) runBtn.disabled = true;
+    if (followBtn) followBtn.disabled = true;
+    addUser(text);
+    history.push({ role: "user", content: text });
+    var turn = addThinking();
+    try {
+      var full = await krStream({ task: task, messages: history }, function (sofar) {
+        turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+          '<div class="kr-md kr-cursor">' + krMarked(sofar) + '</div>';
+        turn.scrollIntoView({ block: "nearest" });
+      });
+      history.push({ role: "assistant", content: full });
+      turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+        '<div class="kr-md">' + krMarked(full) + '</div>';
+    } catch (err) {
+      turn.innerHTML = '<div class="flash error">' + krEsc(T.error) + ' ' +
+        krEsc((err && err.message) || "") + '</div>';
+    } finally {
+      busy = false;
+      if (runBtn) runBtn.disabled = false;
+      if (followBtn) followBtn.disabled = false;
+      follow.style.display = ""; if (followIn) followIn.focus();
+    }
+  }
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var text = (ta.value || "").trim();
+    if (!text) return;
+    task = taskSel ? taskSel.value : "explain";
+    ta.value = "";
+    form.style.display = "none";
+    ask(text);
+  });
+  if (followBtn) followBtn.addEventListener("click", function () {
+    var text = (followIn.value || "").trim();
+    if (!text) return;
+    followIn.value = ""; ask(text);
+  });
+  if (followIn) followIn.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); followBtn.click(); }
+  });
+})();
+</script>
   {% endif %}
 {% endblock %}
