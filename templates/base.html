@@ -866,6 +866,45 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 .kr-btnrow { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .kr-btnrow button, .kr-mini { padding:9px 16px; border-radius:11px; font-size:.85rem; cursor:pointer;
   border:1px solid var(--card-border); background:var(--card); color:inherit; }
+
+/* ===== Workspace hub ===== */
+.ws-wrap { max-width:840px; margin:0 auto; }
+.ws-hero { text-align:center; padding:6px 0 2px; }
+.ws-hero h1 { font-size:1.7rem; margin:8px 0 4px; }
+.ws-hero p { color:var(--muted); font-size:.92rem; max-width:580px; margin:0 auto; line-height:1.6; }
+.ws-badge { display:inline-block; background:linear-gradient(90deg,#f5c542,#f39c12);
+  color:#1a1200; font-weight:800; font-size:.7rem; letter-spacing:.5px; padding:4px 12px; border-radius:999px; }
+.ws-pills { display:flex; gap:8px; overflow-x:auto; padding:16px 2px 6px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.ws-pills::-webkit-scrollbar { display:none; }
+.ws-pill { white-space:nowrap; padding:9px 16px; border-radius:999px; border:1px solid var(--card-border);
+  background:var(--card); color:inherit; cursor:pointer; font-size:.86rem; display:flex; gap:6px; align-items:center; flex:0 0 auto; }
+.ws-pill.active { border-color:var(--accent); color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,var(--card)); }
+.ws-cards { display:grid; grid-template-columns:1fr; gap:12px; margin-top:8px; }
+@media (min-width:620px) { .ws-cards { grid-template-columns:1fr 1fr; } }
+.ws-card { display:flex; align-items:center; gap:14px; padding:16px; border-radius:16px;
+  border:1px solid var(--card-border); background:var(--card); text-decoration:none; color:inherit;
+  transition:transform .12s ease, border-color .12s ease; }
+.ws-card:hover { transform:translateY(-2px); border-color:var(--accent); }
+.ws-card-ic { font-size:1.8rem; flex:0 0 auto; }
+.ws-card-title { font-weight:700; font-size:.98rem; }
+.ws-card-desc { color:var(--muted); font-size:.82rem; margin-top:3px; line-height:1.5; }
+.ws-card-go { margin-inline-start:auto; color:var(--accent); font-size:1.2rem; }
+/* first-time tour */
+.ws-tour { position:fixed; inset:0; z-index:9999; background:rgba(6,4,18,.74);
+  backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; }
+.ws-tour-card { max-width:430px; width:100%; background:var(--card); border:1px solid var(--card-border);
+  border-radius:22px; padding:32px 26px; text-align:center; box-shadow:0 30px 80px rgba(0,0,0,.5); }
+.ws-tour-ic { font-size:3rem; animation: softPulse 2.4s ease-in-out infinite; display:inline-block; }
+.ws-tour-t { font-size:1.3rem; font-weight:800; margin-top:8px; }
+.ws-tour-d { color:var(--muted); font-size:.95rem; line-height:1.7; margin-top:10px; min-height:80px; }
+.ws-dots { display:flex; gap:6px; justify-content:center; margin:16px 0 18px; }
+.ws-dots i { width:8px; height:8px; border-radius:50%; background:var(--card-border); transition:all .25s ease; }
+.ws-dots i.on { background:var(--accent); width:22px; border-radius:6px; }
+.ws-tour-btns { display:flex; gap:10px; justify-content:center; }
+.ws-tour-btns button { padding:11px 22px; border-radius:12px; cursor:pointer; font-size:.9rem;
+  border:1px solid var(--card-border); background:transparent; color:inherit; }
+.ws-tour-btns .primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
 </style>
 </head>
 <body class="{{ theme }}">
@@ -941,13 +980,11 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('tool_citations') }}">🔖 {{ t('citations_t') }}</a>
   <a href="{{ url_for('tool_quiz') }}">❓ {{ t('quiz_mode') }}</a>
   <a href="{{ url_for('tool_ai') }}">🤖 {{ t('ai_assistant') }}</a>
-  <a href="{{ url_for('tool_mindmap') }}">🧠 {{ t('tool_mindmap') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
-  <a href="{{ url_for('tool_plus', tool='summarizer') }}">📄 {{ t('tool_sum2') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
-  <a href="{{ url_for('tool_plus', tool='present') }}">🎤 {{ t('tool_present') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
-  <a href="{{ url_for('tool_plus', tool='assignment') }}">📋 {{ t('tool_assign') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
-  <a href="{{ url_for('tool_render') }}">🖼 {{ t('tool_render') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
-  <a href="{{ url_for('tool_plus', tool='design') }}">📐 {{ t('tool_design') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
-  <a href="{{ url_for('tool_plus', tool='predict') }}">❓ {{ t('tool_predict') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_mindmap') }}">🧠 {{ t('tool_mindmap') }}</a>
+  <a href="{{ url_for('tool_plus', tool='summarizer') }}">📄 {{ t('tool_sum2') }}</a>
+  <a href="{{ url_for('tool_plus', tool='present') }}">🎤 {{ t('tool_present') }}</a>
+  <a href="{{ url_for('tool_plus', tool='assignment') }}">📋 {{ t('tool_assign') }}</a>
+  <a href="{{ url_for('tool_plus', tool='predict') }}">❓ {{ t('tool_predict') }}</a>
 {% endmacro %}
 {% macro account_rows() %}
   <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
@@ -1009,6 +1046,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       <summary class="tab {{ 'active' if request.endpoint and request.endpoint.startswith('tool_') }}">🛠 {{ t('tools') }} <span class="caret">▼</span></summary>
       <div class="panel">{{ tools_links() }}</div>
     </details>
+    <a class="tab {{ 'active' if request.endpoint and request.endpoint.startswith('workspace') }}"
+       href="{{ url_for('workspace') }}" style="color:gold">🚀 {{ t('workspace_t') }}</a>
     <details class="dd">
       <summary class="tab {{ 'active' if soc }}" style="position:relative">👥 {{ t('social') }} <span class="caret">▼</span>
         {% if pending_requests or unread_dms %}<span class="dot-count">{{ pending_requests + unread_dms }}</span>{% endif %}
@@ -1070,6 +1109,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('university') }}">🎓 {{ t('university') }}</a>
   <div class="msec">{{ t('tools') }}</div>
   {{ tools_links() }}
+  <div class="msec">🚀 {{ t('workspace_t') }}</div>
+  <a href="{{ url_for('workspace') }}" style="color:gold">🚀 {{ t('workspace_t') }} <span style="font-size:.7rem">⭐</span></a>
   <div class="msec">{{ t('social') }}</div>
   <a href="{{ url_for('posts') }}">📰 {{ t('posts_t') }}</a>
   {{ social_links() }}

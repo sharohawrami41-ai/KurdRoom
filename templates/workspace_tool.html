@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="max-width:680px; margin:0 auto">
+    <a href="{{ url_for('workspace') }}" style="font-size:.82rem; color:var(--muted); text-decoration:none">← {{ t('workspace_t') }}</a>
+    <h2 style="margin-top:8px">{{ tw.icon }} {{ tw.name }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <p style="color:var(--muted); font-size:.88rem; margin-top:4px">{{ tw.desc }}</p>
+
+    {% if not configured %}
+      <div class="flash error" style="margin-top:10px">🤖 {{ t('ai_key_hint') }}</div>
+    {% endif %}
+
+    <form id="krForm" method="post" style="margin-top:12px">
+      <div style="margin-bottom:12px">
+        <input type="file" id="krPdf" accept="application/pdf" style="display:none">
+        <button type="button" class="kr-mini" id="krPdfBtn"
+                style="padding:10px 16px; border-radius:12px">{{ t('assign_upload') }}</button>
+        <span id="krPdfStatus" style="margin-inline-start:10px; font-size:.82rem; color:var(--muted)"></span>
+      </div>
+      <textarea name="text" rows="7" required maxlength="12000"
+                placeholder="{{ tw.ph }}"></textarea>
+      <div style="margin-top:14px">
+        <button class="primary" type="submit" style="width:auto; padding:12px 30px"
+                {{ 'disabled' if not configured }}>{{ t('run_t') }}</button>
+      </div>
+    </form>
+
+    <div id="krChat"></div>
+    <div id="krFollow" style="display:none; margin-top:6px">
+      <div class="kr-followup">
+        <input id="krFollowIn" type="text" maxlength="4000"
+               placeholder="{{ t('kr_followup_ph') }}">
+        <button class="primary" id="krFollowBtn" type="button"
+                style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>
+      </div>
+    </div>
+  </div>
+
+{% if configured %}
+<script>
+(function () {
+  var TOOL = {{ tool_id|tojson }};
+  var form = document.getElementById("krForm");
+  if (!form) return;
+  var chat = document.getElementById("krChat");
+  var follow = document.getElementById("krFollow");
+  var followIn = document.getElementById("krFollowIn");
+  var followBtn = document.getElementById("krFollowBtn");
+  var ta = form.querySelector("textarea[name=text]");
+  var runBtn = form.querySelector("button[type=submit]");
+  var busy = false, history = [];
+  var T = {{ {
+      "thinking": t('kr_thinking'), "you": t('kr_you'), "ai": t('kr_ai'), "error": t('kr_error')
+  }|tojson }};
+
+  function addUser(text) {
+    var d = document.createElement("div");
+    d.className = "kr-turn kr-user";
+    d.innerHTML = '<div class="kr-role">' + krEsc(T.you) + '</div><div class="kr-md">' +
+      krMarked(text) + '</div>';
+    chat.appendChild(d); d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  function addThinking() {
+    var d = document.createElement("div");
+    d.className = "kr-turn";
+    d.innerHTML = '<div class="kr-thinking"><span class="kr-dots"><i></i><i></i><i></i></span>' +
+      '<span class="kr-shine">' + krEsc(T.thinking) + '</span></div>';
+    chat.appendChild(d); d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return d;
+  }
+  async function ask(text) {
+    if (busy) return;
+    busy = true;
+    if (runBtn) runBtn.disabled = true;
+    if (followBtn) followBtn.disabled = true;
+    addUser(text);
+    history.push({ role: "user", content: text });
+    var turn = addThinking();
+    try {
+      var full = await krStream({ tool: TOOL, messages: history }, function (sofar) {
+        turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+          '<div class="kr-md kr-cursor">' + krMarked(sofar) + '</div>';
+        turn.scrollIntoView({ block: "nearest" });
+      });
+      history.push({ role: "assistant", content: full });
+      turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+        '<div class="kr-md">' + krMarked(full) + '</div>';
+    } catch (err) {
+      turn.innerHTML = '<div class="flash error">' + krEsc(T.error) + ' ' +
+        krEsc((err && err.message) || "") + '</div>';
+    } finally {
+      busy = false;
+      if (runBtn) runBtn.disabled = false;
+      if (followBtn) followBtn.disabled = false;
+      follow.style.display = ""; if (followIn) followIn.focus();
+    }
+  }
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var text = (ta.value || "").trim();
+    if (!text) return;
+    ta.value = "";
+    form.style.display = "none";
+    ask(text);
+  });
+  if (followBtn) followBtn.addEventListener("click", function () {
+    var text = (followIn.value || "").trim();
+    if (!text) return;
+    followIn.value = ""; ask(text);
+  });
+  if (followIn) followIn.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); followBtn.click(); }
+  });
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script>
+(function () {
+  var btn = document.getElementById("krPdfBtn");
+  var inp = document.getElementById("krPdf");
+  var st = document.getElementById("krPdfStatus");
+  var ta = document.querySelector("#krForm textarea[name=text]");
+  if (!btn || !inp || !ta) return;
+  var S = {
+    reading: {{ t('assign_reading')|tojson }},
+    loaded: {{ t('assign_loaded')|tojson }},
+    err: {{ t('assign_pdf_err')|tojson }}
+  };
+  btn.addEventListener("click", function () { inp.click(); });
+  inp.addEventListener("change", async function () {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    st.textContent = S.reading;
+    try {
+      var tries = 0;
+      while (!window.pdfjsLib && tries < 40) {
+        await new Promise(function (r) { setTimeout(r, 100); }); tries++;
+      }
+      var lib = window.pdfjsLib;
+      if (!lib) { st.textContent = S.err; return; }
+      lib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      var buf = await f.arrayBuffer();
+      var pdf = await lib.getDocument({ data: buf }).promise;
+      var out = [], max = Math.min(pdf.numPages, 15);
+      for (var i = 1; i <= max; i++) {
+        var page = await pdf.getPage(i);
+        var tc = await page.getTextContent();
+        out.push(tc.items.map(function (it) { return it.str; }).join(" "));
+      }
+      var text = out.join("\n\n").replace(/[ \t]+\n/g, "\n").trim().slice(0, 12000);
+      if (!text) { st.textContent = S.err; return; }
+      ta.value = text;
+      st.textContent = S.loaded;
+    } catch (e) { st.textContent = S.err; }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

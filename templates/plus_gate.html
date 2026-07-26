@@ -7,7 +7,7 @@
        50% -20%, rgba(255,215,90,.18), transparent 70%); pointer-events:none"></div>
   <div style="font-size:3rem">{{ tool_icon }}</div>
   <div style="font-size:1.7rem; margin-top:-6px">🔒</div>
-  <h2 style="font-size:1.3rem; margin-top:10px">{{ t(tool_key) }}</h2>
+  <h2 style="font-size:1.3rem; margin-top:10px">{{ tool_label if tool_label else t(tool_key) }}</h2>
   <div style="color:gold; font-weight:800; margin-top:4px">⭐ {{ t('gate_t') }}</div>
   <p style="color:var(--muted); font-size:.9rem; line-height:1.7; margin-top:12px">
     {{ t('gate_sub') }}</p>

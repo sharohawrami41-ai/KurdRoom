@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="ws-wrap">
+  <div class="ws-hero">
+    <div class="ws-badge">⭐ {{ t('ws_premium') }}</div>
+    <h1>🚀 {{ t('ws_hero_title') }}</h1>
+    <p>{{ t('ws_hero_sub') }}</p>
+  </div>
+
+  <div class="ws-pills" id="wsPills">
+    {% for d in depts %}
+    <button type="button" class="ws-pill {{ 'active' if loop.first }}" data-dept="{{ d.id }}">
+      <span>{{ d.icon }}</span> {{ d.name }}</button>
+    {% endfor %}
+  </div>
+
+  {% for d in depts %}
+  <div class="ws-group" data-dept="{{ d.id }}" {{ '' if loop.first else 'style=display:none' }}>
+    <div class="ws-cards">
+      {% for c in d.cards %}
+      <a class="ws-card" href="{{ c.url }}">
+        <div class="ws-card-ic">{{ c.icon }}</div>
+        <div class="ws-card-body">
+          <div class="ws-card-title">{{ c.title }}</div>
+          <div class="ws-card-desc">{{ c.desc }}</div>
+        </div>
+        <div class="ws-card-go">→</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="wsTour" class="ws-tour" style="display:none">
+  <div class="ws-tour-card">
+    <div class="ws-tour-ic" id="wsTourIc">✨</div>
+    <div class="ws-tour-t" id="wsTourT"></div>
+    <div class="ws-tour-d" id="wsTourD"></div>
+    <div class="ws-dots" id="wsDots"></div>
+    <div class="ws-tour-btns">
+      <button type="button" id="wsSkip">{{ t('ws_skip') }}</button>
+      <button type="button" class="primary" id="wsNext">{{ t('ws_next') }}</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---- department pill switching ----
+  var pills = document.querySelectorAll("#wsPills .ws-pill");
+  var groups = document.querySelectorAll(".ws-group");
+  pills.forEach(function (p) {
+    p.addEventListener("click", function () {
+      var id = p.getAttribute("data-dept");
+      pills.forEach(function (x) { x.classList.toggle("active", x === p); });
+      groups.forEach(function (g) {
+        g.style.display = g.getAttribute("data-dept") === id ? "" : "none";
+      });
+    });
+  });
+
+  // ---- first-time guided tour ----
+  var SLIDES = {{ [
+    {"ic": "🚀", "t": t('ws_t1'), "d": t('ws_d1')},
+    {"ic": "🧭", "t": t('ws_t2'), "d": t('ws_d2')},
+    {"ic": "⚡", "t": t('ws_t3'), "d": t('ws_d3')},
+    {"ic": "🖼", "t": t('ws_t4'), "d": t('ws_d4')},
+    {"ic": "💬", "t": t('ws_t5'), "d": t('ws_d5')}
+  ]|tojson }};
+  var START = {{ t('ws_start')|tojson }}, NEXT = {{ t('ws_next')|tojson }};
+  var seen = false;
+  try { seen = localStorage.getItem("kr_ws_seen") === "1"; } catch (_) {}
+  if (seen) return;
+
+  var tour = document.getElementById("wsTour");
+  var icEl = document.getElementById("wsTourIc");
+  var tEl = document.getElementById("wsTourT");
+  var dEl = document.getElementById("wsTourD");
+  var dots = document.getElementById("wsDots");
+  var nextBtn = document.getElementById("wsNext");
+  var skipBtn = document.getElementById("wsSkip");
+  var i = 0, timer = null;
+
+  SLIDES.forEach(function (_, k) {
+    var d = document.createElement("i");
+    d.addEventListener("click", function () { go(k, true); });
+    dots.appendChild(d);
+  });
+
+  function render() {
+    var s = SLIDES[i];
+    icEl.textContent = s.ic; tEl.textContent = s.t; dEl.textContent = s.d;
+    dots.querySelectorAll("i").forEach(function (x, k) { x.classList.toggle("on", k === i); });
+    nextBtn.textContent = (i === SLIDES.length - 1) ? START : NEXT;
+  }
+  function go(n, manual) {
+    i = n;
+    if (i >= SLIDES.length) { close(); return; }
+    render();
+    if (manual) restart();
+  }
+  function restart() { clearTimeout(timer); timer = setTimeout(function () { go(i + 1); }, 4000); }
+  function close() {
+    clearTimeout(timer);
+    tour.style.display = "none";
+    try { localStorage.setItem("kr_ws_seen", "1"); } catch (_) {}
+  }
+  nextBtn.addEventListener("click", function () { go(i + 1, true); });
+  skipBtn.addEventListener("click", close);
+  tour.addEventListener("click", function (e) { if (e.target === tour) close(); });
+
+  tour.style.display = "flex";
+  render(); restart();
+})();
+</script>
+{% endblock %}

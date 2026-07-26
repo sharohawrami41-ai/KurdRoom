@@ -1803,6 +1803,15 @@ V21 = {
         "render_need_prompt": "Please describe what you want.",
         "render_err": "Render failed:", "render_no_key": "The image service isn't set up yet. An admin needs to add a Replicate API key in Admin → Settings.",
         "set_replicate": "Replicate API key (image rendering)", "set_quality": "Image quality (text-to-image)",
+        "workspace_t": "Workspace", "ws_hero_title": "Your Workspace",
+        "ws_hero_sub": "Premium AI tools for your major — pick your field and get the tools that do your assignments.",
+        "ws_premium": "Premium", "ws_pick": "Choose your field", "ws_open": "Open",
+        "ws_skip": "Skip", "ws_next": "Next", "ws_start": "Explore the Workspace →",
+        "ws_t1": "Welcome to your Workspace ✨", "ws_d1": "Premium AI tools built for your exact major — architecture, medicine, engineering, law, business and more.",
+        "ws_t2": "Pick your field", "ws_d2": "Choose your department and see only the tools that matter for your assignments.",
+        "ws_t3": "Do assignments faster", "ws_d3": "Structural calculators, flashcards & MCQs, case briefs, business plans, lab reports — each field has its own smart tools.",
+        "ws_t4": "Sketch → Render", "ws_d4": "Architecture & design students upload a sketch and get a professional render in seconds.",
+        "ws_t5": "Ask for more, anytime", "ws_d5": "Every answer has a reply box — ask it to go deeper, fix, or redo. It remembers the whole conversation.",
         "design_focus": "Focus", "design_f_concept": "Full concept",
         "design_f_space": "Space planning", "design_f_detail": "Technical",
         "design_f_critique": "Studio critique",
@@ -1843,6 +1852,15 @@ V21 = {
         "render_need_prompt": "من فضلك صف ما تريد.",
         "render_err": "فشل الإنشاء:", "render_no_key": "خدمة الصور غير مُعدّة بعد. على المشرف إضافة مفتاح Replicate في لوحة الإدارة ← الإعدادات.",
         "set_replicate": "مفتاح Replicate (إنشاء الصور)", "set_quality": "جودة الصورة (نص إلى صورة)",
+        "workspace_t": "مساحة العمل", "ws_hero_title": "مساحة عملك",
+        "ws_hero_sub": "أدوات ذكاء اصطناعي مميّزة لتخصّصك — اختر مجالك واحصل على الأدوات التي تنجز واجباتك.",
+        "ws_premium": "مميّز", "ws_pick": "اختر مجالك", "ws_open": "افتح",
+        "ws_skip": "تخطّي", "ws_next": "التالي", "ws_start": "استكشف مساحة العمل ←",
+        "ws_t1": "مرحبًا بك في مساحة عملك ✨", "ws_d1": "أدوات ذكاء اصطناعي مميّزة مصمّمة لتخصّصك تمامًا — العمارة، الطب، الهندسة، القانون، الأعمال وغيرها.",
+        "ws_t2": "اختر مجالك", "ws_d2": "اختر قسمك لترى فقط الأدوات المهمّة لواجباتك.",
+        "ws_t3": "أنجز واجباتك أسرع", "ws_d3": "حاسبات إنشائية، بطاقات وأسئلة اختيار، ملخّصات قضايا، خطط أعمال، تقارير مختبر — لكل مجال أدواته الذكية.",
+        "ws_t4": "من الرسم إلى صورة", "ws_d4": "طلاب العمارة والتصميم يرفعون رسمًا ويحصلون على صورة احترافية في ثوانٍ.",
+        "ws_t5": "اطلب المزيد في أي وقت", "ws_d5": "كل إجابة فيها صندوق ردّ — اطلب التعمّق أو التصحيح أو الإعادة. يتذكّر المحادثة كاملة.",
         "design_focus": "التركيز", "design_f_concept": "الفكرة الكاملة",
         "design_f_space": "توزيع الفراغات", "design_f_detail": "التقنيات",
         "design_f_critique": "نقد التصميم",
@@ -1883,6 +1901,15 @@ V21 = {
         "render_need_prompt": "تکایە وەسفی ئەوە بکە کە دەتەوێت.",
         "render_err": "دروستکردن سەرکەوتوو نەبوو:", "render_no_key": "خزمەتگوزاری وێنە هێشتا ڕێکنەخراوە. ئەدمین پێویستە کلیلی Replicate زیاد بکات لە ئەدمین ← ڕێکخستنەکان.",
         "set_replicate": "کلیلی Replicate (دروستکردنی وێنە)", "set_quality": "کوالیتیی وێنە (دەق بۆ وێنە)",
+        "workspace_t": "شوێنی کار", "ws_hero_title": "شوێنی کارەکەت",
+        "ws_hero_sub": "ئامرازی AI ی پرێمیۆم بۆ بواری خوێندنت — بوارەکەت هەڵبژێرە و ئەو ئامرازانە وەربگرە کە ئەرکەکانت دەکەن.",
+        "ws_premium": "پرێمیۆم", "ws_pick": "بوارەکەت هەڵبژێرە", "ws_open": "بیکەرەوە",
+        "ws_skip": "پەڕاندن", "ws_next": "دواتر", "ws_start": "شوێنی کار بگەڕێ ←",
+        "ws_t1": "بەخێربێیت بۆ شوێنی کارەکەت ✨", "ws_d1": "ئامرازی AI ی پرێمیۆم بۆ بوارەکەت — تەلارسازی، پزیشکی، ئەندازیاری، یاسا، بازرگانی و زیاتر.",
+        "ws_t2": "بوارەکەت هەڵبژێرە", "ws_d2": "بەشەکەت هەڵبژێرە و تەنها ئەو ئامرازانە ببینە کە گرنگن بۆ ئەرکەکانت.",
+        "ws_t3": "ئەرکەکان خێراتر بکە", "ws_d3": "ژمێرەری پێکهاتە، فلاشکارد و MCQ، پوختەی کەیس، پلانی بازرگانی، ڕاپۆرتی تاقیگە — هەر بوارێک ئامرازی زیرەکی خۆی هەیە.",
+        "ws_t4": "لە سکێچەوە بۆ وێنە", "ws_d4": "خوێندکارانی تەلارسازی و دیزاین سکێچ باردەکەن و لە چرکەیەکدا وێنەی پرۆفیشناڵ وەردەگرن.",
+        "ws_t5": "هەر کاتێک داوای زیاتر بکە", "ws_d5": "هەموو وەڵامێک سندوقی وەڵامدانەوەی هەیە — داوا بکە قووڵتر بێت، چاک بکات، یان دووبارە بیکات. گفتوگۆکە لەبیر دەمێنێت.",
         "design_focus": "جەخت", "design_f_concept": "بیرۆکەی تەواو",
         "design_f_space": "پلانی بۆشایی", "design_f_detail": "تەکنیکی",
         "design_f_critique": "ڕەخنەی ستۆدیۆ",
@@ -6032,6 +6059,8 @@ def build_tool_system(tool, task, target, lang):
                      "sentence describing the design visually (building type, "
                      "form, materials, setting, time of day, mood) for a "
                      "text-to-image model. Put nothing after that line.")
+    elif tool in WORKSPACE_TOOLS:
+        base = WORKSPACE_TOOLS[tool]["system"]
     elif tool in PLUS_AI_TOOLS and PLUS_AI_TOOLS[tool].get("system"):
         base = PLUS_AI_TOOLS[tool]["system"]
     else:
@@ -6098,8 +6127,8 @@ def api_ai_stream():
     history = data.get("messages") or []
     lang = session.get("lang", "en")
 
-    # Gate premium tools exactly like the page routes do.
-    if tool in PLUS_AI_TOOLS:
+    # Workspace tools and the Design Studio are premium; the rest are free.
+    if tool == "design" or tool in WORKSPACE_TOOLS:
         cu = current_user()
         if not (cu["plus"] or cu["is_admin"]):
             return jsonify(error="plus_required"), 403
@@ -6147,12 +6176,13 @@ def tool_ai():
 
 
 # ---------------------------------------------------------------- Plus tools
-def plus_gate_or_none(icon, name_key):
-    """Free users see a beautiful upgrade screen instead of the tool."""
+def plus_gate_or_none(icon, name_key, label=None):
+    """Free users see a beautiful upgrade screen instead of the tool.
+    Pass name_key for a translation key, or label for a literal tool name."""
     cu = current_user()
     if not (cu["plus"] or cu["is_admin"]):
-        return render_template("plus_gate.html", user=cu,
-                               tool_icon=icon, tool_key=name_key)
+        return render_template("plus_gate.html", user=cu, tool_icon=icon,
+                               tool_key=name_key, tool_label=label)
     return None
 
 
@@ -6187,9 +6217,7 @@ def parse_outline(text):
 @app.route("/tools/mindmap", methods=["GET", "POST"])
 @login_required
 def tool_mindmap():
-    gate = plus_gate_or_none("🧠", "tool_mindmap")
-    if gate:
-        return gate
+    pass  # free tool
     configured = bool((get_settings().get("ai_api_key") or "").strip())
     topic = request.form.get("topic", "")
     nodes = error = None
@@ -6317,9 +6345,10 @@ def tool_plus(tool):
     cfg = PLUS_AI_TOOLS.get(tool)
     if cfg is None:
         abort(404)
-    gate = plus_gate_or_none(cfg["icon"], cfg["key"])
-    if gate:
-        return gate
+    if tool == "design":            # premium (lives in the Workspace); rest are free
+        gate = plus_gate_or_none(cfg["icon"], cfg["key"])
+        if gate:
+            return gate
     configured = bool((get_settings().get("ai_api_key") or "").strip())
     result = error = None
     text = request.form.get("text", "")
@@ -6454,6 +6483,270 @@ def tool_render():
     configured = bool((get_settings().get("replicate_api_key") or "").strip())
     return render_template("tools_render.html", user=current_user(),
                            configured=configured)
+
+
+# ======================= Workspace (per-department tools) =======================
+# Each entry is a premium AI tool. The streaming brain (build_tool_system) and the
+# /api/ai_stream gate both look tools up here by id.
+WORKSPACE_TOOLS = {
+    # ---- Civil & Structural Engineering ----
+    "civil_calc": dict(icon="📐", name="Structural Calculator",
+        desc="Beam, column, slab & load calculations, worked step by step.",
+        ph="Describe the element and loads — e.g. simply supported RC beam, span 6 m, dead 10 kN/m, live 15 kN/m…",
+        system="You are a structural engineering teaching assistant for university students. "
+               "The student describes a structural element and its loads. Show the FULL "
+               "calculation step by step: assumptions, the formula used, substitution with "
+               "numbers, and the final answer with units. Include the relevant checks "
+               "(bending, shear, deflection, or axial/buckling as applicable). State which "
+               "design code assumptions you used (e.g. ACI or Eurocode) and remind the student "
+               "to verify against their required code. If data is missing, state clear "
+               "assumptions. Never claim a design is safe without showing the check."),
+    "civil_boq": dict(icon="📊", name="Bill of Quantities",
+        desc="Materials take-off and quantity estimate for an element or small structure.",
+        ph="Describe what to estimate — e.g. a 4 m × 5 m RC roof slab, 150 mm thick…",
+        system="You are a quantity surveyor. From the described element or small structure, "
+               "produce a Bill of Quantities as a table: item, unit, estimated quantity, and a "
+               "material breakdown (concrete grade, steel, formwork, blockwork...). Show how "
+               "each quantity is derived. Note that unit rates/prices vary locally and must be "
+               "confirmed before costing."),
+    "civil_report": dict(icon="📝", name="Lab / Site Report",
+        desc="Turn raw results or notes into a structured engineering report.",
+        ph="Paste your lab/site notes and results…",
+        system="You are an engineering lab/site report writer. Turn the student's raw notes and "
+               "results into a structured report: aim, apparatus/method, results (as a table if "
+               "data is given), a sample calculation, discussion, sources of error, and a "
+               "conclusion."),
+
+    # ---- Computer Science & IT ----
+    "cs_code": dict(icon="💻", name="Coding Assignment Helper",
+        desc="Write, debug and explain code in any language.",
+        ph="Describe the task or paste your code and the error…",
+        system="You are an expert programming tutor. Help with the coding assignment: restate "
+               "the requirement, give clean, well-commented code in the requested language, "
+               "explain how it works section by section, note edge cases and complexity, and "
+               "how to test it. If there is a bug, find it, fix it and explain the fix. Help the "
+               "student understand the solution, not just copy it."),
+    "cs_diagram": dict(icon="🔀", name="Diagram Generator",
+        desc="Flowcharts, ER diagrams, UML & sequence diagrams as Mermaid.",
+        ph="Describe the system or process to diagram…",
+        system="You are a software design assistant. From the description, produce the requested "
+               "diagram as valid Mermaid code inside a ```mermaid code block (flowchart, ER "
+               "diagram, class/UML, or sequence diagram). Then briefly explain the entities and "
+               "relationships. Make sure the Mermaid syntax is correct."),
+    "cs_project": dict(icon="🗂", name="Project Planner",
+        desc="Scope, tech stack, data model, milestones & README outline.",
+        ph="Describe your project idea and constraints…",
+        system="You are a software project mentor. Break the project into a practical plan: "
+               "scope, features (must/should/could have), a suggested tech stack, a data model, "
+               "milestones with a timeline, and a README outline. Keep it realistic for a "
+               "student project."),
+
+    # ---- Medicine & Health ----
+    "med_flash": dict(icon="🧠", name="Flashcards + MCQs",
+        desc="Turn a lecture into flashcards and exam-style MCQs.",
+        ph="Paste the lecture or notes (or upload the PDF above)…",
+        system="You are a medical study assistant. From the lecture/notes, produce (1) a set of "
+               "high-yield flashcards as 'Q: … / A: …' pairs, and (2) 5–10 exam-style MCQs, each "
+               "with the correct answer and a one-line explanation. Focus on what exams test. Be "
+               "accurate; if something is uncertain, say so."),
+    "med_case": dict(icon="🩺", name="Clinical Case Tutor",
+        desc="Work through a case: differential, investigations, management.",
+        ph="Describe or paste the clinical case…",
+        system="You are a clinical tutor. Analyze the clinical case: summarize the presentation, "
+               "give an ordered differential diagnosis, key investigations, and management "
+               "principles with brief reasoning. This is educational only — remind the student "
+               "that real patient care requires a licensed clinician and local guidelines."),
+    "med_notes": dict(icon="📋", name="High-Yield Notes",
+        desc="Condense material into tight, exam-ready notes.",
+        ph="Paste the material to condense…",
+        system="You are a medical study assistant. Condense the material into clear, exam-ready "
+               "notes: definitions, mechanisms, classifications and key numbers, in tight bullet "
+               "points a student can memorize."),
+
+    # ---- Business, Accounting & Economics ----
+    "biz_plan": dict(icon="📈", name="Business Plan Builder",
+        desc="A structured plan from an idea to financials.",
+        ph="Describe your business idea, market and goals…",
+        system="You are a business school mentor. Produce a structured business plan for the "
+               "described idea: executive summary, problem & solution, target market, value "
+               "proposition, business model & revenue, competition, marketing plan, operations, "
+               "a simple financial outline, and risks. Be specific and practical."),
+    "biz_finance": dict(icon="🧮", name="Finance & Accounting",
+        desc="Build or explain statements, models and ratios step by step.",
+        ph="Describe the task or paste the figures…",
+        system="You are an accounting/finance tutor. Help with the task: build or explain the "
+               "requested statements or model (income statement, balance sheet, cash flow) or "
+               "the ratios, showing the calculations step by step, then interpret the results. "
+               "State your assumptions clearly."),
+    "biz_case": dict(icon="💼", name="Case-Study Solver",
+        desc="Analyze a business case with a clear framework.",
+        ph="Paste or describe the case study…",
+        system="You are a business case-study coach. Analyze the case with a clear framework: "
+               "situation, problem, options, analysis (SWOT / Porter / etc. as relevant), a "
+               "recommendation, and implementation steps. Justify everything with the case facts."),
+
+    # ---- Graphic Design & Media ----
+    "gd_brand": dict(icon="🎨", name="Brand & Poster Concepts",
+        desc="Creative direction: palette, type, logo & poster ideas.",
+        ph="Describe the brand, event or poster brief…",
+        system="You are a brand and graphic design director. From the brief, produce a creative "
+               "direction: concept, mood, a colour palette with hex codes, typography "
+               "suggestions, logo ideas, and three poster/layout concepts described clearly. End "
+               "with a ready-to-use text-to-image prompt the student can paste into the Render "
+               "tool to visualize it."),
+
+    # ---- Law ----
+    "law_brief": dict(icon="⚖️", name="Case Brief",
+        desc="Facts, issue, rule, holding, reasoning, significance.",
+        ph="Paste the case or describe the scenario…",
+        system="You are a law tutor. Produce a case brief: facts, legal issue(s), the rule/law "
+               "applied, the holding, the reasoning, and the significance. If the student pastes "
+               "a case, brief that case; otherwise outline how to brief the described scenario. "
+               "Jurisdiction matters — remind the student to confirm local law."),
+    "law_memo": dict(icon="📜", name="Legal Memo (IRAC)",
+        desc="Draft a memo/essay using the IRAC structure.",
+        ph="Describe the legal question or assignment…",
+        system="You are a legal writing tutor. Help draft a legal memo or essay using IRAC: "
+               "Issue, short answer, Rule(s), Application/analysis of both sides, and Conclusion. "
+               "Encourage citing sources. Remind the student this is study help, not legal advice."),
+    "law_explain": dict(icon="🔎", name="Concept Explainer",
+        desc="Plain-language explanation of a legal concept or clause.",
+        ph="Paste the clause or name the concept…",
+        system="You are a law tutor. Explain the described legal concept, clause or contract term "
+               "in plain language with an example, why it matters, and common pitfalls."),
+
+    # ---- Sciences & Math ----
+    "sci_solve": dict(icon="🧪", name="Step-by-Step Solver",
+        desc="Math, physics & chemistry problems, fully worked.",
+        ph="Paste the problem…",
+        system="You are a patient STEM tutor. Solve the problem step by step: restate what is "
+               "asked, list the knowns, choose the method/formula, work through each step with "
+               "units, and box the final answer. Add a one-line sanity check. Teach the method so "
+               "the student can redo it themselves."),
+    "sci_lab": dict(icon="🔬", name="Lab Report Writer",
+        desc="Turn data and notes into a full lab report.",
+        ph="Paste your data, method and observations…",
+        system="You are a science lab report writer. Turn the student's data and notes into a "
+               "report: objective, hypothesis, materials & method, results (table + described "
+               "trend), a sample calculation, discussion with error analysis, and a conclusion."),
+
+    # ---- Education & Teaching ----
+    "edu_lesson": dict(icon="🍎", name="Lesson Plan Maker",
+        desc="A full, timed lesson plan for any topic and level.",
+        ph="Give the topic, grade/level and lesson length…",
+        system="You are a teacher trainer. Produce a full lesson plan for the given topic and "
+               "level: objectives, materials, timed activities (intro, main, practice, plenary), "
+               "differentiation, and assessment. Keep it aligned and practical."),
+    "edu_worksheet": dict(icon="🖨", name="Worksheet Maker",
+        desc="A ready-to-print worksheet with an answer key.",
+        ph="Give the topic and level…",
+        system="You are a teacher's assistant. Create a worksheet on the topic and level: a short "
+               "explanation, a range of questions from easy to hard WITH an answer key, and one "
+               "activity. Make it ready to print."),
+
+    # ---- Languages & Translation ----
+    "lang_write": dict(icon="✍️", name="Academic Writing Polish",
+        desc="Improve clarity, grammar, structure and academic tone.",
+        ph="Paste your text or describe what you need…",
+        system="You are an academic writing tutor. Improve the student's text for clarity, "
+               "grammar, structure and academic tone while keeping their meaning and voice. Then "
+               "list the main changes and one improvement tip. If they ask for an outline or "
+               "essay help, provide it."),
+    "lang_translate": dict(icon="🌐", name="Academic Translator",
+        desc="Accurate, polished translation with word-choice notes.",
+        ph="Paste the text and say which language to translate to…",
+        system="You are an academic translator. Translate the text the student provides into the "
+               "language they ask for (English by default) with accurate, polished academic "
+               "style. After the translation, add 2–3 short notes on tricky word choices."),
+    "lang_ielts": dict(icon="🎯", name="IELTS / TOEFL Coach",
+        desc="Band feedback, practice questions and model answers.",
+        ph="Paste your writing for scoring, or ask for practice…",
+        system="You are an IELTS/TOEFL coach. Depending on what the student gives you: score "
+               "their writing with band-style feedback and concrete improvements, OR give "
+               "practice questions with model answers, OR explain a rule. Be specific and "
+               "encouraging."),
+}
+
+# Departments shown on the Workspace hub, in order. `tools` lists workspace tool
+# ids, plus special {route:...} entries for tools that have their own page.
+WORKSPACE_DEPTS = [
+    dict(id="arch", icon="📐",
+         name=dict(en="Architecture & Design", ar="العمارة والتصميم", ku="تەلارسازی و دیزاین"),
+         tools=[{"route": "render"}, {"route": "design"}]),
+    dict(id="civil", icon="🏗️",
+         name=dict(en="Civil Engineering", ar="الهندسة المدنية", ku="ئەندازیاری شارستانی"),
+         tools=["civil_calc", "civil_boq", "civil_report"]),
+    dict(id="cs", icon="💻",
+         name=dict(en="Computer Science & IT", ar="علوم الحاسوب وتقنية المعلومات", ku="زانستی کۆمپیوتەر و IT"),
+         tools=["cs_code", "cs_diagram", "cs_project"]),
+    dict(id="med", icon="🩺",
+         name=dict(en="Medicine & Health", ar="الطب والصحة", ku="پزیشکی و تەندروستی"),
+         tools=["med_flash", "med_case", "med_notes"]),
+    dict(id="biz", icon="💼",
+         name=dict(en="Business & Accounting", ar="إدارة الأعمال والمحاسبة", ku="بازرگانی و ژمێریاری"),
+         tools=["biz_plan", "biz_finance", "biz_case"]),
+    dict(id="gd", icon="🎨",
+         name=dict(en="Graphic Design & Media", ar="التصميم الجرافيكي والإعلام", ku="دیزاینی گرافیک و میدیا"),
+         tools=["gd_brand", {"route": "render"}]),
+    dict(id="law", icon="⚖️",
+         name=dict(en="Law", ar="القانون", ku="یاسا"),
+         tools=["law_brief", "law_memo", "law_explain"]),
+    dict(id="sci", icon="🧪",
+         name=dict(en="Sciences & Math", ar="العلوم والرياضيات", ku="زانست و بیرکاری"),
+         tools=["sci_solve", "sci_lab"]),
+    dict(id="edu", icon="🍎",
+         name=dict(en="Education & Teaching", ar="التربية والتعليم", ku="پەروەردە و وانەوتنەوە"),
+         tools=["edu_lesson", "edu_worksheet"]),
+    dict(id="lang", icon="🌐",
+         name=dict(en="Languages & Translation", ar="اللغات والترجمة", ku="زمان و وەرگێڕان"),
+         tools=["lang_write", "lang_translate", "lang_ielts"]),
+]
+
+
+def workspace_catalog(lang):
+    """Resolve the departments into display cards (title/icon/desc/url) for the hub."""
+    tr = T.get(lang, T["en"])
+    cats = []
+    for d in WORKSPACE_DEPTS:
+        cards = []
+        for ref in d["tools"]:
+            if isinstance(ref, str):
+                tw = WORKSPACE_TOOLS[ref]
+                cards.append(dict(url=url_for("workspace_tool", tool_id=ref),
+                                  title=tw["name"], icon=tw["icon"], desc=tw["desc"]))
+            elif ref.get("route") == "render":
+                cards.append(dict(url=url_for("tool_render"), icon="🖼",
+                                  title=tr.get("tool_render", "Sketch → Render"),
+                                  desc=tr.get("render_intro", "")))
+            elif ref.get("route") == "design":
+                cards.append(dict(url=url_for("tool_plus", tool="design"), icon="📐",
+                                  title=tr.get("tool_design", "AI Design Studio"),
+                                  desc=tr.get("design_ph", "")))
+        cats.append(dict(id=d["id"], icon=d["icon"],
+                         name=d["name"].get(lang, d["name"]["en"]), cards=cards))
+    return cats
+
+
+@app.route("/workspace")
+@login_required
+def workspace():
+    lang = session.get("lang", "en")
+    return render_template("workspace.html", user=current_user(),
+                           depts=workspace_catalog(lang))
+
+
+@app.route("/workspace/t/<tool_id>")
+@login_required
+def workspace_tool(tool_id):
+    tw = WORKSPACE_TOOLS.get(tool_id)
+    if tw is None:
+        abort(404)
+    gate = plus_gate_or_none(tw["icon"], None, label=tw["name"])
+    if gate:
+        return gate
+    configured = bool((get_settings().get("ai_api_key") or "").strip())
+    return render_template("workspace_tool.html", user=current_user(),
+                           tool_id=tool_id, tw=tw, configured=configured)
 
 
 # ---------------------------------------------------------------- SEO
