@@ -2098,7 +2098,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 <script>
 /* ============ Shared AI streaming helpers (used by the AI tools) ============ */
 window.krEsc = function (s) {
-  return (s || "").replace(/[&<>"']/g, function (c) {
+  s = (s === null || s === undefined) ? "" : String(s);
+  return s.replace(/[&<>"']/g, function (c) {
     return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c];
   });
 };

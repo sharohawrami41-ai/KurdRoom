@@ -89,13 +89,14 @@
     });
   });
 
-  // Downscale a chosen image to <=1024px and keep it as a JPEG data URI.
+  // Downscale a chosen image and keep it as a compact JPEG data URI, so the
+  // upload stays small enough for the server to accept.
   function loadSketch(file) {
     var reader = new FileReader();
     reader.onload = function (e) {
       var img = new Image();
       img.onload = function () {
-        var max = 1024, w = img.width, h = img.height;
+        var max = 768, w = img.width, h = img.height;
         if (w > max || h > max) {
           if (w >= h) { h = Math.round(h * max / w); w = max; }
           else { w = Math.round(w * max / h); h = max; }
@@ -103,7 +104,10 @@
         var cv = document.createElement("canvas");
         cv.width = w; cv.height = h;
         cv.getContext("2d").drawImage(img, 0, 0, w, h);
-        sketchData = cv.toDataURL("image/jpeg", 0.9);
+        // Step the quality down until the payload is comfortably small (~500 KB).
+        var q = 0.82, url = cv.toDataURL("image/jpeg", q);
+        while (url.length > 700000 && q > 0.4) { q -= 0.12; url = cv.toDataURL("image/jpeg", q); }
+        sketchData = url;
         prevImg.src = sketchData;
         prev.style.display = "";
         sketchBtn.style.display = "none";
@@ -159,7 +163,10 @@
       var data = {};
       try { data = await res.json(); } catch (_) {}
       if (!res.ok || data.error) {
-        showError(data.error === "no_replicate_key" ? T.noKey : (data.error || res.status));
+        var e = data.error;
+        if (e === "no_replicate_key") e = T.noKey;
+        else if (!e) e = "server error (" + res.status + ")";
+        showError(e);
       } else if (data.url) {
         showResult(data.url);
       } else {
