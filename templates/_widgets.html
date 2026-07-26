@@ -2,7 +2,7 @@
 <label>🎓 {{ t('edu_info') }} ({{ t('optional') }}) — {{ t('i_am') }}</label>
 <select name="edu_level" id="eduLevel" onchange="eduToggle()">
   <option value="">{{ t('prefer_not') }}</option>
-  {% for lvl in ['school','bachelor','master','phd','professor','graduate'] %}
+  {% for lvl in ['school','bachelor','bachelor_grad','master','phd','professor','graduate'] %}
     <option value="{{ lvl }}" {{ 'selected' if u and u.edu_level == lvl }}>{{ t('lvl_' + lvl) }}</option>
   {% endfor %}
 </select>

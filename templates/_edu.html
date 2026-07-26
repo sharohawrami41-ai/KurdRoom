@@ -1,6 +1,6 @@
 {# ===== shared education wizard (used by complete_profile + profile edit) =====
    expects: u (user row or none), unis, colleges, deps, jobs, uni_vals, job_vals #}
-{% set is_uni = u and u.edu_level in ('bachelor', 'master', 'phd', 'professor') %}
+{% set is_uni = u and u.edu_level in ('bachelor', 'bachelor_grad', 'master', 'phd', 'professor') %}
 {% set uval = u.institution if is_uni and u.institution in uni_vals else '' %}
 {% set uop = (unis | selectattr('v', 'equalto', uval) | list | first) if uval else None %}
 {% set cval = u.college if is_uni and u.college_kind == 'college' and u.college else '' %}
@@ -15,7 +15,8 @@
 <input type="hidden" name="edu_level" id="eduLevel">
 <div class="fewrap" data-f="edu_level">
   <div class="ocards" id="lvlCards">
-    {% for v, e, k in [('school','🏫','wl_school'), ('university','🎓','wl_uni'),
+    {% for v, e, k in [('school','🏫','wl_school'), ('university','📖','wl_uni'),
+                       ('bachelor','🎓','wl_bsc'),
                        ('master','📜','wl_master'), ('phd','🧑‍🔬','wl_phd'),
                        ('professor','👨‍🏫','wl_prof'), ('others','💼','wl_other')] %}
     <div class="ocard" data-v="{{ v }}" onclick="lvlPick(this)">
@@ -193,10 +194,10 @@
     markBad("edu_level", false);
     document.getElementById("brSchool").style.display = v === "school" ? "" : "none";
     document.getElementById("brUni").style.display =
-      ["university", "master", "phd", "professor"].includes(v) ? "" : "none";
+      ["university", "bachelor", "master", "phd", "professor"].includes(v) ? "" : "none";
     document.getElementById("brJob").style.display = v === "others" ? "" : "none";
     document.getElementById("stageWrap").style.display =
-      v === "university" ? "" : "none";
+      v === "university" ? "" : "none";   // stage only for current undergrads
   }
   function slvlPick(el) {
     pickCard(el.parentElement, el);
@@ -237,7 +238,7 @@
       ok &= need("school_name", !!val("school_name"));
       ok &= need("school_level", !!val("school_level"));
       ok &= need("grade", !!val("grade"));
-    } else if (["university", "master", "phd", "professor"].includes(lvl)) {
+    } else if (["university", "bachelor", "master", "phd", "professor"].includes(lvl)) {
       ok &= need("university", !!val("university"));
       const ck = val("college_kind");
       ok &= need("college_kind", !!ck);
@@ -258,7 +259,8 @@
   (function initEdu() {
     let lvl = EDU_U.edu_level;
     if (!lvl) return;
-    if (lvl === "bachelor") lvl = "university";
+    if (lvl === "bachelor") lvl = "university";       // undergraduate
+    else if (lvl === "bachelor_grad") lvl = "bachelor";  // graduated bachelor holder
     if (lvl === "graduate") lvl = "others";
     const card = document.querySelector('#lvlCards .ocard[data-v="' + lvl + '"]');
     if (!card) return;
@@ -274,7 +276,7 @@
           });
       }
     }
-    if (["university", "master", "phd", "professor"].includes(lvl) &&
+    if (["university", "bachelor", "master", "phd", "professor"].includes(lvl) &&
         EDU_U.college_kind) {
       const ck = document.querySelector(
         '.fewrap[data-f="college_kind"] .ocard[data-v="' + EDU_U.college_kind + '"]');

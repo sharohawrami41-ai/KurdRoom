@@ -116,7 +116,8 @@
       <input type="hidden" name="edu_level" id="eduLevel">
       <div class="fewrap" data-f="edu_level">
         <div class="ocards" id="lvlCards">
-          {% for v, e, k in [('school','🏫','wl_school'), ('university','🎓','wl_uni'),
+          {% for v, e, k in [('school','🏫','wl_school'), ('university','📖','wl_uni'),
+                             ('bachelor','🎓','wl_bsc'),
                              ('master','📜','wl_master'), ('phd','🧑‍🔬','wl_phd'),
                              ('professor','👨‍🏫','wl_prof'), ('others','💼','wl_other')] %}
           <div class="ocard" data-v="{{ v }}" onclick="lvlPick(this)">
@@ -327,7 +328,7 @@
         ok &= need("school_name", !!val("school_name"));
         ok &= need("school_level", !!val("school_level"));
         ok &= need("grade", !!val("grade"));
-      } else if (["university", "master", "phd", "professor"].includes(lvl)) {
+      } else if (["university", "bachelor", "master", "phd", "professor"].includes(lvl)) {
         ok &= need("university", !!val("university"));
         const ck = val("college_kind");
         ok &= need("college_kind", !!ck);
@@ -371,10 +372,10 @@
     markBad("edu_level", false);
     document.getElementById("brSchool").style.display = v === "school" ? "" : "none";
     document.getElementById("brUni").style.display =
-      ["university", "master", "phd", "professor"].includes(v) ? "" : "none";
+      ["university", "bachelor", "master", "phd", "professor"].includes(v) ? "" : "none";
     document.getElementById("brJob").style.display = v === "others" ? "" : "none";
     document.getElementById("stageWrap").style.display =
-      v === "university" ? "" : "none";
+      v === "university" ? "" : "none";   // stage only for current undergrads
   }
   function slvlPick(el) {
     pickCard(el.parentElement, el);
