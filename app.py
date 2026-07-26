@@ -1833,6 +1833,8 @@ V21 = {
         "site_search_ph": "Search an address or place…", "site_selected": "Selected site",
         "site_notes_ph": "Anything to add — plot size, what you're designing, the brief… (optional)",
         "site_analyze": "Analyze this site ✨", "site_need_point": "Please pick the site on the map first.",
+        "site_board_btn": "🖼️ Generate analysis board (image)", "site_board_making": "Building the board…",
+        "site_board_err": "Couldn't build the board:",
         "design_focus": "Focus", "design_f_concept": "Full concept",
         "design_f_space": "Space planning", "design_f_detail": "Technical",
         "design_f_critique": "Studio critique",
@@ -1903,6 +1905,8 @@ V21 = {
         "site_search_ph": "ابحث عن عنوان أو مكان…", "site_selected": "الموقع المختار",
         "site_notes_ph": "أضف ما تريد — مساحة الأرض، ما تصممه، نص المشروع… (اختياري)",
         "site_analyze": "حلّل هذا الموقع ✨", "site_need_point": "من فضلك اختر الموقع على الخريطة أولاً.",
+        "site_board_btn": "🖼️ أنشئ لوحة التحليل (صورة)", "site_board_making": "يُنشئ اللوحة…",
+        "site_board_err": "تعذّر إنشاء اللوحة:",
         "design_focus": "التركيز", "design_f_concept": "الفكرة الكاملة",
         "design_f_space": "توزيع الفراغات", "design_f_detail": "التقنيات",
         "design_f_critique": "نقد التصميم",
@@ -1973,6 +1977,8 @@ V21 = {
         "site_search_ph": "بەدوای ناونیشان یان شوێندا بگەڕێ…", "site_selected": "شوێنی هەڵبژێردراو",
         "site_notes_ph": "هەرشتێک زیاد بکە — قەبارەی زەوی، چی دیزاین دەکەیت، ئەرکەکە… (ئیختیاری)",
         "site_analyze": "ئەم شوێنە شی بکەرەوە ✨", "site_need_point": "تکایە سەرەتا شوێنەکە لەسەر نەخشە هەڵبژێرە.",
+        "site_board_btn": "🖼️ بۆردی شیکاری دروست بکە (وێنە)", "site_board_making": "بۆردەکە دروستدەکات…",
+        "site_board_err": "نەتوانرا بۆردەکە دروست بکرێت:",
         "design_focus": "جەخت", "design_f_concept": "بیرۆکەی تەواو",
         "design_f_space": "پلانی بۆشایی", "design_f_detail": "تەکنیکی",
         "design_f_critique": "ڕەخنەی ستۆدیۆ",
@@ -2530,7 +2536,7 @@ def force_complete_profile():
               "favicon", "robots_txt", "sitemap_xml", "login", "register",
               "register_verify", "forgot", "reset_pw_page", "about",
               "api_pings", "offline", "api_ai_stream", "api_review",
-              "api_prompt_helper") or ep.startswith("push_"):
+              "api_prompt_helper", "api_site_board") or ep.startswith("push_"):
         return
     row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
                            (uid,)).fetchone()
@@ -6696,6 +6702,64 @@ def tool_review():
     configured = bool((get_settings().get("ai_api_key") or "").strip())
     return render_template("tools_review.html", user=current_user(),
                            configured=configured)
+
+
+SITE_BOARD_SYSTEM = (
+    "You are an architecture site-analysis expert. Given a real location (coordinates, "
+    "latitude, address), output ONLY valid minified JSON — no markdown, no code fences, "
+    "no commentary — with EXACTLY these keys: "
+    '{"location": string, "climate_zone": string, "temp_summer": string, '
+    '"temp_winter": string, "rainfall": string, "humidity": string, '
+    '"wind_dir": one of "N","NE","E","SE","S","SW","W","NW", "wind_note": string, '
+    '"strengths": [string,string,string], "weaknesses": [string,string,string], '
+    '"opportunities": [string,string,string], "constraints": [string,string,string], '
+    '"implications": [string,string,string,string,string]}. '
+    "Base the climate and prevailing wind on the real region of the coordinates. Keep "
+    "every string short (max ~85 characters). Output ONLY the JSON object.")
+
+
+@app.route("/api/site_board", methods=["POST"])
+@login_required
+def api_site_board():
+    cu = current_user()
+    if not (cu["plus"] or cu["is_admin"]):
+        return jsonify(error="plus_required"), 403
+    s = get_settings()
+    key = (s.get("ai_api_key") or "").strip()
+    if not key:
+        return jsonify(error="not_configured"), 400
+    data = request.get_json(silent=True) or {}
+    lat = data.get("lat"); lon = data.get("lon")
+    addr = (data.get("addr") or "").strip()[:300]
+    notes = (data.get("notes") or "").strip()[:2000]
+    if lat is None or lon is None:
+        return jsonify(error="no_point"), 400
+    txt = ("Location: " + (addr or "(unnamed)") + " at coordinates " + str(lat) + ", " +
+           str(lon) + " (latitude " + str(lat) + ").")
+    if notes:
+        txt += " Notes: " + notes
+    txt += " Output the site-analysis JSON."
+    lang_name = LANG_NAMES.get(session.get("lang", "en"), "English")
+    system = SITE_BOARD_SYSTEM + (" Write the text values in " + lang_name +
+                                  ' (but keep "wind_dir" as a compass code).')
+    model = (s.get("ai_model") or "").strip() or "claude-haiku-4-5"
+    out = "".join(call_ai_stream([{"role": "user", "content": txt}], system, key, model))
+    if "[[ERROR]]" in out:
+        return jsonify(error=out.split("[[ERROR]]").pop().strip()), 502
+    raw = out.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw[:4].lower() == "json":
+            raw = raw[4:]
+    i, j = raw.find("{"), raw.rfind("}")
+    if i != -1 and j != -1:
+        raw = raw[i:j + 1]
+    try:
+        import json as _json
+        parsed = _json.loads(raw)
+    except Exception:
+        return jsonify(error="parse_failed"), 502
+    return jsonify(data=parsed)
 
 
 @app.route("/tools/site")

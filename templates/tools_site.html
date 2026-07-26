@@ -22,9 +22,11 @@
 
     <textarea id="krNotes" rows="3" style="margin-top:10px"
               placeholder="{{ t('site_notes_ph') }}"></textarea>
-    <div style="margin-top:14px">
+    <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
       <button class="primary" type="button" id="krSiteBtn"
-              style="width:auto; padding:12px 30px" {{ 'disabled' if not configured }}>{{ t('site_analyze') }}</button>
+              style="width:auto; padding:12px 26px" {{ 'disabled' if not configured }}>{{ t('site_analyze') }}</button>
+      <button type="button" class="kr-mini" id="krBoardBtn"
+              style="padding:12px 20px; border-radius:12px" {{ 'disabled' if not configured }}>{{ t('site_board_btn') }}</button>
     </div>
 
     <div id="krChat"></div>
@@ -44,7 +46,9 @@
   var T = {{ {
     "thinking": t('kr_thinking'), "you": t('kr_you'), "ai": t('kr_ai'), "error": t('kr_error'),
     "locating": t('site_locating'), "geofail": t('site_geo_fail'),
-    "selected": t('site_selected'), "needPoint": t('site_need_point')
+    "selected": t('site_selected'), "needPoint": t('site_need_point'),
+    "download": t('kr_download'), "boardBtn": t('site_board_btn'),
+    "boardMaking": t('site_board_making'), "boardErr": t('site_board_err')
   }|tojson }};
   var lat = null, lon = null, addr = "";
   var map, marker, busy = false, history = [];
@@ -181,6 +185,177 @@
   if (followIn) followIn.addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); followBtn.click(); }
   });
+
+  // ================= Site-analysis BOARD (downloadable image) =================
+  var boardBtn = document.getElementById("krBoardBtn");
+  function sunAngles(la) {
+    var a = Math.abs(la), t = 23.44;
+    return {
+      high: Math.min(90, 90 - a + t), low: Math.max(0, 90 - a - t),
+      equi: Math.max(0, 90 - a), orient: (la >= 0 ? "South-facing" : "North-facing")
+    };
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function wrap(ctx, text, x, y, maxW, lh) {
+    var words = (text || "").split(/\s+/), line = "", yy = y;
+    for (var i = 0; i < words.length; i++) {
+      var test = line ? line + " " + words[i] : words[i];
+      if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, yy); line = words[i]; yy += lh; }
+      else line = test;
+    }
+    if (line) { ctx.fillText(line, x, yy); yy += lh; }
+    return yy;
+  }
+  function sTitle(ctx, txt, x, y, accent) {
+    ctx.fillStyle = accent; ctx.fillRect(x, y + 4, 6, 22);
+    ctx.fillStyle = "#1e2a44"; ctx.font = "700 24px Arial"; ctx.textAlign = "left";
+    ctx.fillText(txt, x + 16, y + 22); return y + 44;
+  }
+  function buildBoard(d, sun, meta) {
+    var W = 1000, P = 40, accent = "#2f8f83", navy = "#1e2a44", ink = "#242424", muted = "#6b7280";
+    var big = document.createElement("canvas"); big.width = W; big.height = 2600;
+    var ctx = big.getContext("2d");
+    ctx.fillStyle = "#f6f5f1"; ctx.fillRect(0, 0, W, 2600);
+    // header
+    ctx.fillStyle = navy; ctx.fillRect(0, 0, W, 140);
+    ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.font = "700 40px Arial";
+    ctx.fillText("SITE ANALYSIS", P, 58);
+    ctx.fillStyle = "#cbd5e1"; ctx.font = "500 20px Arial";
+    ctx.fillText((meta.location || "").slice(0, 66), P, 92);
+    ctx.font = "400 16px Arial"; ctx.fillText(meta.coords + "   ·   " + meta.date, P, 120);
+    var y = 172;
+    // sun path
+    y = sTitle(ctx, "SUN PATH", P, y, accent);
+    var bh = 220; ctx.fillStyle = "#fff"; roundRect(ctx, P, y, W - 2 * P, bh, 12); ctx.fill();
+    var gx = P + 34, gw = W - 2 * P - 68, horizon = y + bh - 46, maxH = bh - 96;
+    ctx.strokeStyle = "#aaa"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(gx, horizon); ctx.lineTo(gx + gw, horizon); ctx.stroke();
+    ctx.fillStyle = muted; ctx.font = "400 14px Arial"; ctx.textAlign = "left";
+    ctx.fillText("E (sunrise)", gx, horizon + 24);
+    ctx.textAlign = "right"; ctx.fillText("W (sunset)", gx + gw, horizon + 24);
+    function arcSun(alt, color) {
+      var peak = Math.max(6, (alt / 90) * maxH);
+      ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath();
+      ctx.moveTo(gx, horizon); ctx.quadraticCurveTo(gx + gw / 2, horizon - 2 * peak, gx + gw, horizon); ctx.stroke();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(gx + gw / 2, horizon - peak, 7, 0, 7); ctx.fill();
+    }
+    arcSun(sun.high, "#e6a532"); arcSun(sun.equi, "#9aa0a6"); arcSun(sun.low, "#5b8def");
+    ctx.textAlign = "left"; ctx.font = "600 15px Arial";
+    ctx.fillStyle = "#b9791a"; ctx.fillText("● Summer noon: " + Math.round(sun.high) + "°", gx, y + 24);
+    ctx.fillStyle = "#6b7280"; ctx.fillText("● Equinox: " + Math.round(sun.equi) + "°", gx, y + 46);
+    ctx.fillStyle = "#2f5fbf"; ctx.fillText("● Winter noon: " + Math.round(sun.low) + "°", gx, y + 68);
+    ctx.fillStyle = ink; ctx.textAlign = "right"; ctx.font = "700 16px Arial";
+    ctx.fillText("Best orientation: " + sun.orient, gx + gw, y + 24);
+    ctx.textAlign = "left"; y += bh + 26;
+    // climate chips
+    y = sTitle(ctx, "CLIMATE", P, y, accent);
+    var chips = [["Zone", d.climate_zone], ["Summer", d.temp_summer], ["Winter", d.temp_winter],
+                 ["Rainfall", d.rainfall], ["Humidity", d.humidity]];
+    var cx = P, cy = y, chipH = 58, gap = 10, maxX = W - P;
+    for (var i = 0; i < chips.length; i++) {
+      var val = String(chips[i][1] || "—").slice(0, 26);
+      ctx.font = "600 16px Arial";
+      var tw = Math.max(ctx.measureText(val).width, 90) + 30;
+      if (cx + tw > maxX) { cx = P; cy += chipH + gap; }
+      ctx.fillStyle = "#fff"; roundRect(ctx, cx, cy, tw, chipH, 10); ctx.fill();
+      ctx.strokeStyle = "#e3e3dc"; ctx.lineWidth = 1; roundRect(ctx, cx, cy, tw, chipH, 10); ctx.stroke();
+      ctx.fillStyle = muted; ctx.font = "700 11px Arial"; ctx.fillText(chips[i][0].toUpperCase(), cx + 14, cy + 22);
+      ctx.fillStyle = ink; ctx.font = "600 16px Arial"; ctx.fillText(val, cx + 14, cy + 44);
+      cx += tw + gap;
+    }
+    y = cy + chipH + 26;
+    // wind & orientation
+    y = sTitle(ctx, "WIND & ORIENTATION", P, y, accent);
+    var wh = 170; ctx.fillStyle = "#fff"; roundRect(ctx, P, y, W - 2 * P, wh, 12); ctx.fill();
+    var ccx = P + 95, ccy = y + wh / 2, R = 56;
+    ctx.strokeStyle = "#ccc"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ccx, ccy, R, 0, 7); ctx.stroke();
+    ctx.fillStyle = muted; ctx.font = "700 13px Arial"; ctx.textAlign = "center";
+    ctx.fillText("N", ccx, ccy - R - 7); ctx.fillText("S", ccx, ccy + R + 17);
+    ctx.fillText("W", ccx - R - 13, ccy + 5); ctx.fillText("E", ccx + R + 13, ccy + 5);
+    var dirs = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+    var ang = (dirs[String(d.wind_dir || "N").toUpperCase()] || 0) * Math.PI / 180;
+    var fx = ccx + Math.sin(ang) * R, fy = ccy - Math.cos(ang) * R;
+    ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ccx, ccy); ctx.stroke();
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(ccx, ccy, 6, 0, 7); ctx.fill();
+    var tx = P + 195; ctx.textAlign = "left"; ctx.fillStyle = ink; ctx.font = "700 17px Arial";
+    ctx.fillText("Prevailing wind: " + (d.wind_dir || "—"), tx, y + 36);
+    ctx.fillStyle = muted; ctx.font = "400 15px Arial";
+    var wy = wrap(ctx, d.wind_note || "", tx, y + 62, W - tx - P, 22);
+    ctx.fillStyle = ink; ctx.font = "700 16px Arial"; ctx.fillText("Orientation: " + sun.orient, tx, wy + 10);
+    y += wh + 26;
+    // SWOT
+    y = sTitle(ctx, "SWOT", P, y, accent);
+    var gw2 = (W - 2 * P - 12) / 2, ch = 190;
+    var cells = [["STRENGTHS", d.strengths, "#2e7d32", "#eaf5ea"], ["WEAKNESSES", d.weaknesses, "#c62828", "#faecec"],
+                 ["OPPORTUNITIES", d.opportunities, "#1565c0", "#e9f0fb"], ["CONSTRAINTS", d.constraints, "#d97706", "#fdf1e6"]];
+    for (var k = 0; k < 4; k++) {
+      var col = k % 2, row = Math.floor(k / 2), qx = P + col * (gw2 + 12), qy = y + row * (ch + 12);
+      ctx.fillStyle = cells[k][3]; roundRect(ctx, qx, qy, gw2, ch, 12); ctx.fill();
+      ctx.fillStyle = cells[k][2]; ctx.font = "700 15px Arial"; ctx.textAlign = "left";
+      ctx.fillText(cells[k][0], qx + 16, qy + 26);
+      ctx.fillStyle = ink; ctx.font = "400 14px Arial";
+      var yy = qy + 50, list = (cells[k][1] || []).slice(0, 3);
+      for (var m = 0; m < list.length; m++) { yy = wrap(ctx, "• " + list[m], qx + 16, yy, gw2 - 30, 20) + 4; }
+    }
+    y += 2 * ch + 12 + 26;
+    // implications
+    y = sTitle(ctx, "DESIGN IMPLICATIONS", P, y, accent);
+    var impl = (d.implications || []).slice(0, 6);
+    for (var n = 0; n < impl.length; n++) {
+      ctx.fillStyle = accent; ctx.font = "700 15px Arial"; ctx.textAlign = "left"; ctx.fillText((n + 1) + ".", P, y + 15);
+      ctx.fillStyle = ink; ctx.font = "400 15px Arial";
+      y = wrap(ctx, impl[n], P + 26, y + 15, W - 2 * P - 26, 22) + 8;
+    }
+    y += 6;
+    ctx.fillStyle = muted; ctx.font = "400 14px Arial";
+    ctx.fillText("Generated by KurdRoom · " + meta.coords, P, y + 12); y += 40;
+    // crop to content
+    var H = Math.min(Math.ceil(y), 2600);
+    var outC = document.createElement("canvas"); outC.width = W; outC.height = H;
+    outC.getContext("2d").drawImage(big, 0, 0);
+    return outC;
+  }
+  function showBoard(url) {
+    var box = document.createElement("div"); box.className = "kr-turn";
+    box.innerHTML = '<div class="kr-img-wrap"><img alt="site analysis board" src="' + url + '"></div>' +
+      '<div class="kr-btnrow"><button type="button" class="kr-mini" id="krBoardDl">' + krEsc(T.download) + '</button></div>';
+    chat.appendChild(box); box.scrollIntoView({ block: "nearest" });
+    var dl = document.getElementById("krBoardDl");
+    if (dl) dl.onclick = function () { krDownload(url, "kurdroom-site-analysis.jpg"); };
+  }
+  async function genBoard() {
+    if (lat === null) { addrEl.textContent = T.needPoint; return; }
+    if (busy) return;
+    busy = true; boardBtn.disabled = true; boardBtn.textContent = T.boardMaking;
+    var think = addThinking();
+    try {
+      var res = await fetch("/api/site_board", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: lat, lon: lon, addr: addr, notes: (notesEl.value || "").trim() })
+      });
+      var j = {}; try { j = await res.json(); } catch (_) {}
+      if (!res.ok || j.error) { throw new Error(j.error || ("server " + res.status)); }
+      var d = j.data || {};
+      var sun = sunAngles(lat);
+      var now = new Date();
+      var date = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2);
+      var meta = { location: (addr || d.location || ("Lat " + lat.toFixed(3))),
+                   coords: lat.toFixed(4) + ", " + lon.toFixed(4), date: date };
+      var canvas = buildBoard(d, sun, meta);
+      think.remove();
+      showBoard(canvas.toDataURL("image/jpeg", 0.92));
+    } catch (e) {
+      think.innerHTML = '<div class="flash error">' + krEsc(T.boardErr) + ' ' + krEsc((e && e.message) || "") + '</div>';
+    } finally {
+      busy = false; boardBtn.disabled = false; boardBtn.textContent = T.boardBtn;
+    }
+  }
+  if (boardBtn) boardBtn.addEventListener("click", genBoard);
 })();
 </script>
 {% endif %}
