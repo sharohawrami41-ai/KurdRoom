@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="max-width:700px; margin:0 auto">
+    <a href="{{ url_for('workspace') }}" style="font-size:.82rem; color:var(--muted); text-decoration:none">← {{ t('workspace_t') }}</a>
+    <h2 style="margin-top:8px">📝 {{ t('tool_review') }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <p style="color:var(--muted); font-size:.9rem; margin-top:4px">{{ t('review_intro') }}</p>
+    <div class="flash" style="margin-top:10px; background:color-mix(in srgb,var(--accent) 10%,var(--card));
+         border:1px solid var(--card-border); font-size:.82rem">{{ t('review_disclaimer') }}</div>
+
+    {% if not configured %}
+      <div class="flash error" style="margin-top:10px">🤖 {{ t('ai_key_hint') }}</div>
+    {% endif %}
+
+    <div style="margin-top:14px">
+      <input type="file" id="krImgs" accept="image/*" multiple style="display:none">
+      <button type="button" class="kr-mini" id="krImgsBtn"
+              style="padding:11px 18px; border-radius:12px">{{ t('review_upload') }}</button>
+      <div id="krThumbs" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+           gap:8px; margin-top:12px"></div>
+    </div>
+
+    <label style="margin-top:14px; display:block">{{ t('review_brief_ph') }}</label>
+    <textarea id="krBrief" rows="3" maxlength="6000" placeholder="{{ t('review_brief_ph') }}"></textarea>
+
+    <div style="margin-top:16px">
+      <button class="primary" id="krReviewBtn" type="button"
+              style="width:auto; padding:12px 30px" {{ 'disabled' if not configured }}>{{ t('review_go') }}</button>
+    </div>
+
+    <div id="krReviewOut" style="margin-top:18px"></div>
+  </div>
+
+{% if configured %}
+<script>
+(function () {
+  var T = {{ {
+    "making": t('review_making'), "err": t('review_err'),
+    "needImg": t('review_need_img'), "you": t('kr_you'), "ai": t('kr_ai')
+  }|tojson }};
+  var fileInp = document.getElementById("krImgs");
+  var addBtn = document.getElementById("krImgsBtn");
+  var thumbs = document.getElementById("krThumbs");
+  var briefEl = document.getElementById("krBrief");
+  var runBtn = document.getElementById("krReviewBtn");
+  var out = document.getElementById("krReviewOut");
+  var imgs = [];   // array of compact JPEG data URIs
+  var busy = false;
+
+  function renderThumbs() {
+    thumbs.innerHTML = "";
+    imgs.forEach(function (src, idx) {
+      var w = document.createElement("div");
+      w.style.cssText = "position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--card-border)";
+      w.innerHTML = '<img src="' + src + '" style="width:100%;height:90px;object-fit:cover;display:block">' +
+        '<button type="button" data-i="' + idx + '" style="position:absolute;top:2px;inset-inline-end:2px;' +
+        'width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer">✕</button>';
+      thumbs.appendChild(w);
+    });
+    thumbs.querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        imgs.splice(parseInt(b.getAttribute("data-i"), 10), 1); renderThumbs();
+      });
+    });
+  }
+  function addFile(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1200, w = img.width, h = img.height;
+        if (w > max || h > max) {
+          if (w >= h) { h = Math.round(h * max / w); w = max; } else { w = Math.round(w * max / h); h = max; }
+        }
+        var cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        var q = 0.82, url = cv.toDataURL("image/jpeg", q);
+        while (url.length > 900000 && q > 0.4) { q -= 0.12; url = cv.toDataURL("image/jpeg", q); }
+        if (imgs.length < 6) { imgs.push(url); renderThumbs(); }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  addBtn.addEventListener("click", function () { fileInp.click(); });
+  fileInp.addEventListener("change", function () {
+    Array.prototype.slice.call(fileInp.files || []).forEach(addFile);
+    fileInp.value = "";
+  });
+
+  function showError(msg) {
+    out.innerHTML = '<div class="flash error">' + krEsc(T.err) + ' ' + krEsc(msg) + '</div>';
+  }
+  async function run() {
+    if (busy) return;
+    if (!imgs.length) { showError(T.needImg); return; }
+    busy = true; runBtn.disabled = true;
+    out.innerHTML = '<div class="kr-turn"><div class="kr-thinking">' +
+      '<span class="kr-dots"><i></i><i></i><i></i></span>' +
+      '<span class="kr-shine">' + krEsc(T.making) + '</span></div></div>';
+    try {
+      var res = await fetch("/api/review", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: imgs, brief: (briefEl.value || "").trim() })
+      });
+      if (!res.ok) {
+        var m = "server error (" + res.status + ")";
+        try { var j = await res.json(); if (j && j.error) m = j.error; } catch (_) {}
+        showError(m); return;
+      }
+      var reader = res.body.getReader(), dec = new TextDecoder(), full = "";
+      var box = document.createElement("div");
+      box.className = "kr-turn";
+      out.innerHTML = ""; out.appendChild(box);
+      while (true) {
+        var r = await reader.read();
+        if (r.done) break;
+        full += dec.decode(r.value, { stream: true });
+        box.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+          '<div class="kr-md kr-cursor">' + krMarked(full) + '</div>';
+        box.scrollIntoView({ block: "nearest" });
+      }
+      if (full.indexOf("[[ERROR]]") !== -1) {
+        showError(full.split("[[ERROR]]").pop().trim());
+      } else {
+        box.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+          '<div class="kr-md">' + krMarked(full) + '</div>';
+      }
+    } catch (err) {
+      showError((err && err.message) || "network");
+    } finally {
+      busy = false; runBtn.disabled = false;
+    }
+  }
+  runBtn.addEventListener("click", run);
+})();
+</script>
+{% endif %}
+{% endblock %}

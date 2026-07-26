@@ -1812,6 +1812,16 @@ V21 = {
         "ws_t3": "Do assignments faster", "ws_d3": "Structural calculators, flashcards & MCQs, case briefs, business plans, lab reports — each field has its own smart tools.",
         "ws_t4": "Sketch → Render", "ws_d4": "Architecture & design students upload a sketch and get a professional render in seconds.",
         "ws_t5": "Ask for more, anytime", "ws_d5": "Every answer has a reply box — ask it to go deeper, fix, or redo. It remembers the whole conversation.",
+        "tool_review": "Project Reviewer",
+        "review_intro": "Upload your project or assignment — the AI reviews it, finds the weak points, and gives an estimated mark out of 100.",
+        "review_upload": "📎 Upload project images (boards, drawings, renders)", "review_add": "Add more",
+        "review_brief_ph": "Optional: paste the assignment brief / what was required — this makes the grade more accurate…",
+        "review_go": "Review & grade ✨", "review_making": "Reviewing your project…",
+        "review_disclaimer": "⚠️ This is an AI estimate to help you improve — not your official grade.",
+        "review_need_img": "Please upload at least one image of your project.",
+        "review_err": "Review failed:",
+        "set_review_model": "Grading model (Project Reviewer)",
+        "review_model_hint": "Used to review & grade student projects with vision. Sonnet 5 is a great default; Opus 5 / Fable 5 grade most rigorously; Haiku is cheapest.",
         "design_focus": "Focus", "design_f_concept": "Full concept",
         "design_f_space": "Space planning", "design_f_detail": "Technical",
         "design_f_critique": "Studio critique",
@@ -1861,6 +1871,16 @@ V21 = {
         "ws_t3": "أنجز واجباتك أسرع", "ws_d3": "حاسبات إنشائية، بطاقات وأسئلة اختيار، ملخّصات قضايا، خطط أعمال، تقارير مختبر — لكل مجال أدواته الذكية.",
         "ws_t4": "من الرسم إلى صورة", "ws_d4": "طلاب العمارة والتصميم يرفعون رسمًا ويحصلون على صورة احترافية في ثوانٍ.",
         "ws_t5": "اطلب المزيد في أي وقت", "ws_d5": "كل إجابة فيها صندوق ردّ — اطلب التعمّق أو التصحيح أو الإعادة. يتذكّر المحادثة كاملة.",
+        "tool_review": "مراجع المشروع",
+        "review_intro": "ارفع مشروعك أو واجبك — يراجعه الذكاء الاصطناعي، يجد نقاط الضعف، ويعطي درجة تقديرية من 100.",
+        "review_upload": "📎 ارفع صور المشروع (لوحات، رسومات، صور)", "review_add": "أضف المزيد",
+        "review_brief_ph": "اختياري: الصق نص الواجب / المطلوب — يجعل الدرجة أدق…",
+        "review_go": "راجع وقيّم ✨", "review_making": "يراجع مشروعك…",
+        "review_disclaimer": "⚠️ هذه درجة تقديرية من الذكاء الاصطناعي لمساعدتك على التحسّن — وليست درجتك الرسمية.",
+        "review_need_img": "من فضلك ارفع صورة واحدة على الأقل من مشروعك.",
+        "review_err": "فشلت المراجعة:",
+        "set_review_model": "نموذج التقييم (مراجع المشروع)",
+        "review_model_hint": "يُستخدم لمراجعة وتقييم مشاريع الطلاب بالرؤية. Sonnet 5 خيار افتراضي ممتاز؛ Opus 5 / Fable 5 الأدق؛ Haiku الأرخص.",
         "design_focus": "التركيز", "design_f_concept": "الفكرة الكاملة",
         "design_f_space": "توزيع الفراغات", "design_f_detail": "التقنيات",
         "design_f_critique": "نقد التصميم",
@@ -1910,6 +1930,16 @@ V21 = {
         "ws_t3": "ئەرکەکان خێراتر بکە", "ws_d3": "ژمێرەری پێکهاتە، فلاشکارد و MCQ، پوختەی کەیس، پلانی بازرگانی، ڕاپۆرتی تاقیگە — هەر بوارێک ئامرازی زیرەکی خۆی هەیە.",
         "ws_t4": "لە سکێچەوە بۆ وێنە", "ws_d4": "خوێندکارانی تەلارسازی و دیزاین سکێچ باردەکەن و لە چرکەیەکدا وێنەی پرۆفیشناڵ وەردەگرن.",
         "ws_t5": "هەر کاتێک داوای زیاتر بکە", "ws_d5": "هەموو وەڵامێک سندوقی وەڵامدانەوەی هەیە — داوا بکە قووڵتر بێت، چاک بکات، یان دووبارە بیکات. گفتوگۆکە لەبیر دەمێنێت.",
+        "tool_review": "پێداچوونەوەی پڕۆژە",
+        "review_intro": "پڕۆژە یان ئەرکەکەت باربکە — زیرەکی دەستکرد پێیدا دەچێتەوە، خاڵە لاوازەکان دەدۆزێتەوە، و نمرەیەکی خەمڵێنراو لە ١٠٠ دەدات.",
+        "review_upload": "📎 وێنەی پڕۆژە باربکە (بۆرد، نەخشە، ڕێندەر)", "review_add": "زیاتر زیاد بکە",
+        "review_brief_ph": "ئیختیاری: دەقی ئەرک / ئەوەی داواکراوە دابنێ — نمرەکە وردتر دەکات…",
+        "review_go": "پێداچوونەوە و نمرەدان ✨", "review_making": "پێداچوونەوە بە پڕۆژەکەت دەکات…",
+        "review_disclaimer": "⚠️ ئەمە نمرەیەکی خەمڵێنراوی زیرەکی دەستکردە بۆ باشترکردنت — نمرەی فەرمیت نییە.",
+        "review_need_img": "تکایە بەلایەنی کەم یەک وێنەی پڕۆژەکەت باربکە.",
+        "review_err": "پێداچوونەوە سەرکەوتوو نەبوو:",
+        "set_review_model": "مۆدێلی نمرەدان (پێداچوونەوەی پڕۆژە)",
+        "review_model_hint": "بۆ پێداچوونەوە و نمرەدانی پڕۆژەی خوێندکاران بە بینین. Sonnet 5 باشترین بنەڕەتە؛ Opus 5 / Fable 5 وردترین؛ Haiku هەرزانترین.",
         "design_focus": "جەخت", "design_f_concept": "بیرۆکەی تەواو",
         "design_f_space": "پلانی بۆشایی", "design_f_detail": "تەکنیکی",
         "design_f_critique": "ڕەخنەی ستۆدیۆ",
@@ -2466,7 +2496,7 @@ def force_complete_profile():
     if ep in ("complete_profile", "logout", "set_lang", "static", "service_worker",
               "favicon", "robots_txt", "sitemap_xml", "login", "register",
               "register_verify", "forgot", "reset_pw_page", "about",
-              "api_pings", "offline", "api_ai_stream") or ep.startswith("push_"):
+              "api_pings", "offline", "api_ai_stream", "api_review") or ep.startswith("push_"):
         return
     row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
                            (uid,)).fetchone()
@@ -6491,10 +6521,112 @@ def tool_render():
                            configured=configured)
 
 
+# ===================== Project Reviewer (vision + grade /100) =====================
+REVIEW_SYSTEM = (
+    "You are a fair but rigorous senior architecture design-studio critic and examiner "
+    "grading a student's project. The student uploads images of their work (drawings, "
+    "boards, plans, sections, renders or models) and may include the assignment brief. "
+    "Study the images carefully and refer to what you actually see. Produce, with clear "
+    "Markdown headings:\n"
+    "1) Overview — what the project is and your honest first impression.\n"
+    "2) Strengths — what genuinely works, specific and referenced to the images.\n"
+    "3) Weak points — the real problems (concept clarity, plan & circulation, function, "
+    "structure/feasibility, site response, drawing conventions, presentation, missing "
+    "deliverables). For each: why it matters and how to fix it.\n"
+    "4) Rubric score — score each category and SHOW the numbers:\n"
+    "   • Concept & idea /20\n   • Function & planning /20\n   • Form & aesthetics /15\n"
+    "   • Technical & feasibility /15\n   • Site & context response /10\n"
+    "   • Presentation & drawings /20\n"
+    "   Add them up.\n"
+    "5) FINAL MARK — state it clearly in bold as **Mark: X / 100**, with a one-sentence "
+    "justification and the single most important thing to raise the grade.\n"
+    "Be honest and specific like a real jury — not flattery. If images are blurry or "
+    "deliverables are missing, say so and factor it in. Begin your answer by reminding the "
+    "student, in one short line, that this is an AI estimate to help them improve and NOT "
+    "their official grade.")
+
+
+@app.route("/api/review", methods=["POST"])
+@login_required
+def api_review():
+    cu = current_user()
+    if not (cu["plus"] or cu["is_admin"]):
+        return jsonify(error="plus_required"), 403
+    s = get_settings()
+    key = (s.get("ai_api_key") or "").strip()
+    if not key:
+        return jsonify(error="not_configured"), 400
+
+    data = request.get_json(silent=True) or {}
+    images = data.get("images") or []
+    brief = (data.get("brief") or "").strip()[:6000]
+
+    blocks = []
+    for im in images[:6]:
+        if not (isinstance(im, str) and im.startswith("data:image")):
+            continue
+        try:
+            header, b64 = im.split(",", 1)
+            media = header.split(";")[0].split(":", 1)[1]
+        except (ValueError, IndexError):
+            continue
+        blocks.append({"type": "image",
+                       "source": {"type": "base64", "media_type": media, "data": b64}})
+    if not blocks:
+        return jsonify(error="no_image"), 400
+    instr = "Please review and grade my architecture project shown in the image(s)."
+    if brief:
+        instr += "\n\nThe assignment brief / requirements were:\n" + brief
+    blocks.append({"type": "text", "text": instr})
+
+    messages = [{"role": "user", "content": blocks}]
+    model = (s.get("review_model") or "").strip() or "claude-sonnet-5"
+    lang_name = LANG_NAMES.get(session.get("lang", "en"), "English")
+    system = REVIEW_SYSTEM + f" Respond in {lang_name}."
+
+    def gen():
+        for chunk in call_ai_stream(messages, system, key, model):
+            yield chunk
+
+    return Response(stream_with_context(gen()),
+                    mimetype="text/plain; charset=utf-8",
+                    headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
+
+
+@app.route("/tools/review")
+@login_required
+def tool_review():
+    gate = plus_gate_or_none("📝", "tool_review")
+    if gate:
+        return gate
+    configured = bool((get_settings().get("ai_api_key") or "").strip())
+    return render_template("tools_review.html", user=current_user(),
+                           configured=configured)
+
+
 # ======================= Workspace (per-department tools) =======================
 # Each entry is a premium AI tool. The streaming brain (build_tool_system) and the
 # /api/ai_stream gate both look tools up here by id.
 WORKSPACE_TOOLS = {
+    # ---- Architecture (extra text tool; render/design have their own pages) ----
+    "arch_site": dict(icon="🗺️",
+        name=dict(en="Site Analysis", ar="تحليل الموقع", ku="شیکاری شوێن"),
+        desc=dict(en="Climate, sun, wind, access, views & constraints — with design implications.",
+                  ar="المناخ والشمس والرياح والوصول والإطلالات والقيود — مع دلالات التصميم.",
+                  ku="کەشوهەوا، خۆر، با، ڕێگا، دیمەن و سنوور — لەگەڵ کاریگەری لەسەر دیزاین."),
+        ph=dict(en="Describe the site — location, size, orientation, surroundings, topography, climate…",
+                ar="صف الموقع — الموقع، المساحة، التوجيه، المحيط، التضاريس، المناخ…",
+                ku="شوێنەکە باس بکە — شوێن، قەبارە، ئاراستە، دەوروبەر، ناوزەم، کەشوهەوا…"),
+        system="You are an architecture site-analysis expert. From the student's description "
+               "produce a thorough site analysis with headings: 1) Location & context, "
+               "2) Climate & sun path (orientation, sun angles, shading), 3) Wind & noise, "
+               "4) Topography & drainage, 5) Access & circulation (vehicle/pedestrian, entry "
+               "points), 6) Views to frame or screen, 7) Vegetation & environment, "
+               "8) Zoning/regulations to verify, 9) SWOT (strengths, weaknesses, opportunities, "
+               "constraints), and 10) Design implications — what the analysis means for building "
+               "placement, orientation, massing and openings. Be specific; where data is missing, "
+               "state exactly what to measure or research on site."),
+
     # ---- Civil & Structural Engineering ----
     "civil_calc": dict(icon="📐", name="Structural Calculator",
         desc="Beam, column, slab & load calculations, worked step by step.",
@@ -6878,7 +7010,7 @@ def ws_text(tool_id, field, lang):
 WORKSPACE_DEPTS = [
     dict(id="arch", icon="📐",
          name=dict(en="Architecture & Design", ar="العمارة والتصميم", ku="تەلارسازی و دیزاین"),
-         tools=[{"route": "render"}, {"route": "design"}]),
+         tools=[{"route": "render"}, {"route": "design"}, "arch_site", {"route": "review"}]),
     dict(id="civil", icon="🏗️",
          name=dict(en="Civil Engineering", ar="الهندسة المدنية", ku="ئەندازیاری شارستانی"),
          tools=["civil_calc", "civil_boq", "civil_report"]),
@@ -6944,6 +7076,10 @@ def workspace_catalog(lang):
                 cards.append(dict(url=url_for("tool_plus", tool="design"), icon="📐",
                                   title=tr.get("tool_design", "AI Design Studio"),
                                   desc=tr.get("design_ph", "")))
+            elif ref.get("route") == "review":
+                cards.append(dict(url=url_for("tool_review"), icon="📝",
+                                  title=tr.get("tool_review", "Project Reviewer"),
+                                  desc=tr.get("review_intro", "")))
         cats.append(dict(id=d["id"], icon=d["icon"],
                          name=d["name"].get(lang, d["name"]["en"]), cards=cards))
     return cats
@@ -7075,7 +7211,7 @@ def admin_quotes():
 def admin_settings():
     db = get_db()
     fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
-              "ai_api_key", "ai_model", "replicate_api_key", "image_quality",
+              "ai_api_key", "ai_model", "review_model", "replicate_api_key", "image_quality",
               "sponsor_name", "sponsor_url", "plus_price",
               "fib_link", "fastpay_link", "about_text", "about_en", "about_ar",
               "about_ku", "social_instagram",
