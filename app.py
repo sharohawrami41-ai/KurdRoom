@@ -19,6 +19,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "planner.db")
 
+# ===== Master premium switch =====
+# False = EVERYTHING is free (no Plus gates, no ⭐ badges shown).
+# Flip to True to turn Plus/Premium back on across the whole app.
+PREMIUM_ENABLED = False
+
 # ---- persistent data dir for cloud hosts (Render disks etc.) --------------
 # Set DATA_DIR=/var/data (a mounted persistent disk) and the database plus all
 # uploads survive every redeploy. Locally, leave DATA_DIR unset — nothing changes.
@@ -2479,7 +2484,7 @@ def inject_globals():
                 unread_notifs=unread_n, unread_dms=unread_d,
                 av=avatar_url, BADGES=BADGES, site_logo=logo,
                 sponsor_img=sponsor_img, fib_qr_img=fib_qr_img,
-                app_version=APP_VERSION)
+                app_version=APP_VERSION, premium_enabled=PREMIUM_ENABLED)
 
 
 # ---------------------------------------------------------------- helpers
@@ -6198,7 +6203,7 @@ def api_ai_stream():
     lang = session.get("lang", "en")
 
     # Workspace tools and the Design Studio are premium; the rest are free.
-    if tool == "design" or tool in WORKSPACE_TOOLS:
+    if PREMIUM_ENABLED and (tool == "design" or tool in WORKSPACE_TOOLS):
         cu = current_user()
         if not (cu["plus"] or cu["is_admin"]):
             return jsonify(error="plus_required"), 403
@@ -6249,6 +6254,8 @@ def tool_ai():
 def plus_gate_or_none(icon, name_key, label=None):
     """Free users see a beautiful upgrade screen instead of the tool.
     Pass name_key for a translation key, or label for a literal tool name."""
+    if not PREMIUM_ENABLED:            # premium off -> everything is free
+        return None
     cu = current_user()
     if not (cu["plus"] or cu["is_admin"]):
         return render_template("plus_gate.html", user=cu, tool_icon=icon,
@@ -6520,7 +6527,7 @@ PROMPT_HELPER_SYSTEM = (
 @login_required
 def api_prompt_helper():
     cu = current_user()
-    if not (cu["plus"] or cu["is_admin"]):
+    if PREMIUM_ENABLED and not (cu["plus"] or cu["is_admin"]):
         return jsonify(error="plus_required"), 403
     s = get_settings()
     key = (s.get("ai_api_key") or "").strip()
@@ -6562,7 +6569,7 @@ def api_prompt_helper():
 @login_required
 def api_render():
     cu = current_user()
-    if not (cu["plus"] or cu["is_admin"]):
+    if PREMIUM_ENABLED and not (cu["plus"] or cu["is_admin"]):
         return jsonify(error="plus_required"), 403
     s = get_settings()
     key = (s.get("replicate_api_key") or "").strip()
@@ -6650,7 +6657,7 @@ REVIEW_SYSTEM = (
 @login_required
 def api_review():
     cu = current_user()
-    if not (cu["plus"] or cu["is_admin"]):
+    if PREMIUM_ENABLED and not (cu["plus"] or cu["is_admin"]):
         return jsonify(error="plus_required"), 403
     s = get_settings()
     key = (s.get("ai_api_key") or "").strip()
@@ -6722,7 +6729,7 @@ SITE_BOARD_SYSTEM = (
 @login_required
 def api_site_board():
     cu = current_user()
-    if not (cu["plus"] or cu["is_admin"]):
+    if PREMIUM_ENABLED and not (cu["plus"] or cu["is_admin"]):
         return jsonify(error="plus_required"), 403
     s = get_settings()
     key = (s.get("ai_api_key") or "").strip()

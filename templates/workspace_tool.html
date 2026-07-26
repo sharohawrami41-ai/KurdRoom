@@ -2,7 +2,7 @@
 {% block content %}
   <div class="card" style="max-width:680px; margin:0 auto">
     <a href="{{ url_for('workspace') }}" style="font-size:.82rem; color:var(--muted); text-decoration:none">← {{ t('workspace_t') }}</a>
-    <h2 style="margin-top:8px">{{ tw.icon }} {{ tw.name }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <h2 style="margin-top:8px">{{ tw.icon }} {{ tw.name }} {% if premium_enabled %}<span style="color:gold; font-size:.8rem">⭐</span>{% endif %}</h2>
     <p style="color:var(--muted); font-size:.88rem; margin-top:4px">{{ tw.desc }}</p>
 
     {% if not configured %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
   <div class="card" style="max-width:680px; margin:0 auto">
-    <h2>{{ cfg.icon }} {{ t(cfg.key) }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <h2>{{ cfg.icon }} {{ t(cfg.key) }} {% if premium_enabled %}<span style="color:gold; font-size:.8rem">⭐</span>{% endif %}</h2>
     <div class="hint"></div>
 
     {% if not configured %}

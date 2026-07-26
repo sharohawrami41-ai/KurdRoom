@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <div class="card" style="max-width:720px; margin:0 auto">
     <a href="{{ url_for('workspace') }}" style="font-size:.82rem; color:var(--muted); text-decoration:none">← {{ t('workspace_t') }}</a>
-    <h2 style="margin-top:8px">🗺️ {{ t('tool_site') }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <h2 style="margin-top:8px">🗺️ {{ t('tool_site') }} {% if premium_enabled %}<span style="color:gold; font-size:.8rem">⭐</span>{% endif %}</h2>
     <p style="color:var(--muted); font-size:.9rem; margin-top:4px">{{ t('site_intro') }}</p>
 
     {% if not configured %}

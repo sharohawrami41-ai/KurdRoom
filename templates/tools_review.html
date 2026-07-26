@@ -2,7 +2,7 @@
 {% block content %}
   <div class="card" style="max-width:700px; margin:0 auto">
     <a href="{{ url_for('workspace') }}" style="font-size:.82rem; color:var(--muted); text-decoration:none">← {{ t('workspace_t') }}</a>
-    <h2 style="margin-top:8px">📝 {{ t('tool_review') }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <h2 style="margin-top:8px">📝 {{ t('tool_review') }} {% if premium_enabled %}<span style="color:gold; font-size:.8rem">⭐</span>{% endif %}</h2>
     <p style="color:var(--muted); font-size:.9rem; margin-top:4px">{{ t('review_intro') }}</p>
     <div class="flash" style="margin-top:10px; background:color-mix(in srgb,var(--accent) 10%,var(--card));
          border:1px solid var(--card-border); font-size:.82rem">{{ t('review_disclaimer') }}</div>

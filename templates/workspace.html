@@ -2,7 +2,7 @@
 {% block content %}
 <div class="ws-wrap">
   <div class="ws-hero">
-    <div class="ws-badge">⭐ {{ t('ws_premium') }}</div>
+    {% if premium_enabled %}<div class="ws-badge">⭐ {{ t('ws_premium') }}</div>{% endif %}
     <h1>🚀 {{ t('ws_hero_title') }}</h1>
     <p>{{ t('ws_hero_sub') }}</p>
   </div>

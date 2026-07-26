@@ -991,7 +991,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
     {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
   <a href="#" class="pushBtn" style="display:none"
      onclick="krPushSub(false); return false">📲 {{ t('enable_notifs') }}</a>
-  <a href="{{ url_for('plus_page') }}" style="{{ 'color:gold' if not cu.plus }}">⭐ {{ t('plus_t') }}</a>
+  {% if premium_enabled %}<a href="{{ url_for('plus_page') }}" style="{{ 'color:gold' if not cu.plus }}">⭐ {{ t('plus_t') }}</a>{% endif %}
   <a href="{{ url_for('user_profile', username=cu.username) if cu else url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
@@ -1047,7 +1047,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       <div class="panel">{{ tools_links() }}</div>
     </details>
     <a class="tab {{ 'active' if request.endpoint and request.endpoint.startswith('workspace') }}"
-       href="{{ url_for('workspace') }}" style="color:gold">🚀 {{ t('workspace_t') }}</a>
+       href="{{ url_for('workspace') }}" {% if premium_enabled %}style="color:gold"{% endif %}>🚀 {{ t('workspace_t') }}</a>
     <details class="dd">
       <summary class="tab {{ 'active' if soc }}" style="position:relative">👥 {{ t('social') }} <span class="caret">▼</span>
         {% if pending_requests or unread_dms %}<span class="dot-count">{{ pending_requests + unread_dms }}</span>{% endif %}
@@ -1110,7 +1110,7 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <div class="msec">{{ t('tools') }}</div>
   {{ tools_links() }}
   <div class="msec">🚀 {{ t('workspace_t') }}</div>
-  <a href="{{ url_for('workspace') }}" style="color:gold">🚀 {{ t('workspace_t') }} <span style="font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('workspace') }}" {% if premium_enabled %}style="color:gold"{% endif %}>🚀 {{ t('workspace_t') }} {% if premium_enabled %}<span style="font-size:.7rem">⭐</span>{% endif %}</a>
   <div class="msec">{{ t('social') }}</div>
   <a href="{{ url_for('posts') }}">📰 {{ t('posts_t') }}</a>
   {{ social_links() }}
@@ -2144,6 +2144,30 @@ window.krExtractImagePrompt = function (text) {
   var m = text.match(/IMAGE_PROMPT:\s*(.+)\s*$/i);
   if (!m) return { clean: text, prompt: "" };
   return { clean: text.slice(0, m.index).trim(), prompt: m[1].trim() };
+};
+/* Save an image to the phone. On mobile the share sheet offers "Save Image"
+   (into Photos/Gallery); otherwise it downloads as a file. Avoids the old bug where
+   a cross-origin image just navigated the browser to the image URL. */
+window.krDownload = async function (url, name) {
+  name = name || "kurdroom.jpg";
+  try {
+    var resp = await fetch(url, { mode: "cors" });
+    var blob = await resp.blob();
+    try {
+      var file = new File([blob], name, { type: blob.type || "image/jpeg" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+        return;
+      }
+    } catch (_) { /* share cancelled/unsupported -> fall through to download */ }
+    var burl = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = burl; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(burl); }, 5000);
+  } catch (e) {
+    window.open(url, "_blank");   // last resort
+  }
 };
 /* Build a text-to-image URL (Pollinations — no API key needed). */
 window.krImageURL = function (prompt, seed) {

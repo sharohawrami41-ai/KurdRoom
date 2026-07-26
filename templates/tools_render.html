@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
   <div class="card" style="max-width:680px; margin:0 auto">
-    <h2>🖼 {{ t('tool_render') }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <h2>🖼 {{ t('tool_render') }} {% if premium_enabled %}<span style="color:gold; font-size:.8rem">⭐</span>{% endif %}</h2>
     <p style="color:var(--muted); font-size:.9rem; margin-top:6px">{{ t('render_intro') }}</p>
 
     {% if not configured %}
