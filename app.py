@@ -1340,7 +1340,7 @@ for _l, _d in V8.items():
 V9 = {
     "en": {
         "edu_info": "Education / Work", "i_am": "I am…",
-        "lvl_school": "School student", "lvl_bachelor": "University student",
+        "lvl_school": "School student", "lvl_bachelor": "Bachelor's student",
         "lvl_master": "Master's student", "lvl_phd": "PhD student",
         "lvl_professor": "Professor / Teacher", "lvl_graduate": "Graduated — working",
         "institution": "University / School", "college": "College / Faculty",
@@ -1350,7 +1350,7 @@ V9 = {
     },
     "ar": {
         "edu_info": "الدراسة / العمل", "i_am": "أنا…",
-        "lvl_school": "طالب مدرسة", "lvl_bachelor": "طالب جامعة",
+        "lvl_school": "طالب مدرسة", "lvl_bachelor": "طالب بكالوريوس",
         "lvl_master": "طالب ماجستير", "lvl_phd": "طالب دكتوراه",
         "lvl_professor": "أستاذ / مدرّس", "lvl_graduate": "خريج — أعمل",
         "institution": "الجامعة / المدرسة", "college": "الكلية",
@@ -1360,7 +1360,7 @@ V9 = {
     },
     "ku": {
         "edu_info": "خوێندن / کار", "i_am": "من…",
-        "lvl_school": "قوتابی قوتابخانە", "lvl_bachelor": "قوتابی زانکۆ",
+        "lvl_school": "قوتابی قوتابخانە", "lvl_bachelor": "قوتابی بەکالۆریۆس",
         "lvl_master": "قوتابی ماستەر", "lvl_phd": "قوتابی دکتۆرا",
         "lvl_professor": "مامۆستا / پرۆفیسۆر", "lvl_graduate": "دەرچوو — کار دەکەم",
         "institution": "زانکۆ / قوتابخانە", "college": "کۆلێژ",
@@ -2077,7 +2077,7 @@ V23 = {
         "email_hint2": "Required — used only for verification & password reset. Nobody ever sees it.",
         "step_account": "Account", "step_edu": "Your study", "step_pw": "Security",
         "edu_q": "What describes you best?",
-        "wl_school": "School student", "wl_uni": "University student",
+        "wl_school": "School student", "wl_uni": "Bachelor's",
         "wl_master": "Master's", "wl_phd": "PhD", "wl_prof": "Professor",
         "wl_other": "Work / Other",
         "school_name_l": "Your school's name", "school_lvl_l": "School stage",
@@ -2132,7 +2132,7 @@ V23 = {
         "email_hint2": "مطلوب — يُستخدم فقط للتحقق واستعادة كلمة المرور. لا يراه أحد أبدًا.",
         "step_account": "الحساب", "step_edu": "دراستك", "step_pw": "الأمان",
         "edu_q": "ما الذي يصفك أفضل؟",
-        "wl_school": "طالب مدرسة", "wl_uni": "طالب جامعة",
+        "wl_school": "طالب مدرسة", "wl_uni": "بكالوريوس",
         "wl_master": "ماجستير", "wl_phd": "دكتوراه", "wl_prof": "أستاذ",
         "wl_other": "عمل / أخرى",
         "school_name_l": "اسم مدرستك", "school_lvl_l": "المرحلة الدراسية",
@@ -2187,7 +2187,7 @@ V23 = {
         "email_hint2": "پێویستە — تەنها بۆ پشتڕاستکردنەوە و گەڕاندنەوەی وشەی نهێنی بەکاردێت. هیچ کەس نایبینێت.",
         "step_account": "هەژمار", "step_edu": "خوێندنەکەت", "step_pw": "پاراستن",
         "edu_q": "کامیان باشتر باست دەکات؟",
-        "wl_school": "خوێندکاری قوتابخانە", "wl_uni": "خوێندکاری زانکۆ",
+        "wl_school": "خوێندکاری قوتابخانە", "wl_uni": "بەکالۆریۆس",
         "wl_master": "ماستەر", "wl_phd": "دکتۆرا", "wl_prof": "پرۆفیسۆر",
         "wl_other": "کار / هیتر",
         "school_name_l": "ناوی قوتابخانەکەت", "school_lvl_l": "قۆناغی خوێندن",
