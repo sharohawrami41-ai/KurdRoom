@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <div class="card" style="max-width:720px; margin:0 auto">
+    <a href="{{ url_for('workspace') }}" style="font-size:.82rem; color:var(--muted); text-decoration:none">← {{ t('workspace_t') }}</a>
+    <h2 style="margin-top:8px">🗺️ {{ t('tool_site') }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <p style="color:var(--muted); font-size:.9rem; margin-top:4px">{{ t('site_intro') }}</p>
+
+    {% if not configured %}
+      <div class="flash error" style="margin-top:10px">🤖 {{ t('ai_key_hint') }}</div>
+    {% endif %}
+
+    <div style="display:flex; gap:8px; margin:14px 0 10px; flex-wrap:wrap">
+      <button type="button" class="kr-mini" id="krGeo"
+              style="padding:11px 16px; border-radius:12px">{{ t('site_use_location') }}</button>
+      <input type="text" id="krSearch" placeholder="{{ t('site_search_ph') }}"
+             style="flex:1; min-width:180px; padding:11px 13px; border-radius:12px">
+    </div>
+    <div id="krMap" style="height:330px; border-radius:16px; overflow:hidden;
+         border:1px solid var(--card-border); z-index:0"></div>
+    <div id="krAddr" style="font-size:.82rem; color:var(--muted); margin-top:8px; min-height:18px"></div>
+
+    <textarea id="krNotes" rows="3" maxlength="4000" style="margin-top:10px"
+              placeholder="{{ t('site_notes_ph') }}"></textarea>
+    <div style="margin-top:14px">
+      <button class="primary" type="button" id="krSiteBtn"
+              style="width:auto; padding:12px 30px" {{ 'disabled' if not configured }}>{{ t('site_analyze') }}</button>
+    </div>
+
+    <div id="krChat"></div>
+    <div id="krFollow" style="display:none; margin-top:6px">
+      <div class="kr-followup">
+        <input id="krFollowIn" type="text" maxlength="4000" placeholder="{{ t('kr_followup_ph') }}">
+        <button class="primary" id="krFollowBtn" type="button"
+                style="width:auto; padding:12px 22px">{{ t('kr_send') }}</button>
+      </div>
+    </div>
+  </div>
+
+{% if configured %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+<script>
+(function () {
+  var T = {{ {
+    "thinking": t('kr_thinking'), "you": t('kr_you'), "ai": t('kr_ai'), "error": t('kr_error'),
+    "locating": t('site_locating'), "geofail": t('site_geo_fail'),
+    "selected": t('site_selected'), "needPoint": t('site_need_point')
+  }|tojson }};
+  var lat = null, lon = null, addr = "";
+  var map, marker, busy = false, history = [];
+  var addrEl = document.getElementById("krAddr");
+  var geoBtn = document.getElementById("krGeo");
+  var searchEl = document.getElementById("krSearch");
+  var notesEl = document.getElementById("krNotes");
+  var runBtn = document.getElementById("krSiteBtn");
+  var chat = document.getElementById("krChat");
+  var follow = document.getElementById("krFollow");
+  var followIn = document.getElementById("krFollowIn");
+  var followBtn = document.getElementById("krFollowBtn");
+
+  // ---- init map once Leaflet loads ----
+  (async function initMap() {
+    var tries = 0;
+    while (!window.L && tries < 60) { await new Promise(function (r) { setTimeout(r, 100); }); tries++; }
+    if (!window.L) { addrEl.textContent = "Map failed to load."; return; }
+    map = L.map("krMap").setView([36.191, 44.009], 12);  // default: Erbil
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "© OpenStreetMap"
+    }).addTo(map);
+    map.on("click", function (e) { setPoint(e.latlng.lat, e.latlng.lng, true); });
+  })();
+
+  function setMarker(la, lo) {
+    if (!map) return;
+    if (!marker) {
+      marker = L.marker([la, lo], { draggable: true }).addTo(map);
+      marker.on("dragend", function () {
+        var p = marker.getLatLng(); setPoint(p.lat, p.lng, true);
+      });
+    } else { marker.setLatLng([la, lo]); }
+  }
+  function setPoint(la, lo, doReverse) {
+    lat = la; lon = lo;
+    setMarker(la, lo);
+    addrEl.textContent = "📍 " + la.toFixed(5) + ", " + lo.toFixed(5);
+    if (doReverse) reverseGeocode(la, lo);
+  }
+  function reverseGeocode(la, lo) {
+    fetch("https://nominatim.openstreetmap.org/reverse?format=json&zoom=16&lat=" +
+          la + "&lon=" + lo + "&accept-language=en")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.display_name) {
+          addr = d.display_name;
+          addrEl.textContent = "📍 " + addr + "  (" + la.toFixed(4) + ", " + lo.toFixed(4) + ")";
+        }
+      }).catch(function () {});
+  }
+
+  geoBtn.addEventListener("click", function () {
+    if (!navigator.geolocation) { addrEl.textContent = T.geofail; return; }
+    addrEl.textContent = T.locating;
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var la = pos.coords.latitude, lo = pos.coords.longitude;
+      if (map) map.setView([la, lo], 16);
+      setPoint(la, lo, true);
+    }, function () { addrEl.textContent = T.geofail; }, { enableHighAccuracy: true, timeout: 10000 });
+  });
+
+  searchEl.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    var q = (searchEl.value || "").trim();
+    if (!q) return;
+    fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=en&q=" +
+          encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (arr) {
+        if (arr && arr[0]) {
+          var la = parseFloat(arr[0].lat), lo = parseFloat(arr[0].lon);
+          if (map) map.setView([la, lo], 16);
+          addr = arr[0].display_name || "";
+          setPoint(la, lo, false);
+          if (addr) addrEl.textContent = "📍 " + addr + "  (" + la.toFixed(4) + ", " + lo.toFixed(4) + ")";
+        }
+      }).catch(function () {});
+  });
+
+  // ---- streaming analysis ----
+  function addUser(label) {
+    var d = document.createElement("div");
+    d.className = "kr-turn kr-user";
+    d.innerHTML = '<div class="kr-role">' + krEsc(T.you) + '</div><div class="kr-md">' + krMarked(label) + '</div>';
+    chat.appendChild(d); d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  function addThinking() {
+    var d = document.createElement("div");
+    d.className = "kr-turn";
+    d.innerHTML = '<div class="kr-thinking"><span class="kr-dots"><i></i><i></i><i></i></span>' +
+      '<span class="kr-shine">' + krEsc(T.thinking) + '</span></div>';
+    chat.appendChild(d); d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return d;
+  }
+  async function ask(userMessage, shownLabel) {
+    if (busy) return;
+    busy = true; runBtn.disabled = true; if (followBtn) followBtn.disabled = true;
+    addUser(shownLabel || userMessage);
+    history.push({ role: "user", content: userMessage });
+    var turn = addThinking();
+    try {
+      var full = await krStream({ tool: "arch_site", messages: history }, function (sofar) {
+        turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div>' +
+          '<div class="kr-md kr-cursor">' + krMarked(sofar) + '</div>';
+        turn.scrollIntoView({ block: "nearest" });
+      });
+      history.push({ role: "assistant", content: full });
+      turn.innerHTML = '<div class="kr-role">' + krEsc(T.ai) + '</div><div class="kr-md">' + krMarked(full) + '</div>';
+    } catch (err) {
+      turn.innerHTML = '<div class="flash error">' + krEsc(T.error) + ' ' + krEsc((err && err.message) || "") + '</div>';
+    } finally {
+      busy = false; runBtn.disabled = false; if (followBtn) followBtn.disabled = false;
+      follow.style.display = ""; if (followIn) followIn.focus();
+    }
+  }
+
+  runBtn.addEventListener("click", function () {
+    if (lat === null) { addrEl.textContent = T.needPoint; return; }
+    var msg = "Site coordinates: " + lat.toFixed(5) + ", " + lon.toFixed(5) +
+              " (latitude " + lat.toFixed(3) + ").";
+    if (addr) msg += "\nAddress / place: " + addr + ".";
+    var notes = (notesEl.value || "").trim();
+    if (notes) msg += "\n\nMy notes about the site: " + notes;
+    msg += "\n\nProduce the full site analysis for this real location.";
+    var label = "📍 " + (addr || (lat.toFixed(4) + ", " + lon.toFixed(4)));
+    ask(msg, label);
+  });
+  if (followBtn) followBtn.addEventListener("click", function () {
+    var t = (followIn.value || "").trim(); if (!t) return;
+    followIn.value = ""; ask(t, t);
+  });
+  if (followIn) followIn.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); followBtn.click(); }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

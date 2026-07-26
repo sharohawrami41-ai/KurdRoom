@@ -1823,6 +1823,13 @@ V21 = {
         "review_err": "Review failed:",
         "set_review_model": "Grading model (Project Reviewer)",
         "review_model_hint": "Used to review & grade student projects with vision. Sonnet 5 is a great default; Opus 5 / Fable 5 grade most rigorously; Haiku is cheapest.",
+        "tool_site": "Site Analysis",
+        "site_intro": "Pick the exact site on the map (or use your live location) — the analysis is grounded in the real coordinates: true sun path, climate and winds.",
+        "site_use_location": "📍 Use my live location", "site_locating": "Getting your location…",
+        "site_geo_fail": "Couldn't get your location — pick the site on the map instead.",
+        "site_search_ph": "Search an address or place…", "site_selected": "Selected site",
+        "site_notes_ph": "Anything to add — plot size, what you're designing, the brief… (optional)",
+        "site_analyze": "Analyze this site ✨", "site_need_point": "Please pick the site on the map first.",
         "design_focus": "Focus", "design_f_concept": "Full concept",
         "design_f_space": "Space planning", "design_f_detail": "Technical",
         "design_f_critique": "Studio critique",
@@ -1883,6 +1890,13 @@ V21 = {
         "review_err": "فشلت المراجعة:",
         "set_review_model": "نموذج التقييم (مراجع المشروع)",
         "review_model_hint": "يُستخدم لمراجعة وتقييم مشاريع الطلاب بالرؤية. Sonnet 5 خيار افتراضي ممتاز؛ Opus 5 / Fable 5 الأدق؛ Haiku الأرخص.",
+        "tool_site": "تحليل الموقع",
+        "site_intro": "اختر الموقع الدقيق على الخريطة (أو استخدم موقعك المباشر) — يعتمد التحليل على الإحداثيات الحقيقية: مسار الشمس والمناخ والرياح.",
+        "site_use_location": "📍 استخدم موقعي المباشر", "site_locating": "جارٍ تحديد موقعك…",
+        "site_geo_fail": "تعذّر تحديد موقعك — اختر الموقع على الخريطة بدلاً من ذلك.",
+        "site_search_ph": "ابحث عن عنوان أو مكان…", "site_selected": "الموقع المختار",
+        "site_notes_ph": "أضف ما تريد — مساحة الأرض، ما تصممه، نص المشروع… (اختياري)",
+        "site_analyze": "حلّل هذا الموقع ✨", "site_need_point": "من فضلك اختر الموقع على الخريطة أولاً.",
         "design_focus": "التركيز", "design_f_concept": "الفكرة الكاملة",
         "design_f_space": "توزيع الفراغات", "design_f_detail": "التقنيات",
         "design_f_critique": "نقد التصميم",
@@ -1943,6 +1957,13 @@ V21 = {
         "review_err": "پێداچوونەوە سەرکەوتوو نەبوو:",
         "set_review_model": "مۆدێلی نمرەدان (پێداچوونەوەی پڕۆژە)",
         "review_model_hint": "بۆ پێداچوونەوە و نمرەدانی پڕۆژەی خوێندکاران بە بینین. Sonnet 5 باشترین بنەڕەتە؛ Opus 5 / Fable 5 وردترین؛ Haiku هەرزانترین.",
+        "tool_site": "شیکاری شوێن",
+        "site_intro": "شوێنە ورددەکە لەسەر نەخشە هەڵبژێرە (یان شوێنی ڕاستەوخۆت بەکاربهێنە) — شیکارییەکە پشت بە ڕێکخەرە ڕاستەقینەکان دەبەستێت: ڕێڕەوی خۆر، کەشوهەوا و با.",
+        "site_use_location": "📍 شوێنی ڕاستەوخۆم بەکاربهێنە", "site_locating": "شوێنەکەت وەردەگرێت…",
+        "site_geo_fail": "نەتوانرا شوێنەکەت وەربگیرێت — لەسەر نەخشە هەڵیبژێرە.",
+        "site_search_ph": "بەدوای ناونیشان یان شوێندا بگەڕێ…", "site_selected": "شوێنی هەڵبژێردراو",
+        "site_notes_ph": "هەرشتێک زیاد بکە — قەبارەی زەوی، چی دیزاین دەکەیت، ئەرکەکە… (ئیختیاری)",
+        "site_analyze": "ئەم شوێنە شی بکەرەوە ✨", "site_need_point": "تکایە سەرەتا شوێنەکە لەسەر نەخشە هەڵبژێرە.",
         "design_focus": "جەخت", "design_f_concept": "بیرۆکەی تەواو",
         "design_f_space": "پلانی بۆشایی", "design_f_detail": "تەکنیکی",
         "design_f_critique": "ڕەخنەی ستۆدیۆ",
@@ -6613,6 +6634,17 @@ def tool_review():
                            configured=configured)
 
 
+@app.route("/tools/site")
+@login_required
+def tool_site():
+    gate = plus_gate_or_none("🗺️", "tool_site")
+    if gate:
+        return gate
+    configured = bool((get_settings().get("ai_api_key") or "").strip())
+    return render_template("tools_site.html", user=current_user(),
+                           configured=configured)
+
+
 # ======================= Workspace (per-department tools) =======================
 # Each entry is a premium AI tool. The streaming brain (build_tool_system) and the
 # /api/ai_stream gate both look tools up here by id.
@@ -6626,15 +6658,22 @@ WORKSPACE_TOOLS = {
         ph=dict(en="Describe the site — location, size, orientation, surroundings, topography, climate…",
                 ar="صف الموقع — الموقع، المساحة، التوجيه، المحيط، التضاريس، المناخ…",
                 ku="شوێنەکە باس بکە — شوێن، قەبارە، ئاراستە، دەوروبەر، ناوزەم، کەشوهەوا…"),
-        system="You are an architecture site-analysis expert. From the student's description "
-               "produce a thorough site analysis with headings: 1) Location & context, "
-               "2) Climate & sun path (orientation, sun angles, shading), 3) Wind & noise, "
-               "4) Topography & drainage, 5) Access & circulation (vehicle/pedestrian, entry "
-               "points), 6) Views to frame or screen, 7) Vegetation & environment, "
-               "8) Zoning/regulations to verify, 9) SWOT (strengths, weaknesses, opportunities, "
-               "constraints), and 10) Design implications — what the analysis means for building "
-               "placement, orientation, massing and openings. Be specific; where data is missing, "
-               "state exactly what to measure or research on site."),
+        system="You are an architecture site-analysis expert. The student gives you a REAL "
+               "site: its GPS coordinates, latitude and address, plus optional notes. USE THE "
+               "REAL DATA: from the LATITUDE work out the sun path (approx. summer/winter sun "
+               "angles, sunrise/sunset arc, and the best building orientation and shading "
+               "strategy for that latitude and hemisphere); from the location/region give the "
+               "actual climate (temperature range, rainfall, humidity) and the typical "
+               "prevailing wind direction; and use the address/region for context and "
+               "regulations to check. Produce a thorough analysis with headings: 1) Location & "
+               "context, 2) Climate & sun path (with the real sun angles for this latitude and "
+               "the orientation it implies), 3) Wind & noise, 4) Topography & drainage, "
+               "5) Access & circulation, 6) Views to frame or screen, 7) Vegetation & "
+               "environment, 8) Zoning/regulations to verify locally, 9) SWOT, and 10) Design "
+               "implications — building placement, orientation, massing and openings for THIS "
+               "site. Be specific and numerical where the coordinates allow; where you are "
+               "uncertain, say what to verify on site. Note that your climate/wind figures are "
+               "typical estimates for the region to be confirmed with local data."),
 
     # ---- Civil & Structural Engineering ----
     "civil_calc": dict(icon="📐", name="Structural Calculator",
@@ -7019,7 +7058,7 @@ def ws_text(tool_id, field, lang):
 WORKSPACE_DEPTS = [
     dict(id="arch", icon="📐",
          name=dict(en="Architecture & Design", ar="العمارة والتصميم", ku="تەلارسازی و دیزاین"),
-         tools=[{"route": "render"}, {"route": "design"}, "arch_site", {"route": "review"}]),
+         tools=[{"route": "render"}, {"route": "design"}, {"route": "site"}, {"route": "review"}]),
     dict(id="civil", icon="🏗️",
          name=dict(en="Civil Engineering", ar="الهندسة المدنية", ku="ئەندازیاری شارستانی"),
          tools=["civil_calc", "civil_boq", "civil_report"]),
@@ -7089,6 +7128,10 @@ def workspace_catalog(lang):
                 cards.append(dict(url=url_for("tool_review"), icon="📝",
                                   title=tr.get("tool_review", "Project Reviewer"),
                                   desc=tr.get("review_intro", "")))
+            elif ref.get("route") == "site":
+                cards.append(dict(url=url_for("tool_site"), icon="🗺️",
+                                  title=tr.get("tool_site", "Site Analysis"),
+                                  desc=tr.get("site_intro", "")))
         cats.append(dict(id=d["id"], icon=d["icon"],
                          name=d["name"].get(lang, d["name"]["en"]), cards=cards))
     return cats
