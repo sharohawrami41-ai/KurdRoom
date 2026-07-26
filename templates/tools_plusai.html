@@ -21,6 +21,14 @@
         {% endfor %}
       </div>
       {% endif %}
+      {% if tool == 'assignment' %}
+      <div style="margin-bottom:12px">
+        <input type="file" id="krPdf" accept="application/pdf" style="display:none">
+        <button type="button" class="kr-mini" id="krPdfBtn"
+                style="padding:11px 18px; border-radius:12px">{{ t('assign_upload') }}</button>
+        <span id="krPdfStatus" style="margin-inline-start:10px; font-size:.82rem; color:var(--muted)"></span>
+      </div>
+      {% endif %}
       <label>{{ t(cfg.ph) }}</label>
       <textarea name="text" rows="7" required maxlength="12000"
                 placeholder="{{ t(cfg.ph) }}">{{ text }}</textarea>
@@ -192,6 +200,52 @@
   });
   if (followIn) followIn.addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); followBtn.click(); }
+  });
+})();
+</script>
+{% endif %}
+
+{% if configured and tool == 'assignment' %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script>
+(function () {
+  var btn = document.getElementById("krPdfBtn");
+  var inp = document.getElementById("krPdf");
+  var st = document.getElementById("krPdfStatus");
+  var ta = document.querySelector("#krForm textarea[name=text]");
+  if (!btn || !inp || !ta) return;
+  var S = {
+    reading: {{ t('assign_reading')|tojson }},
+    loaded: {{ t('assign_loaded')|tojson }},
+    err: {{ t('assign_pdf_err')|tojson }}
+  };
+  btn.addEventListener("click", function () { inp.click(); });
+  inp.addEventListener("change", async function () {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    st.textContent = S.reading;
+    try {
+      var tries = 0;
+      while (!window.pdfjsLib && tries < 40) {
+        await new Promise(function (r) { setTimeout(r, 100); }); tries++;
+      }
+      var lib = window.pdfjsLib;
+      if (!lib) { st.textContent = S.err; return; }
+      lib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      var buf = await f.arrayBuffer();
+      var pdf = await lib.getDocument({ data: buf }).promise;
+      var out = [], max = Math.min(pdf.numPages, 15);
+      for (var i = 1; i <= max; i++) {
+        var page = await pdf.getPage(i);
+        var tc = await page.getTextContent();
+        out.push(tc.items.map(function (it) { return it.str; }).join(" "));
+      }
+      var text = out.join("\n\n").replace(/[ \t]+\n/g, "\n").trim().slice(0, 12000);
+      if (!text) { st.textContent = S.err; return; }
+      ta.value = text;
+      st.textContent = S.loaded;
+    } catch (e) { st.textContent = S.err; }
   });
 })();
 </script>

@@ -1786,7 +1786,23 @@ V21 = {
     "en": {
         "tool_mindmap": "AI Mind-Map Maker", "tool_sum2": "AI Summarizer",
         "tool_present": "Presentation Builder", "tool_design": "AI Design Studio",
-        "tool_predict": "Exam Question Predictor",
+        "tool_predict": "Exam Question Predictor", "tool_assign": "Assignment Workspace",
+        "assign_ph": "Paste your assignment brief here — or upload the PDF above. Include the building type, requirements, and due date if you have them…",
+        "assign_upload": "📎 Upload assignment PDF", "assign_reading": "Reading your PDF…",
+        "assign_loaded": "Loaded ✓ — press Run", "assign_pdf_err": "Couldn't read that PDF — try pasting the text instead.",
+        "tool_render": "Sketch → Render",
+        "render_intro": "Upload your own sketch or floor plan and turn it into a professional render, or generate one from a description.",
+        "render_mode_sketch": "From my sketch", "render_mode_text": "From text only",
+        "render_upload": "📎 Upload your sketch / plan", "render_change": "Change image",
+        "render_prompt_ph": "Describe the style, materials & mood — e.g. modern concrete villa, warm sunset light, photorealistic, lots of glass…",
+        "render_strength": "How closely to follow your sketch",
+        "render_close": "Follow closely", "render_free": "More creative",
+        "render_go": "Generate render ✨", "render_making": "Rendering… this can take 10–30 seconds",
+        "render_again": "Render again ↻", "render_download": "Download",
+        "render_need_sketch": "Please upload a sketch first.",
+        "render_need_prompt": "Please describe what you want.",
+        "render_err": "Render failed:", "render_no_key": "The image service isn't set up yet. An admin needs to add a Replicate API key in Admin → Settings.",
+        "set_replicate": "Replicate API key (image rendering)", "set_quality": "Image quality (text-to-image)",
         "design_focus": "Focus", "design_f_concept": "Full concept",
         "design_f_space": "Space planning", "design_f_detail": "Technical",
         "design_f_critique": "Studio critique",
@@ -1810,7 +1826,23 @@ V21 = {
     "ar": {
         "tool_mindmap": "صانع الخرائط الذهنية", "tool_sum2": "الملخّص الذكي",
         "tool_present": "منشئ العروض التقديمية", "tool_design": "استوديو التصميم الذكي",
-        "tool_predict": "متنبّئ أسئلة الامتحان",
+        "tool_predict": "متنبّئ أسئلة الامتحان", "tool_assign": "مساحة عمل الواجبات",
+        "assign_ph": "الصق نص الواجب هنا — أو ارفع ملف PDF بالأعلى. اذكر نوع المبنى والمتطلبات وتاريخ التسليم إن وُجد…",
+        "assign_upload": "📎 ارفع ملف الواجب (PDF)", "assign_reading": "يقرأ ملفك…",
+        "assign_loaded": "تم التحميل ✓ — اضغط شغّل", "assign_pdf_err": "تعذّرت قراءة ملف PDF — جرّب لصق النص بدلاً منه.",
+        "tool_render": "من الرسم إلى صورة",
+        "render_intro": "ارفع رسمك أو مخططك وحوّله إلى صورة احترافية، أو أنشئ صورة من وصف نصي.",
+        "render_mode_sketch": "من رسمي", "render_mode_text": "من النص فقط",
+        "render_upload": "📎 ارفع رسمك / مخططك", "render_change": "غيّر الصورة",
+        "render_prompt_ph": "صف الأسلوب والمواد والأجواء — مثل: فيلا خرسانية حديثة، ضوء غروب دافئ، واقعية، زجاج كثير…",
+        "render_strength": "مدى الالتزام برسمك",
+        "render_close": "التزام قريب", "render_free": "إبداع أكثر",
+        "render_go": "أنشئ الصورة ✨", "render_making": "جارٍ الإنشاء… قد يستغرق 10–30 ثانية",
+        "render_again": "أنشئ مجددًا ↻", "render_download": "تحميل",
+        "render_need_sketch": "من فضلك ارفع رسمًا أولاً.",
+        "render_need_prompt": "من فضلك صف ما تريد.",
+        "render_err": "فشل الإنشاء:", "render_no_key": "خدمة الصور غير مُعدّة بعد. على المشرف إضافة مفتاح Replicate في لوحة الإدارة ← الإعدادات.",
+        "set_replicate": "مفتاح Replicate (إنشاء الصور)", "set_quality": "جودة الصورة (نص إلى صورة)",
         "design_focus": "التركيز", "design_f_concept": "الفكرة الكاملة",
         "design_f_space": "توزيع الفراغات", "design_f_detail": "التقنيات",
         "design_f_critique": "نقد التصميم",
@@ -1834,7 +1866,23 @@ V21 = {
     "ku": {
         "tool_mindmap": "دروستکەری نەخشەی مێشک", "tool_sum2": "کورتکەرەوەی زیرەک",
         "tool_present": "دروستکەری پرێزەنتەیشن", "tool_design": "ستۆدیۆی دیزاینی زیرەک",
-        "tool_predict": "پێشبینیکەری پرسیاری تاقیکردنەوە",
+        "tool_predict": "پێشبینیکەری پرسیاری تاقیکردنەوە", "tool_assign": "شوێنی کاری ئەرکەکان",
+        "assign_ph": "دەقی ئەرکەکەت لێرە دابنێ — یان فایلی PDF لە سەرەوە باربکە. جۆری بینا و پێداویستییەکان و بەرواری ناردن بنووسە ئەگەر هەتە…",
+        "assign_upload": "📎 فایلی ئەرکی PDF باربکە", "assign_reading": "فایلەکەت دەخوێنێتەوە…",
+        "assign_loaded": "بارکرا ✓ — کلیکی Run بکە", "assign_pdf_err": "نەتوانرا PDFـەکە بخوێنرێتەوە — دەقەکە دابنێ لە جیاتی.",
+        "tool_render": "لە سکێچەوە بۆ وێنە",
+        "render_intro": "سکێچ یان پلانی خۆت باربکە و بیکە بە وێنەیەکی پرۆفیشناڵ، یان لە وەسفێکەوە دروستی بکە.",
+        "render_mode_sketch": "لە سکێچی خۆم", "render_mode_text": "تەنها لە دەق",
+        "render_upload": "📎 سکێچ / پلانەکەت باربکە", "render_change": "وێنە بگۆڕە",
+        "render_prompt_ph": "شێواز و کەرەستە و کەشوهەوا وەسف بکە — وەک: ڤێلای کۆنکریتی مۆدێرن، ڕووناکی خۆرئاوابوونی گەرم، ڕیاڵستیک، شووشەی زۆر…",
+        "render_strength": "چەند نزیک لە سکێچەکەت بێت",
+        "render_close": "نزیک بمێنێتەوە", "render_free": "داهێنەرانەتر",
+        "render_go": "وێنە دروست بکە ✨", "render_making": "دروستدەکرێت… لەوانەیە ١٠–٣٠ چرکە بخایەنێت",
+        "render_again": "دووبارە دروستبکە ↻", "render_download": "داگرتن",
+        "render_need_sketch": "تکایە سەرەتا سکێچێک باربکە.",
+        "render_need_prompt": "تکایە وەسفی ئەوە بکە کە دەتەوێت.",
+        "render_err": "دروستکردن سەرکەوتوو نەبوو:", "render_no_key": "خزمەتگوزاری وێنە هێشتا ڕێکنەخراوە. ئەدمین پێویستە کلیلی Replicate زیاد بکات لە ئەدمین ← ڕێکخستنەکان.",
+        "set_replicate": "کلیلی Replicate (دروستکردنی وێنە)", "set_quality": "کوالیتیی وێنە (دەق بۆ وێنە)",
         "design_focus": "جەخت", "design_f_concept": "بیرۆکەی تەواو",
         "design_f_space": "پلانی بۆشایی", "design_f_detail": "تەکنیکی",
         "design_f_critique": "ڕەخنەی ستۆدیۆ",
@@ -6209,7 +6257,38 @@ DESIGN_FOCUS = {
 }
 
 
+ASSIGNMENT_SYSTEM = (
+    "You are an elite architecture design-studio coach helping a university "
+    "student plan and complete a studio ASSIGNMENT. The student pastes (or uploads) "
+    "the assignment brief. Read it carefully and reply in the SAME language as the "
+    "brief. Your job is to help them do THEIR OWN work brilliantly and on time — "
+    "never to fake data or invent a grade. Produce a complete, practical action "
+    "plan using these sections with Markdown headings:\n\n"
+    "1) In plain words — restate what the assignment is really asking, the building "
+    "type/theme, and the constraints. If a due date or submission format is "
+    "mentioned, state it; if not, say what to confirm with the tutor.\n"
+    "2) Deliverables checklist — every item to hand in (drawings, model, boards, "
+    "report, etc.) as a checkbox list, with the drawing scales usually expected.\n"
+    "3) Schedule — a realistic week-by-week (or day-by-day if the deadline is near) "
+    "plan working BACK from the deadline, with a clear milestone each period.\n"
+    "4) Concept directions — three distinct, strong design directions to explore, "
+    "each with its big idea and why it suits the brief.\n"
+    "5) Site & context analysis — a checklist of what to research, measure and map "
+    "(climate, orientation, access, views, neighbours, regulations).\n"
+    "6) Space program — a room-by-room table with typical areas in m² for this "
+    "building type, plus total and circulation allowance.\n"
+    "7) Required drawings & how to nail each — plans, sections, elevations, details, "
+    "and what makes each one score well.\n"
+    "8) What the jury rewards & common mistakes to avoid.\n"
+    "9) Your next 3 steps — the immediate actions to start now.\n\n"
+    "Be specific and demanding, like a great studio tutor. Use real numbers and "
+    "named strategies, not vague advice.")
+
+
 PLUS_AI_TOOLS = {
+    "assignment": dict(
+        icon="📋", key="tool_assign", ph="assign_ph",
+        system=ASSIGNMENT_SYSTEM),
     "summarizer": dict(
         icon="📄", key="tool_sum2", ph="sum2_ph",
         system="You are an expert study assistant. Summarize the material into: "
@@ -6258,6 +6337,123 @@ def tool_plus(tool):
     return render_template("tools_plusai.html", user=current_user(), tool=tool,
                            cfg=cfg, configured=configured, result=result,
                            error=error, text=text, target=target)
+
+
+# ============================ AI Render (Replicate) ============================
+# Quality tiers -> Replicate models for text-to-image.
+RENDER_MODELS = {
+    "fast": "black-forest-labs/flux-schnell",
+    "standard": "black-forest-labs/flux-dev",
+    "premium": "black-forest-labs/flux-1.1-pro",
+}
+# Sketch -> render (image-to-image) always uses a model that accepts an input image.
+RENDER_IMG2IMG_MODEL = "black-forest-labs/flux-dev"
+
+
+def replicate_generate(key, model, inp):
+    """Run a Replicate model and return (image_url, error).
+    Uses 'Prefer: wait' for a synchronous result, then polls if still running."""
+    import json as _json
+    import urllib.request
+    import urllib.error
+    import time
+
+    def _post():
+        body = _json.dumps({"input": inp}).encode()
+        req = urllib.request.Request(
+            "https://api.replicate.com/v1/models/%s/predictions" % model,
+            data=body, headers={"Authorization": "Bearer " + key,
+                                "Content-Type": "application/json",
+                                "Prefer": "wait=60"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            return _json.load(r)
+
+    def _poll(url):
+        req = urllib.request.Request(url, headers={"Authorization": "Bearer " + key})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return _json.load(r)
+
+    def _pick(output):
+        if isinstance(output, list):
+            return output[0] if output else None
+        return output  # a single URL string
+
+    try:
+        pred = _post()
+        # Poll until the prediction settles (in case 'wait' returned early).
+        for _ in range(45):
+            status = pred.get("status")
+            if status == "succeeded":
+                url = _pick(pred.get("output"))
+                return (url, None) if url else (None, "no_output")
+            if status in ("failed", "canceled"):
+                return None, pred.get("error") or "generation_failed"
+            get_url = (pred.get("urls") or {}).get("get")
+            if not get_url:
+                return None, "no_poll_url"
+            time.sleep(2)
+            pred = _poll(get_url)
+        return None, "timeout"
+    except urllib.error.HTTPError as e:
+        try:
+            msg = _json.load(e).get("detail", str(e))
+        except Exception:
+            msg = "HTTP %s" % e.code
+        return None, msg
+    except Exception as e:
+        return None, str(e)
+
+
+@app.route("/api/render", methods=["POST"])
+@login_required
+def api_render():
+    cu = current_user()
+    if not (cu["plus"] or cu["is_admin"]):
+        return jsonify(error="plus_required"), 403
+    s = get_settings()
+    key = (s.get("replicate_api_key") or "").strip()
+    if not key:
+        return jsonify(error="no_replicate_key"), 400
+
+    data = request.get_json(silent=True) or {}
+    mode = data.get("mode", "text")
+    prompt = (data.get("prompt") or "").strip()[:1500]
+    image = data.get("image") or ""          # data URI of the student's sketch
+    try:
+        strength = float(data.get("strength", 0.55))
+    except (TypeError, ValueError):
+        strength = 0.55
+    strength = min(0.9, max(0.2, strength))
+    quality = (s.get("image_quality") or "fast").strip() or "fast"
+
+    if not prompt:
+        return jsonify(error="empty_prompt"), 400
+
+    if mode == "render":
+        if not (isinstance(image, str) and image.startswith("data:image")):
+            return jsonify(error="no_image"), 400
+        model = RENDER_IMG2IMG_MODEL
+        inp = {"prompt": prompt, "image": image, "prompt_strength": strength,
+               "output_format": "jpg", "output_quality": 90}
+    else:
+        model = RENDER_MODELS.get(quality, RENDER_MODELS["fast"])
+        inp = {"prompt": prompt, "aspect_ratio": "4:3", "output_format": "jpg"}
+
+    url, err = replicate_generate(key, model, inp)
+    if err:
+        return jsonify(error=err), 502
+    return jsonify(url=url)
+
+
+@app.route("/tools/render")
+@login_required
+def tool_render():
+    gate = plus_gate_or_none("🖼", "tool_render")
+    if gate:
+        return gate
+    configured = bool((get_settings().get("replicate_api_key") or "").strip())
+    return render_template("tools_render.html", user=current_user(),
+                           configured=configured)
 
 
 # ---------------------------------------------------------------- SEO
@@ -6361,7 +6557,8 @@ def admin_quotes():
 def admin_settings():
     db = get_db()
     fields = ["site_name", "tagline_en", "tagline_ar", "tagline_ku", "accent_color",
-              "ai_api_key", "ai_model", "sponsor_name", "sponsor_url", "plus_price",
+              "ai_api_key", "ai_model", "replicate_api_key", "image_quality",
+              "sponsor_name", "sponsor_url", "plus_price",
               "fib_link", "fastpay_link", "about_text", "about_en", "about_ar",
               "about_ku", "social_instagram",
               "social_facebook", "social_website", "social_email", "plus_phone",

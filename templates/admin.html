@@ -142,6 +142,15 @@
         <div style="font-size:.72rem; color:var(--muted); margin-top:4px">{{ t('ai_key_hint') }}</div>
         <label>{{ t('ai_model') }}</label>
         <input name="ai_model" value="{{ settings.ai_model or 'claude-haiku-4-5' }}">
+        <label>🖼 {{ t('set_replicate') }}</label>
+        <input type="password" name="replicate_api_key" value="{{ settings.replicate_api_key or '' }}"
+               autocomplete="off" placeholder="r8_…">
+        <label>{{ t('set_quality') }}</label>
+        <select name="image_quality">
+          <option value="fast" {{ 'selected' if (settings.image_quality or 'fast') == 'fast' }}>Fast — Flux Schnell (~$0.003/image)</option>
+          <option value="standard" {{ 'selected' if settings.image_quality == 'standard' }}>Standard — Flux Dev (~$0.025/image)</option>
+          <option value="premium" {{ 'selected' if settings.image_quality == 'premium' }}>Premium — Flux 1.1 Pro (~$0.04/image)</option>
+        </select>
         <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:.9rem; color:var(--text)">
           <input type="checkbox" name="allow_registration" style="width:auto"
                  {{ 'checked' if settings.allow_registration == '1' }}>

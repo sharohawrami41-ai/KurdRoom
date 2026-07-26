@@ -1,33 +1,47 @@
-KurdRoom — Design image fix (image now ALWAYS appears)
-======================================================
+KurdRoom — NEW: Sketch → Render (module 2, premium images via Replicate)
+========================================================================
 
-THE PROBLEM YOU SAW
-The written concept was perfect, but no picture appeared, and the text was cut
-off near "7) Precedents". Cause: the design answer is long, and the hidden image
-instruction sits at the very end — the answer ran out of room before reaching it,
-so no image was ever created.
+WHAT THIS IS
+The premium visual module. In the menu: "🖼 Sketch → Render".
+Two modes:
+  • From my sketch  — the student uploads their OWN hand sketch or floor plan and
+    gets a professional render that follows their drawing. A "how closely to follow
+    your sketch" slider controls how faithful vs. creative the result is.
+  • From text only  — generate an image from a description.
+Shows a loading animation, then the image with Download + "Render again".
 
-THE FIX (2 changes)
-1) The answer now has more room to finish completely (3200 tokens), so it no
-   longer cuts off mid-section.
-2) The image is now GUARANTEED: if the model's own image line is missing for any
-   reason, the app automatically builds the picture from the student's brief
-   instead. So a design image ALWAYS shows for "Full concept" and "Space planning".
-   Follow-up tweaks (e.g. "make it modern") are folded into the fallback image too.
+SETUP (2 minutes, one-time)  ← IMPORTANT
+1. Open the app → Admin → Settings.
+2. In "🖼 Replicate API key" paste your token (starts with r8_...).
+3. In "Image quality (text-to-image)" pick a tier:
+      Fast     — Flux Schnell  (~$0.003/image, ~300 per $1)
+      Standard — Flux Dev      (~$0.025/image)
+      Premium  — Flux 1.1 Pro  (~$0.04/image)
+   (Sketch→render always uses Flux Dev so it can follow the uploaded drawing.)
+4. Save. Make sure your Replicate account has credit (you already added some).
 
-FILES CHANGED (bundle is complete — just replace all 5)
-  app.py                       (answer length 1600 -> 3200 tokens)
-  templates/tools_plusai.html  (guaranteed-image fallback)
-  templates/base.html          (streaming + image helpers — from the previous update)
-  templates/tools_ai.html      (streaming UI — from the previous update)
-  static/sw.js                 (cache bumped to v14 so devices reload the new version)
+SECURITY
+- The token is stored in your app settings (like your Anthropic key) and is used
+  ONLY server-side — it is never exposed to the students' browsers.
+- You pasted the token in chat, so please REGENERATE it on replicate.com
+  (API tokens → delete old, create new) and put the fresh one in Admin → Settings.
 
-HOW TO APPLY
-  Replace these 5 files, restart the app, then reopen the app once on your phone.
-  Test: AI Design Studio -> focus "Full concept" -> type a brief -> Run.
-  You'll get the text, then a picture underneath with "New image" and "Download".
+FILES CHANGED (complete bundle — replace all)
+  app.py                        (render engine, /api/render, /tools/render, settings, i18n)
+  templates/tools_render.html   (NEW — the Sketch → Render page)
+  templates/admin.html          (Replicate key + quality fields)
+  templates/base.html           (menu link)
+  templates/tools_plusai.html   (from module 1 — included for completeness)
+  templates/tools_ai.html       (from earlier update — included for completeness)
+  static/sw.js                  (cache -> v16)
 
-REMINDER ABOUT IMAGE QUALITY
-  Images use the free Pollinations service (no key, works out of the box). Quality
-  is good but can vary — tap "New image" for another version. For top-tier, faster,
-  more consistent renders, we can add a premium image model behind an image key.
+NOTE ON TESTING
+  I built this exactly to Replicate's documented API and tested every path with a
+  simulated Replicate response (success, no-key, no-image all handled). I could NOT
+  test a real render from my side because my sandbox can't reach replicate.com — you
+  will be the first to run it live. If the very first render errors, tell me the exact
+  message shown and I'll adjust the model inputs.
+
+STILL TO COME
+  Module 3: Standards & Calculations (uses your Anthropic key — I can build next).
+  Module 4: Board / Report builder.

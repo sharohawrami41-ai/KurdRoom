@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card" style="max-width:680px; margin:0 auto">
+    <h2>🖼 {{ t('tool_render') }} <span style="color:gold; font-size:.8rem">⭐</span></h2>
+    <p style="color:var(--muted); font-size:.9rem; margin-top:6px">{{ t('render_intro') }}</p>
+
+    {% if not configured %}
+    <div class="flash error" style="margin-top:12px">🖼 {{ t('render_no_key') }}</div>
+    {% endif %}
+
+    <div style="display:flex; gap:8px; margin:16px 0 6px; flex-wrap:wrap">
+      <label class="pill kr-modebtn" data-mode="render"
+             style="cursor:pointer; border-color:var(--accent); color:var(--accent)">
+        <input type="radio" name="rmode" value="render" style="display:none" checked>
+        {{ t('render_mode_sketch') }}</label>
+      <label class="pill kr-modebtn" data-mode="text" style="cursor:pointer">
+        <input type="radio" name="rmode" value="text" style="display:none">
+        {{ t('render_mode_text') }}</label>
+    </div>
+
+    <div id="krUploadRow" style="margin:12px 0">
+      <input type="file" id="krSketch" accept="image/*" style="display:none">
+      <button type="button" class="kr-mini" id="krSketchBtn"
+              style="padding:11px 18px; border-radius:12px">{{ t('render_upload') }}</button>
+      <div id="krSketchPrev" style="margin-top:12px; display:none">
+        <img id="krSketchImg" alt="" style="max-width:100%; border-radius:14px;
+             border:1px solid var(--card-border)">
+        <div style="margin-top:8px">
+          <button type="button" class="kr-mini" id="krSketchChange">{{ t('render_change') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <label>{{ t('render_prompt_ph') }}</label>
+    <textarea id="krPrompt" rows="3" maxlength="1500"
+              placeholder="{{ t('render_prompt_ph') }}"></textarea>
+
+    <div id="krStrengthRow" style="margin-top:14px">
+      <label>{{ t('render_strength') }}</label>
+      <input type="range" id="krStrength" min="20" max="85" value="55" style="width:100%">
+      <div style="display:flex; justify-content:space-between; font-size:.75rem; color:var(--muted)">
+        <span>{{ t('render_close') }}</span><span>{{ t('render_free') }}</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <button class="primary" id="krRenderBtn" type="button"
+              style="width:auto; padding:12px 30px">{{ t('render_go') }}</button>
+    </div>
+
+    <div id="krRenderOut" style="margin-top:18px"></div>
+  </div>
+
+<script>
+(function () {
+  var T = {{ {
+    "making": t('render_making'), "err": t('render_err'),
+    "needSketch": t('render_need_sketch'), "needPrompt": t('render_need_prompt'),
+    "noKey": t('render_no_key'), "again": t('render_again'), "download": t('render_download')
+  }|tojson }};
+  var fileInp = document.getElementById("krSketch");
+  var sketchBtn = document.getElementById("krSketchBtn");
+  var changeBtn = document.getElementById("krSketchChange");
+  var prev = document.getElementById("krSketchPrev");
+  var prevImg = document.getElementById("krSketchImg");
+  var uploadRow = document.getElementById("krUploadRow");
+  var strengthRow = document.getElementById("krStrengthRow");
+  var promptEl = document.getElementById("krPrompt");
+  var strengthEl = document.getElementById("krStrength");
+  var runBtn = document.getElementById("krRenderBtn");
+  var out = document.getElementById("krRenderOut");
+  var mode = "render";
+  var sketchData = "";
+  var busy = false;
+
+  // Mode toggle
+  document.querySelectorAll(".kr-modebtn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.getAttribute("data-mode");
+      document.querySelectorAll(".kr-modebtn").forEach(function (x) {
+        var on = x === b;
+        x.style.borderColor = on ? "var(--accent)" : "";
+        x.style.color = on ? "var(--accent)" : "";
+        var r = x.querySelector("input"); if (r) r.checked = on;
+      });
+      var sketchMode = mode === "render";
+      uploadRow.style.display = sketchMode ? "" : "none";
+      strengthRow.style.display = sketchMode ? "" : "none";
+    });
+  });
+
+  // Downscale a chosen image to <=1024px and keep it as a JPEG data URI.
+  function loadSketch(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1024, w = img.width, h = img.height;
+        if (w > max || h > max) {
+          if (w >= h) { h = Math.round(h * max / w); w = max; }
+          else { w = Math.round(w * max / h); h = max; }
+        }
+        var cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        sketchData = cv.toDataURL("image/jpeg", 0.9);
+        prevImg.src = sketchData;
+        prev.style.display = "";
+        sketchBtn.style.display = "none";
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  sketchBtn.addEventListener("click", function () { fileInp.click(); });
+  if (changeBtn) changeBtn.addEventListener("click", function () { fileInp.click(); });
+  fileInp.addEventListener("change", function () {
+    var f = fileInp.files && fileInp.files[0];
+    if (f) loadSketch(f);
+  });
+
+  function showError(msg) {
+    out.innerHTML = '<div class="flash error">' + krEsc(T.err) + ' ' + krEsc(msg) + '</div>';
+  }
+  function showLoading() {
+    out.innerHTML = '<div class="kr-img-wrap" style="min-height:220px">' +
+      '<div class="kr-img-load"><span class="kr-dots"><i></i><i></i><i></i></span>' +
+      '<span>' + krEsc(T.making) + '</span></div></div>';
+  }
+  function showResult(url) {
+    out.innerHTML =
+      '<div class="kr-img-wrap"><img alt="render" src="' + url + '"></div>' +
+      '<div class="kr-btnrow">' +
+        '<button type="button" class="kr-mini" id="krRenderAgain">' + krEsc(T.again) + '</button>' +
+        '<a class="kr-mini" href="' + url + '" target="_blank" rel="noopener" download>' +
+          krEsc(T.download) + '</a>' +
+      '</div>';
+    var again = document.getElementById("krRenderAgain");
+    if (again) again.addEventListener("click", run);
+  }
+
+  async function run() {
+    if (busy) return;
+    var prompt = (promptEl.value || "").trim();
+    if (!prompt) { showError(T.needPrompt); return; }
+    if (mode === "render" && !sketchData) { showError(T.needSketch); return; }
+    busy = true; runBtn.disabled = true;
+    showLoading();
+    try {
+      var payload = { mode: mode, prompt: prompt };
+      if (mode === "render") {
+        payload.image = sketchData;
+        payload.strength = (parseInt(strengthEl.value, 10) || 55) / 100;
+      }
+      var res = await fetch("/api/render", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      var data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok || data.error) {
+        showError(data.error === "no_replicate_key" ? T.noKey : (data.error || res.status));
+      } else if (data.url) {
+        showResult(data.url);
+      } else {
+        showError("no image");
+      }
+    } catch (err) {
+      showError((err && err.message) || "network");
+    } finally {
+      busy = false; runBtn.disabled = false;
+    }
+  }
+  runBtn.addEventListener("click", run);
+})();
+</script>
+{% endblock %}

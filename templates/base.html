@@ -944,6 +944,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('tool_mindmap') }}">🧠 {{ t('tool_mindmap') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
   <a href="{{ url_for('tool_plus', tool='summarizer') }}">📄 {{ t('tool_sum2') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
   <a href="{{ url_for('tool_plus', tool='present') }}">🎤 {{ t('tool_present') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_plus', tool='assignment') }}">📋 {{ t('tool_assign') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
+  <a href="{{ url_for('tool_render') }}">🖼 {{ t('tool_render') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
   <a href="{{ url_for('tool_plus', tool='design') }}">📐 {{ t('tool_design') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
   <a href="{{ url_for('tool_plus', tool='predict') }}">❓ {{ t('tool_predict') }} <span style="color:gold; font-size:.7rem">⭐</span></a>
 {% endmacro %}
