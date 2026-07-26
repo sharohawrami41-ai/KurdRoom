@@ -35,7 +35,7 @@
     <textarea id="krPrompt" rows="3" maxlength="1500"
               placeholder="{{ t('render_prompt_ph') }}"></textarea>
 
-    <div id="krStrengthRow" style="margin-top:14px">
+    <div id="krStrengthRow" style="margin-top:14px; display:none">
       <label>{{ t('render_strength') }}</label>
       <input type="range" id="krStrength" min="20" max="85" value="55" style="width:100%">
       <div style="display:flex; justify-content:space-between; font-size:.75rem; color:var(--muted)">
@@ -85,7 +85,8 @@
       });
       var sketchMode = mode === "render";
       uploadRow.style.display = sketchMode ? "" : "none";
-      strengthRow.style.display = sketchMode ? "" : "none";
+      // The Canny model follows the sketch automatically — no strength slider needed.
+      strengthRow.style.display = "none";
     });
   });
 

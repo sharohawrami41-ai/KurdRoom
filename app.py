@@ -6375,8 +6375,9 @@ RENDER_MODELS = {
     "standard": "black-forest-labs/flux-dev",
     "premium": "black-forest-labs/flux-1.1-pro",
 }
-# Sketch -> render (image-to-image) always uses a model that accepts an input image.
-RENDER_IMG2IMG_MODEL = "black-forest-labs/flux-dev"
+# Sketch -> render uses an EDGE-GUIDED (Canny ControlNet) model: it follows the
+# sketch's lines but generates a fresh photorealistic image (not a redraw).
+RENDER_IMG2IMG_MODEL = "black-forest-labs/flux-canny-dev"
 
 
 def replicate_generate(key, model, inp):
@@ -6461,8 +6462,13 @@ def api_render():
     if mode == "render":
         if not (isinstance(image, str) and image.startswith("data:image")):
             return jsonify(error="no_image"), 400
+        # Edge-guided (Canny ControlNet): follows the sketch's LINES but generates a
+        # brand-new photorealistic image — the correct tool for sketch -> render.
+        styled = (prompt + ", photorealistic architectural render, professional "
+                  "architectural photograph, ultra-detailed, realistic materials and "
+                  "lighting, high quality, 8k")
         model = RENDER_IMG2IMG_MODEL
-        inp = {"prompt": prompt, "image": image, "prompt_strength": strength,
+        inp = {"prompt": styled, "control_image": image,
                "output_format": "jpg", "output_quality": 90}
     else:
         model = RENDER_MODELS.get(quality, RENDER_MODELS["fast"])
@@ -6665,7 +6671,207 @@ WORKSPACE_TOOLS = {
                "their writing with band-style feedback and concrete improvements, OR give "
                "practice questions with model answers, OR explain a rule. Be specific and "
                "encouraging."),
+
+    # ---- Petroleum & Petrochemical Engineering ----
+    "petro_calc": dict(icon="🛢️",
+        name=dict(en="Process & Reservoir Calculator", ar="حاسبة العمليات والمكامن", ku="ژمێرەری پرۆسێس و کانگا"),
+        desc=dict(en="Petroleum & process calculations, worked step by step.",
+                  ar="حسابات النفط والعمليات خطوة بخطوة.", ku="ژمێریاری نەوت و پرۆسێس هەنگاو بە هەنگاو."),
+        ph=dict(en="Describe the problem — e.g. reservoir volume, flow rate, material balance…",
+                ar="صف المسألة — مثل حجم المكمن، معدل التدفق، توازن المواد…",
+                ku="کێشەکە باس بکە — وەک قەبارەی کانگا، ڕێژەی لێزان، هاوسەنگی ماددە…"),
+        system="You are a petroleum & chemical-process engineering tutor. The student gives a "
+               "problem (reservoir engineering, drilling, fluid flow, material/energy balance, "
+               "refining). Solve it step by step: assumptions, the formula, substitution with "
+               "units, and the final answer. State the correlations/standards used and remind "
+               "the student to verify them. Teach the method so they can redo it."),
+    "petro_report": dict(icon="📄",
+        name=dict(en="Petroleum Lab Report", ar="تقرير مختبر النفط", ku="ڕاپۆرتی تاقیگەی نەوت"),
+        desc=dict(en="Turn lab data into a full petroleum-engineering report.",
+                  ar="حوّل بيانات المختبر إلى تقرير هندسة نفط كامل.", ku="داتای تاقیگە بکە بە ڕاپۆرتی ئەندازیاری نەوت."),
+        ph=dict(en="Paste your experiment data and notes…", ar="الصق بيانات تجربتك وملاحظاتك…",
+                ku="داتا و تێبینییەکانی تاقیکردنەوەکەت دابنێ…"),
+        system="You are a petroleum-engineering lab report writer. Turn the student's data and "
+               "notes into a report: objective, method/apparatus, results (table if data given), "
+               "a sample calculation, discussion with error analysis, and conclusion."),
+    "petro_concepts": dict(icon="⛽",
+        name=dict(en="Concept Explainer", ar="شرح المفاهيم", ku="ڕوونکردنەوەی چەمک"),
+        desc=dict(en="Clear explanations of reservoir, drilling & refining topics.",
+                  ar="شرح واضح لمواضيع المكامن والحفر والتكرير.", ku="ڕوونکردنەوەی ئاشکرا بۆ کانگا، لێدان و پاڵاوتن."),
+        ph=dict(en="Name the topic — e.g. gas lift, distillation column…",
+                ar="اذكر الموضوع — مثل الرفع بالغاز، عمود التقطير…", ku="بابەتەکە بنووسە — وەک بەرزکردنەوەی گاز، ستوونی دیستیلەیشن…"),
+        system="You are a petroleum-engineering tutor. Explain the topic clearly with a simple "
+               "diagram-in-words, the key equations, and a worked example a student can follow."),
+
+    # ---- Chemistry ----
+    "chem_solve": dict(icon="⚗️",
+        name=dict(en="Chemistry Problem Solver", ar="حل مسائل الكيمياء", ku="شیکەرەوەی کێشەی کیمیا"),
+        desc=dict(en="Stoichiometry, moles, concentration & equilibrium, step by step.",
+                  ar="الحسابات الكيميائية والمولات والتراكيز خطوة بخطوة.", ku="ستۆیکیۆمیتری، مۆل و چڕی هەنگاو بە هەنگاو."),
+        ph=dict(en="Paste the chemistry problem…", ar="الصق مسألة الكيمياء…", ku="کێشەی کیمیاکە دابنێ…"),
+        system="You are a chemistry tutor. Solve the problem step by step: knowns, the balanced "
+               "equation if relevant, the method, working with units, and the boxed final answer. "
+               "Add a one-line sanity check and teach the method."),
+    "chem_react": dict(icon="🧫",
+        name=dict(en="Reactions & Mechanisms", ar="التفاعلات والآليات", ku="کارلێک و میکانیزمەکان"),
+        desc=dict(en="Balance equations and explain reaction mechanisms.",
+                  ar="وازن المعادلات واشرح آليات التفاعل.", ku="هاوسەنگکردنی هاوکێشە و ڕوونکردنەوەی میکانیزم."),
+        ph=dict(en="Give the reaction or equation to balance/explain…",
+                ar="أعطِ التفاعل أو المعادلة…", ku="کارلێک یان هاوکێشەکە بنووسە…"),
+        system="You are a chemistry tutor. Balance the equation showing the steps, then explain "
+               "the reaction type and mechanism (with electron flow / intermediates where "
+               "relevant) in clear terms with an example."),
+    "chem_lab": dict(icon="🔬",
+        name=dict(en="Chemistry Lab Report", ar="تقرير مختبر الكيمياء", ku="ڕاپۆرتی تاقیگەی کیمیا"),
+        desc=dict(en="Turn lab data into a complete chemistry report.",
+                  ar="حوّل بيانات المختبر إلى تقرير كيمياء كامل.", ku="داتای تاقیگە بکە بە ڕاپۆرتی تەواوی کیمیا."),
+        ph=dict(en="Paste your data, method and observations…", ar="الصق بياناتك وطريقتك وملاحظاتك…",
+                ku="داتا، ڕێگا و تێبینییەکانت دابنێ…"),
+        system="You are a chemistry lab report writer. Produce: objective, hypothesis, materials "
+               "& method, results (table + trend), a sample calculation, discussion with error "
+               "analysis, and a conclusion."),
+
+    # ---- Pharmacy ----
+    "pharm_drug": dict(icon="💊",
+        name=dict(en="Drug Guide & Interactions", ar="دليل الأدوية والتفاعلات", ku="ڕێنمای دەرمان و کارلێکەکان"),
+        desc=dict(en="Drug classes, mechanisms, uses, side effects & interactions.",
+                  ar="أصناف الأدوية وآلياتها واستخداماتها وتفاعلاتها.", ku="پۆلی دەرمان، میکانیزم، بەکارهێنان و کارلێک."),
+        ph=dict(en="Name the drug or drugs…", ar="اذكر الدواء أو الأدوية…", ku="ناوی دەرمان یان دەرمانەکان بنووسە…"),
+        system="You are a pharmacology tutor. For the drug(s): class, mechanism of action, main "
+               "indications, key side effects, and important interactions. Educational only — "
+               "remind the student to confirm against the local formulary and clinical judgment."),
+    "pharm_calc": dict(icon="🧪",
+        name=dict(en="Dosage Calculator", ar="حاسبة الجرعات", ku="ژمێرەری دۆز"),
+        desc=dict(en="Work through dosage & concentration calculations step by step.",
+                  ar="احسب الجرعات والتراكيز خطوة بخطوة.", ku="ژماردنی دۆز و چڕی بە هەنگاو."),
+        ph=dict(en="Describe the dosing problem — drug, weight, concentration…",
+                ar="صف مسألة الجرعة — الدواء، الوزن، التركيز…", ku="کێشەی دۆزەکە باس بکە — دەرمان، کێش، چڕی…"),
+        system="You are a pharmacology tutor. Work the dosage/concentration calculation step by "
+               "step with units and a final boxed answer. Educational only — remind the student "
+               "that real dosing must be verified clinically."),
+    "pharm_flash": dict(icon="🧠",
+        name=dict(en="Pharmacology Flashcards", ar="بطاقات الصيدلة", ku="فلاشکاردی دەرمانسازی"),
+        desc=dict(en="Flashcards + MCQs from your pharmacology notes.",
+                  ar="بطاقات وأسئلة اختيار من ملاحظات الصيدلة.", ku="فلاشکارد و MCQ لە تێبینی دەرمانسازی."),
+        ph=dict(en="Paste the material (or upload the PDF above)…", ar="الصق المادة (أو ارفع PDF)…",
+                ku="ماددەکە دابنێ (یان PDF باربکە)…"),
+        system="You are a pharmacology study assistant. From the material produce (1) high-yield "
+               "flashcards as 'Q: … / A: …' pairs, and (2) 5–10 exam-style MCQs with the correct "
+               "answer and a one-line explanation each. Be accurate; flag uncertainty."),
+
+    # ---- Electrical & Mechanical Engineering ----
+    "em_circuit": dict(icon="⚡",
+        name=dict(en="Circuit & Mechanics Solver", ar="حل الدوائر والميكانيكا", ku="شیکەرەوەی سرکیت و میکانیک"),
+        desc=dict(en="Electrical circuits and mechanics problems, fully worked.",
+                  ar="مسائل الدوائر الكهربائية والميكانيكا محلولة بالكامل.", ku="کێشەی سرکیتی کارەبا و میکانیک بە تەواوی."),
+        ph=dict(en="Paste the circuit or mechanics problem…", ar="الصق مسألة الدائرة أو الميكانيكا…",
+                ku="کێشەی سرکیت یان میکانیک دابنێ…"),
+        system="You are an electrical & mechanical engineering tutor. Solve circuit problems "
+               "(Ohm's law, Kirchhoff, AC/DC) and mechanics/statics/dynamics problems step by "
+               "step, with the governing equations, substitution with units, and the final "
+               "answer. Teach the method."),
+    "em_report": dict(icon="📄",
+        name=dict(en="Engineering Lab Report", ar="تقرير مختبر الهندسة", ku="ڕاپۆرتی تاقیگەی ئەندازیاری"),
+        desc=dict(en="Structured report from your electrical/mechanical lab data.",
+                  ar="تقرير منظم من بيانات مختبرك.", ku="ڕاپۆرتی ڕێکخراو لە داتای تاقیگەکەت."),
+        ph=dict(en="Paste your data, method and results…", ar="الصق بياناتك وطريقتك ونتائجك…",
+                ku="داتا، ڕێگا و ئەنجامەکانت دابنێ…"),
+        system="You are an engineering lab report writer. Produce a structured report: aim, "
+               "apparatus/method, results (table if data given), a sample calculation, discussion "
+               "with error analysis, and conclusion."),
+
+    # ---- Agriculture ----
+    "agri_advisor": dict(icon="🌱",
+        name=dict(en="Crop & Soil Advisor", ar="مستشار المحاصيل والتربة", ku="ڕاوێژکاری کشتوکاڵ و خاک"),
+        desc=dict(en="Guidance on crops, soil, irrigation & plant problems.",
+                  ar="إرشادات حول المحاصيل والتربة والري ومشاكل النبات.", ku="ڕێنمایی دەربارەی کشتوکاڵ، خاک، ئاودان و کێشەی ڕووەک."),
+        ph=dict(en="Describe the crop, soil or problem…", ar="صف المحصول أو التربة أو المشكلة…",
+                ku="کشتوکاڵ، خاک یان کێشەکە باس بکە…"),
+        system="You are an agriculture tutor. Give practical, evidence-based guidance on the "
+               "crop/soil/irrigation/pest question with the reasoning. Educational — recommend "
+               "confirming with local agricultural extension and soil tests."),
+    "agri_report": dict(icon="📄",
+        name=dict(en="Agriculture Lab Report", ar="تقرير مختبر الزراعة", ku="ڕاپۆرتی تاقیگەی کشتوکاڵ"),
+        desc=dict(en="Turn field/lab data into a structured report.",
+                  ar="حوّل بيانات الحقل/المختبر إلى تقرير منظم.", ku="داتای کێڵگە/تاقیگە بکە بە ڕاپۆرت."),
+        ph=dict(en="Paste your data and observations…", ar="الصق بياناتك وملاحظاتك…",
+                ku="داتا و تێبینییەکانت دابنێ…"),
+        system="You are an agriculture lab/field report writer. Produce: objective, method, "
+               "results (table + trend), a sample calculation if relevant, discussion, and "
+               "conclusion."),
+
+    # ---- Extra Law tool ----
+    "law_moot": dict(icon="🎓",
+        name=dict(en="Moot Court / Argument Builder", ar="بناء المرافعة", ku="دروستکردنی بەڵگە (موت کۆرت)"),
+        desc=dict(en="Build arguments for both sides and anticipate rebuttals.",
+                  ar="ابنِ حججًا للطرفين وتوقّع الردود.", ku="بەڵگە بۆ هەردوو لا دروست بکە و وەڵامەکان پێشبینی بکە."),
+        ph=dict(en="Describe the case or legal question to argue…",
+                ar="صف القضية أو المسألة القانونية…", ku="کەیس یان پرسیارە یاساییەکە باس بکە…"),
+        system="You are a law tutor and moot-court coach. Build the strongest argument for each "
+               "side: the key legal authorities/principles, the structure of the submission, and "
+               "the likely rebuttals with responses. Study help only — remind that jurisdiction "
+               "and local law matter."),
 }
+
+# Arabic/Kurdish for the tools that were originally defined with English strings.
+WS_TR = {
+    "civil_calc": {"ar": {"name": "الحاسبة الإنشائية", "desc": "حسابات الجسور والأعمدة والأحمال خطوة بخطوة.", "ph": "صف العنصر والأحمال — مثل جسر خرساني بسيط، بحر 6 م، حمل حي 15 kN/m…"},
+                   "ku": {"name": "ژمێرەری پێکهاتەیی", "desc": "ژماردنی تیر، کۆڵەکە و بار هەنگاو بە هەنگاو.", "ph": "ئەندام و بارەکان باس بکە — وەک تیری کۆنکریتی سادە، ئاوەز ٦م، باری زیندوو ١٥ kN/m…"}},
+    "civil_boq": {"ar": {"name": "جدول الكميات", "desc": "حصر المواد وتقدير الكميات لعنصر أو منشأة صغيرة.", "ph": "صف ما تريد تقديره — مثل بلاطة سقف 4×5 م بسمك 150 مم…"},
+                  "ku": {"name": "خشتەی بڕەکان", "desc": "ژماردنی کەرەستە و بڕ بۆ ئەندام یان بیناکەیەکی بچووک.", "ph": "باس بکە چی هەژمار بکرێت — وەک سەقفی کۆنکریتی ٤×٥م، ئەستووری ١٥٠مم…"}},
+    "civil_report": {"ar": {"name": "تقرير مختبر/موقع", "desc": "حوّل النتائج والملاحظات إلى تقرير هندسي منظم.", "ph": "الصق ملاحظات ونتائج المختبر/الموقع…"},
+                     "ku": {"name": "ڕاپۆرتی تاقیگە/شوێن", "desc": "ئەنجام و تێبینی بکە بە ڕاپۆرتی ئەندازیاری ڕێکخراو.", "ph": "تێبینی و ئەنجامی تاقیگە/شوێن دابنێ…"}},
+    "cs_code": {"ar": {"name": "مساعد واجبات البرمجة", "desc": "اكتب ونقّح واشرح الكود بأي لغة.", "ph": "صف المهمة أو الصق الكود والخطأ…"},
+                "ku": {"name": "یارمەتیدەری ئەرکی پرۆگرام", "desc": "کۆد بنووسە، چاک بکە و ڕوونی بکەرەوە بە هەر زمانێک.", "ph": "ئەرکەکە باس بکە یان کۆد و هەڵەکە دابنێ…"}},
+    "cs_diagram": {"ar": {"name": "منشئ المخططات", "desc": "مخططات انسيابية وER وUML بصيغة Mermaid.", "ph": "صف النظام أو العملية للمخطط…"},
+                   "ku": {"name": "دروستکەری دیاگرام", "desc": "فلۆچارت، ER و UML بە Mermaid.", "ph": "سیستەم یان پرۆسێسەکە باس بکە…"}},
+    "cs_project": {"ar": {"name": "مخطّط المشاريع", "desc": "النطاق والتقنيات ونموذج البيانات والمراحل وREADME.", "ph": "صف فكرة مشروعك وقيوده…"},
+                   "ku": {"name": "پلاندانەری پڕۆژە", "desc": "مەودا، تەکنەلۆژیا، مۆدێلی داتا، قۆناغەکان و README.", "ph": "بیرۆکەی پڕۆژەکەت باس بکە…"}},
+    "med_flash": {"ar": {"name": "بطاقات + أسئلة اختيار", "desc": "حوّل المحاضرة إلى بطاقات وأسئلة اختيار.", "ph": "الصق المحاضرة أو الملاحظات (أو ارفع PDF)…"},
+                  "ku": {"name": "فلاشکارد + MCQ", "desc": "وانەکە بکە بە فلاشکارد و MCQ.", "ph": "وانە یان تێبینییەکان دابنێ (یان PDF باربکە)…"}},
+    "med_case": {"ar": {"name": "معلّم الحالات السريرية", "desc": "التشخيص التفريقي والفحوصات والإدارة.", "ph": "صف أو الصق الحالة السريرية…"},
+                 "ku": {"name": "مامۆستای کەیسی کلینیکی", "desc": "دیاگنۆزی جیاکەرەوە، پشکنین و بەڕێوەبردن.", "ph": "کەیسە کلینیکییەکە باس بکە یان دابنێ…"}},
+    "med_notes": {"ar": {"name": "ملاحظات مركّزة", "desc": "لخّص المادة إلى ملاحظات جاهزة للامتحان.", "ph": "الصق المادة لتلخيصها…"},
+                  "ku": {"name": "تێبینی پوخت", "desc": "ماددەکە پوخت بکە بۆ تێبینی ئامادەی تاقیکردنەوە.", "ph": "ماددەکە بۆ پوختکردن دابنێ…"}},
+    "biz_plan": {"ar": {"name": "منشئ خطة العمل", "desc": "خطة منظمة من الفكرة إلى الماليات.", "ph": "صف فكرة عملك والسوق والأهداف…"},
+                 "ku": {"name": "دروستکەری پلانی بازرگانی", "desc": "پلانی ڕێکخراو لە بیرۆکەوە بۆ دارایی.", "ph": "بیرۆکە، بازاڕ و ئامانجەکانت باس بکە…"}},
+    "biz_finance": {"ar": {"name": "المالية والمحاسبة", "desc": "أنشئ أو اشرح القوائم والنماذج والنسب.", "ph": "صف المهمة أو الصق الأرقام…"},
+                    "ku": {"name": "دارایی و ژمێریاری", "desc": "لیست و مۆدێل و ڕێژەکان دروست بکە یان ڕوون بکەرەوە.", "ph": "ئەرکەکە باس بکە یان ژمارەکان دابنێ…"}},
+    "biz_case": {"ar": {"name": "حل دراسات الحالة", "desc": "حلّل حالة عمل بإطار واضح.", "ph": "الصق أو صف دراسة الحالة…"},
+                 "ku": {"name": "شیکەرەوەی کەیس ستەدی", "desc": "کەیسی بازرگانی شی بکەرەوە بە چوارچێوەیەکی ڕوون.", "ph": "کەیس ستەدییەکە دابنێ یان باس بکە…"}},
+    "gd_brand": {"ar": {"name": "أفكار الهوية والملصقات", "desc": "توجيه إبداعي: ألوان وخطوط وشعار وملصقات.", "ph": "صف العلامة أو الفعالية أو الملصق…"},
+                 "ku": {"name": "بیرۆکەی براند و پۆستەر", "desc": "ئاراستەی داهێنەرانە: ڕەنگ، فۆنت، لۆگۆ و پۆستەر.", "ph": "براند، بۆنە یان پۆستەرەکە باس بکە…"}},
+    "law_brief": {"ar": {"name": "ملخّص القضية", "desc": "الوقائع والمسألة والقاعدة والحكم والتعليل.", "ph": "الصق القضية أو صف السيناريو…"},
+                  "ku": {"name": "پوختەی کەیس", "desc": "ڕووداو، کێشە، یاسا، بڕیار و هۆکار.", "ph": "کەیسەکە دابنێ یان سیناریۆکە باس بکە…"}},
+    "law_memo": {"ar": {"name": "مذكرة قانونية (IRAC)", "desc": "صياغة مذكرة/مقال بطريقة IRAC.", "ph": "صف السؤال القانوني أو الواجب…"},
+                 "ku": {"name": "مێمۆی یاسایی (IRAC)", "desc": "نووسینی مێمۆ/وتار بە شێوازی IRAC.", "ph": "پرسیارە یاسایی یان ئەرکەکە باس بکە…"}},
+    "law_explain": {"ar": {"name": "شرح المفاهيم", "desc": "شرح مفهوم أو بند قانوني بلغة بسيطة.", "ph": "الصق البند أو اذكر المفهوم…"},
+                    "ku": {"name": "ڕوونکردنەوەی چەمک", "desc": "ڕوونکردنەوەی چەمک یان بەندی یاسایی بە زمانێکی سادە.", "ph": "بەندەکە دابنێ یان چەمکەکە بنووسە…"}},
+    "sci_solve": {"ar": {"name": "الحل خطوة بخطوة", "desc": "مسائل الرياضيات والفيزياء والكيمياء محلولة.", "ph": "الصق المسألة…"},
+                  "ku": {"name": "شیکەرەوەی هەنگاو بە هەنگاو", "desc": "کێشەی بیرکاری، فیزیا و کیمیا شیکراوە.", "ph": "کێشەکە دابنێ…"}},
+    "sci_lab": {"ar": {"name": "كاتب تقرير المختبر", "desc": "حوّل البيانات والملاحظات إلى تقرير مختبر كامل.", "ph": "الصق بياناتك وطريقتك وملاحظاتك…"},
+                "ku": {"name": "نووسەری ڕاپۆرتی تاقیگە", "desc": "داتا و تێبینی بکە بە ڕاپۆرتی تەواوی تاقیگە.", "ph": "داتا، ڕێگا و تێبینییەکانت دابنێ…"}},
+    "edu_lesson": {"ar": {"name": "منشئ خطة الدرس", "desc": "خطة درس كاملة ومُوقّتة لأي موضوع.", "ph": "أعطِ الموضوع والصف/المستوى ومدة الدرس…"},
+                   "ku": {"name": "دروستکەری پلانی وانە", "desc": "پلانی وانەی تەواو و کاتبەندیکراو بۆ هەر بابەتێک.", "ph": "بابەت، پۆل/ئاست و ماوەی وانەکە بنووسە…"}},
+    "edu_worksheet": {"ar": {"name": "منشئ أوراق العمل", "desc": "ورقة عمل جاهزة للطباعة مع مفتاح الإجابات.", "ph": "أعطِ الموضوع والمستوى…"},
+                      "ku": {"name": "دروستکەری وۆرکشیت", "desc": "وۆرکشیتی ئامادەی چاپ لەگەڵ کلیلی وەڵام.", "ph": "بابەت و ئاستەکە بنووسە…"}},
+    "lang_write": {"ar": {"name": "تحسين الكتابة الأكاديمية", "desc": "تحسين الوضوح والقواعد والبنية والأسلوب.", "ph": "الصق نصك أو صف ما تحتاجه…"},
+                   "ku": {"name": "ڕازاندنەوەی نووسینی ئەکادیمی", "desc": "باشترکردنی ڕوونی، ڕێزمان، پێکهاتە و شێواز.", "ph": "دەقەکەت دابنێ یان پێویستیت باس بکە…"}},
+    "lang_translate": {"ar": {"name": "المترجم الأكاديمي", "desc": "ترجمة دقيقة ومصقولة مع ملاحظات المفردات.", "ph": "الصق النص وحدّد لغة الترجمة…"},
+                       "ku": {"name": "وەرگێڕی ئەکادیمی", "desc": "وەرگێڕانی وردی جوانکراو لەگەڵ تێبینی وشە.", "ph": "دەقەکە دابنێ و زمانی وەرگێڕان دیاری بکە…"}},
+    "lang_ielts": {"ar": {"name": "مدرّب IELTS/TOEFL", "desc": "تقييم بالباند وأسئلة تدريب وإجابات نموذجية.", "ph": "الصق كتابتك للتقييم أو اطلب تدريبًا…"},
+                   "ku": {"name": "ڕاهێنەری IELTS/TOEFL", "desc": "هەڵسەنگاندنی باند، پرسیاری ڕاهێنان و وەڵامی نموونە.", "ph": "نووسینەکەت بۆ هەڵسەنگاندن دابنێ یان داوای ڕاهێنان بکە…"}},
+}
+
+
+def ws_text(tool_id, field, lang):
+    """Localized name/desc/ph for a workspace tool (dict value or WS_TR overlay)."""
+    val = WORKSPACE_TOOLS[tool_id][field]
+    if isinstance(val, dict):
+        return val.get(lang, val.get("en", ""))
+    ov = WS_TR.get(tool_id, {}).get(lang, {}).get(field)
+    return ov or val
+
 
 # Departments shown on the Workspace hub, in order. `tools` lists workspace tool
 # ids, plus special {route:...} entries for tools that have their own page.
@@ -6690,7 +6896,22 @@ WORKSPACE_DEPTS = [
          tools=["gd_brand", {"route": "render"}]),
     dict(id="law", icon="⚖️",
          name=dict(en="Law", ar="القانون", ku="یاسا"),
-         tools=["law_brief", "law_memo", "law_explain"]),
+         tools=["law_brief", "law_memo", "law_explain", "law_moot"]),
+    dict(id="petro", icon="🛢️",
+         name=dict(en="Petroleum & Petrochemical", ar="النفط والبتروكيماويات", ku="نەوت و پیترۆکیمیا"),
+         tools=["petro_calc", "petro_report", "petro_concepts"]),
+    dict(id="chem", icon="⚗️",
+         name=dict(en="Chemistry", ar="الكيمياء", ku="کیمیا"),
+         tools=["chem_solve", "chem_react", "chem_lab"]),
+    dict(id="pharm", icon="💊",
+         name=dict(en="Pharmacy", ar="الصيدلة", ku="دەرمانسازی"),
+         tools=["pharm_drug", "pharm_calc", "pharm_flash"]),
+    dict(id="eng_em", icon="⚡",
+         name=dict(en="Electrical & Mechanical Eng.", ar="الهندسة الكهربائية والميكانيكية", ku="ئەندازیاری کارەبا و میکانیک"),
+         tools=["em_circuit", "em_report"]),
+    dict(id="agri", icon="🌱",
+         name=dict(en="Agriculture", ar="الزراعة", ku="کشتوکاڵ"),
+         tools=["agri_advisor", "agri_report"]),
     dict(id="sci", icon="🧪",
          name=dict(en="Sciences & Math", ar="العلوم والرياضيات", ku="زانست و بیرکاری"),
          tools=["sci_solve", "sci_lab"]),
@@ -6713,7 +6934,8 @@ def workspace_catalog(lang):
             if isinstance(ref, str):
                 tw = WORKSPACE_TOOLS[ref]
                 cards.append(dict(url=url_for("workspace_tool", tool_id=ref),
-                                  title=tw["name"], icon=tw["icon"], desc=tw["desc"]))
+                                  title=ws_text(ref, "name", lang), icon=tw["icon"],
+                                  desc=ws_text(ref, "desc", lang)))
             elif ref.get("route") == "render":
                 cards.append(dict(url=url_for("tool_render"), icon="🖼",
                                   title=tr.get("tool_render", "Sketch → Render"),
@@ -6741,12 +6963,15 @@ def workspace_tool(tool_id):
     tw = WORKSPACE_TOOLS.get(tool_id)
     if tw is None:
         abort(404)
-    gate = plus_gate_or_none(tw["icon"], None, label=tw["name"])
+    lang = session.get("lang", "en")
+    meta = dict(icon=tw["icon"], name=ws_text(tool_id, "name", lang),
+                desc=ws_text(tool_id, "desc", lang), ph=ws_text(tool_id, "ph", lang))
+    gate = plus_gate_or_none(tw["icon"], None, label=meta["name"])
     if gate:
         return gate
     configured = bool((get_settings().get("ai_api_key") or "").strip())
     return render_template("workspace_tool.html", user=current_user(),
-                           tool_id=tool_id, tw=tw, configured=configured)
+                           tool_id=tool_id, tw=meta, configured=configured)
 
 
 # ---------------------------------------------------------------- SEO
