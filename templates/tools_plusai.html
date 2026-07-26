@@ -86,6 +86,18 @@
     var r = form.querySelector("input[name=target]:checked");
     return r ? r.value : "";
   }
+  // Highlight the selected focus pill so tapping clearly registers (design tool).
+  var focusPills = form.querySelectorAll("input[name=target]");
+  function paintFocus() {
+    focusPills.forEach(function (r) {
+      var lab = r.closest(".pill");
+      if (!lab) return;
+      lab.style.borderColor = r.checked ? "var(--accent)" : "";
+      lab.style.color = r.checked ? "var(--accent)" : "";
+    });
+  }
+  focusPills.forEach(function (r) { r.addEventListener("change", paintFocus); });
+  paintFocus();
   function addUser(text) {
     var d = document.createElement("div");
     d.className = "kr-turn kr-user";
