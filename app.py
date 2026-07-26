@@ -1785,8 +1785,11 @@ for _l, _d in V20.items():
 V21 = {
     "en": {
         "tool_mindmap": "AI Mind-Map Maker", "tool_sum2": "AI Summarizer",
-        "tool_present": "Presentation Builder", "tool_translate": "Academic Translator",
+        "tool_present": "Presentation Builder", "tool_design": "AI Design Studio",
         "tool_predict": "Exam Question Predictor",
+        "design_focus": "Focus", "design_f_concept": "Full concept",
+        "design_f_space": "Space planning", "design_f_detail": "Technical",
+        "design_f_critique": "Studio critique",
         "gate_t": "This is a Plus tool", "gate_sub": "Exclusive to ⭐ Plus members — unlock it and 4 more premium tools, double XP, the gold badge, and everything else.",
         "gate_cta": "Get Plus ⭐",
         "mm_input": "Topic or notes", "mm_gen": "Generate mind map",
@@ -1794,14 +1797,17 @@ V21 = {
         "mm_ph": "Enter a topic (e.g. Photosynthesis) or paste your notes — the AI maps out the key ideas and how they connect…",
         "sum2_ph": "Paste the lecture, chapter, or article here…",
         "present_ph": "Write your presentation topic (e.g. Renewable energy in Kurdistan)…",
-        "translate_ph": "Paste the text to translate and polish…",
+        "design_ph": "Describe your project brief or design — site, purpose, users, size, key constraints…",
         "predict_ph": "Paste the chapter or your notes — get the questions your teacher is most likely to ask…",
-        "translate_to": "Translate to", "run_t": "Run ✨", "result_t": "Result",
+        "run_t": "Run ✨", "result_t": "Result",
     },
     "ar": {
         "tool_mindmap": "صانع الخرائط الذهنية", "tool_sum2": "الملخّص الذكي",
-        "tool_present": "منشئ العروض التقديمية", "tool_translate": "المترجم الأكاديمي",
+        "tool_present": "منشئ العروض التقديمية", "tool_design": "استوديو التصميم الذكي",
         "tool_predict": "متنبّئ أسئلة الامتحان",
+        "design_focus": "التركيز", "design_f_concept": "الفكرة الكاملة",
+        "design_f_space": "توزيع الفراغات", "design_f_detail": "التقنيات",
+        "design_f_critique": "نقد التصميم",
         "gate_t": "هذه أداة بلس", "gate_sub": "حصرية لأعضاء ⭐ بلس — افتحها مع 4 أدوات مميزة أخرى ونقاط مضاعفة والشارة الذهبية وكل شيء آخر.",
         "gate_cta": "احصل على بلس ⭐",
         "mm_input": "الموضوع أو الملاحظات", "mm_gen": "أنشئ الخريطة الذهنية",
@@ -1809,14 +1815,17 @@ V21 = {
         "mm_ph": "اكتب موضوعًا (مثل: البناء الضوئي) أو الصق ملاحظاتك — سيرسم الذكاء الاصطناعي الأفكار الرئيسية وكيف ترتبط…",
         "sum2_ph": "الصق المحاضرة أو الفصل أو المقال هنا…",
         "present_ph": "اكتب موضوع عرضك التقديمي…",
-        "translate_ph": "الصق النص للترجمة والتحسين…",
+        "design_ph": "صِف مشروعك أو تصميمك — الموقع، الغرض، المستخدمون، المساحة، أهم القيود…",
         "predict_ph": "الصق الفصل أو ملاحظاتك — واحصل على الأسئلة الأكثر احتمالًا…",
-        "translate_to": "ترجم إلى", "run_t": "شغّل ✨", "result_t": "النتيجة",
+        "run_t": "شغّل ✨", "result_t": "النتيجة",
     },
     "ku": {
         "tool_mindmap": "دروستکەری نەخشەی مێشک", "tool_sum2": "کورتکەرەوەی زیرەک",
-        "tool_present": "دروستکەری پرێزەنتەیشن", "tool_translate": "وەرگێڕی ئەکادیمی",
+        "tool_present": "دروستکەری پرێزەنتەیشن", "tool_design": "ستۆدیۆی دیزاینی زیرەک",
         "tool_predict": "پێشبینیکەری پرسیاری تاقیکردنەوە",
+        "design_focus": "جەخت", "design_f_concept": "بیرۆکەی تەواو",
+        "design_f_space": "پلانی بۆشایی", "design_f_detail": "تەکنیکی",
+        "design_f_critique": "ڕەخنەی ستۆدیۆ",
         "gate_t": "ئەمە ئامرازێکی پڵەسە", "gate_sub": "تایبەتە بە ئەندامانی ⭐ پڵەس — بیکەرەوە لەگەڵ 4 ئامرازی پرێمیۆمی تر و XP ی دووهێندە و نیشانە ئاڵتوونیەکە و هەموو شتێکی تر.",
         "gate_cta": "پڵەس وەربگرە ⭐",
         "mm_input": "بابەت یان تێبینی", "mm_gen": "نەخشەی مێشک دروست بکە",
@@ -1824,9 +1833,9 @@ V21 = {
         "mm_ph": "بابەتێک بنووسە (وەک: فۆتۆسینتێز) یان تێبینیەکانت دابنێ — زیرەکی دەستکرد بیرۆکە سەرەکییەکان و پەیوەندیان دەکێشێت…",
         "sum2_ph": "وانەکە یان بەشەکە یان وتارەکە لێرە دابنێ…",
         "present_ph": "بابەتی پرێزەنتەیشنەکەت بنووسە…",
-        "translate_ph": "دەقەکە دابنێ بۆ وەرگێڕان و جوانکردن…",
+        "design_ph": "پرۆژە یان دیزاینەکەت باس بکە — شوێن، مەبەست، بەکارهێنەران، قەبارە، گرنگترین سنوورەکان…",
         "predict_ph": "بەشەکە یان تێبینیەکانت دابنێ — ئەو پرسیارانە وەربگرە کە زۆرترین ئەگەری هاتنیان هەیە…",
-        "translate_to": "وەربگێڕە بۆ", "run_t": "کاری پێبکە ✨", "result_t": "ئەنجام",
+        "run_t": "کاری پێبکە ✨", "result_t": "ئەنجام",
     },
 }
 for _l, _d in V21.items():
@@ -6022,6 +6031,50 @@ def tool_mindmap():
                            configured=configured, nodes=nodes, error=error, topic=topic)
 
 
+# ---- AI Design Studio (architecture & design students) ----
+DESIGN_BASE = (
+    "You are a world-class architecture and design studio tutor and critic, with "
+    "the rigor of a top school of architecture. The student gives you a project "
+    "brief or a description of their design. Reply in the SAME language as the "
+    "student's input. Be specific, imaginative and buildable — give concrete "
+    "design moves, real dimensions and named strategies, never vague platitudes. "
+    "Use clear headings and short paragraphs so it is easy to read on a phone. "
+    "You are an educational assistant: remind the student to verify all "
+    "structural, fire, code and safety decisions with a licensed professional and "
+    "against local regulations. Your specific task:\n\n")
+
+DESIGN_FOCUS = {
+    "concept": (
+        "Produce a studio-grade DESIGN CONCEPT. Use these sections:\n"
+        "1) Concept statement — one powerful sentence capturing the big idea (the parti).\n"
+        "2) Site & context — how the design responds to site, climate, orientation and surroundings.\n"
+        "3) Spatial organisation — the program, zoning (public/private, served/servant) and circulation logic.\n"
+        "4) Form & massing — the geometry and volumes, and how the form expresses the concept.\n"
+        "5) Materials & structure — a coherent material palette and a suitable structural system.\n"
+        "6) Sustainability — passive strategies (daylight, cross-ventilation, shading, thermal mass) and any active systems.\n"
+        "7) Precedents — 2–3 relevant built projects or architects to study, and exactly what to learn from each.\n"
+        "8) Next steps — what to sketch or model next."),
+    "space": (
+        "Focus on SPACE PLANNING. Produce: a room-by-room area schedule with "
+        "approximate areas in m²; adjacency and zoning logic (public vs private, "
+        "served vs servant, noisy vs quiet); the entry sequence and circulation "
+        "diagram described clearly in words; and a suggested organising strategy "
+        "(e.g. courtyard, spine, cluster). Flag accessibility and code points to check."),
+    "detail": (
+        "Focus on TECHNICAL RESOLUTION. Cover: a suitable structural system and "
+        "column grid; a construction build-up for the key elements (external wall, "
+        "roof and floor, layer by layer); the environmental strategy (thermal, "
+        "daylight, acoustics, water); and schematic services/MEP routing. Name the "
+        "standards and local regulations the student should verify."),
+    "critique": (
+        "Act as a DESIGN STUDIO JURY reviewing the design the student describes. "
+        "Give an honest, constructive crit: what works and why; the three weakest "
+        "points; the sharp questions a jury would ask; and concrete moves to push "
+        "the project further. End with one encouraging line and the single clearest "
+        "priority for the next iteration."),
+}
+
+
 PLUS_AI_TOOLS = {
     "summarizer": dict(
         icon="📄", key="tool_sum2", ph="sum2_ph",
@@ -6034,8 +6087,8 @@ PLUS_AI_TOOLS = {
                "(6–10 slides) for the topic: a title per slide, three short bullet "
                "points each, brief speaker notes, plus a strong opening and "
                "closing line."),
-    "translate": dict(icon="🔤", key="tool_translate", ph="translate_ph",
-                      system=None),   # built per direction below
+    "design": dict(icon="📐", key="tool_design", ph="design_ph",
+                   system=None),   # built per focus below
     "predict": dict(
         icon="❓", key="tool_predict", ph="predict_ph",
         system="You are an experienced university examiner. From the material, "
@@ -6058,16 +6111,12 @@ def tool_plus(tool):
     result = error = None
     text = request.form.get("text", "")
     target = request.form.get("target", "en")
+    if tool == "design" and target not in DESIGN_FOCUS:
+        target = "concept"
     if request.method == "POST" and configured and text.strip():
         system = cfg["system"]
-        if tool == "translate":
-            tn = {"en": "English", "ar": "Arabic",
-                  "ku": "Kurdish (Sorani)"}.get(target, "English")
-            system = (f"You are an academic translator. Translate the text into "
-                      f"{tn} with a clear academic tone and polished style. After "
-                      f"the translation, add 2–3 short notes about important word "
-                      f"choices. Always answer in {tn}, regardless of any other "
-                      f"language instruction.")
+        if tool == "design":
+            system = DESIGN_BASE + DESIGN_FOCUS.get(target, DESIGN_FOCUS["concept"])
         result, error = call_ai("custom", text.strip(),
                                 session.get("lang", "en"), system_override=system)
         if error == "not_configured":

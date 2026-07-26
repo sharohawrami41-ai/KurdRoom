@@ -9,14 +9,14 @@
     {% endif %}
 
     <form method="post">
-      {% if tool == 'translate' %}
-      <label>{{ t('translate_to') }}</label>
-      <div style="display:flex; gap:8px; margin-bottom:10px">
-        {% for code, name in [('en','English'), ('ar','العربية'), ('ku','کوردی')] %}
+      {% if tool == 'design' %}
+      <label>{{ t('design_focus') }}</label>
+      <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap">
+        {% for code, name in [('concept', t('design_f_concept')), ('space', t('design_f_space')), ('detail', t('design_f_detail')), ('critique', t('design_f_critique'))] %}
         <label class="pill" style="cursor:pointer;
                {{ 'border-color:var(--accent); color:var(--accent)' if target == code }}">
           <input type="radio" name="target" value="{{ code }}" style="display:none"
-                 {{ 'checked' if target == code }} onchange="this.form.submit && null">
+                 {{ 'checked' if target == code }}>
           {{ name }}</label>
         {% endfor %}
       </div>
