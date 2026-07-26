@@ -1794,7 +1794,8 @@ V21 = {
         "render_intro": "Upload your own sketch or floor plan and turn it into a professional render, or generate one from a description.",
         "render_mode_sketch": "From my sketch", "render_mode_text": "From text only",
         "render_upload": "📎 Upload your sketch / plan", "render_change": "Change image",
-        "render_prompt_ph": "Describe the style, materials & mood — e.g. modern concrete villa, warm sunset light, photorealistic, lots of glass…",
+        "render_prompt_ph": "Say what the BUILDING is + the view + style — e.g. 'a modern 3-storey concrete house, exterior street view, warm sunset, lots of glass' or 'aerial view of a museum'…",
+        "render_tip": "💡 Tip: name the building and the view (e.g. \"a 2-storey villa, exterior\" or \"aerial view\"). The AI follows every line you drew — so circles become windows/skylights only if you say so.",
         "render_strength": "How closely to follow your sketch",
         "render_close": "Follow closely", "render_free": "More creative",
         "render_go": "Generate render ✨", "render_making": "Rendering… this can take 10–30 seconds",
@@ -1853,7 +1854,8 @@ V21 = {
         "render_intro": "ارفع رسمك أو مخططك وحوّله إلى صورة احترافية، أو أنشئ صورة من وصف نصي.",
         "render_mode_sketch": "من رسمي", "render_mode_text": "من النص فقط",
         "render_upload": "📎 ارفع رسمك / مخططك", "render_change": "غيّر الصورة",
-        "render_prompt_ph": "صف الأسلوب والمواد والأجواء — مثل: فيلا خرسانية حديثة، ضوء غروب دافئ، واقعية، زجاج كثير…",
+        "render_prompt_ph": "اذكر ما هو المبنى + زاوية الرؤية + الأسلوب — مثل: 'منزل خرساني حديث من 3 طوابق، منظر خارجي، غروب دافئ، زجاج كثير' أو 'منظر جوي لمتحف'…",
+        "render_tip": "💡 نصيحة: اذكر نوع المبنى وزاوية الرؤية (مثل \"فيلا من طابقين، خارجي\" أو \"منظر جوي\"). الذكاء الاصطناعي يتبع كل خط رسمته — لذا حدّد أن الدوائر نوافذ أو مناور.",
         "render_strength": "مدى الالتزام برسمك",
         "render_close": "التزام قريب", "render_free": "إبداع أكثر",
         "render_go": "أنشئ الصورة ✨", "render_making": "جارٍ الإنشاء… قد يستغرق 10–30 ثانية",
@@ -1912,7 +1914,8 @@ V21 = {
         "render_intro": "سکێچ یان پلانی خۆت باربکە و بیکە بە وێنەیەکی پرۆفیشناڵ، یان لە وەسفێکەوە دروستی بکە.",
         "render_mode_sketch": "لە سکێچی خۆم", "render_mode_text": "تەنها لە دەق",
         "render_upload": "📎 سکێچ / پلانەکەت باربکە", "render_change": "وێنە بگۆڕە",
-        "render_prompt_ph": "شێواز و کەرەستە و کەشوهەوا وەسف بکە — وەک: ڤێلای کۆنکریتی مۆدێرن، ڕووناکی خۆرئاوابوونی گەرم، ڕیاڵستیک، شووشەی زۆر…",
+        "render_prompt_ph": "بڵێ بیناکە چییە + دیمەن + شێواز — وەک: 'خانووی کۆنکریتی مۆدێرنی ٣ نهۆم، دیمەنی دەرەوە، خۆرئاوای گەرم، شووشەی زۆر' یان 'دیمەنی ئاسمانی مۆزەخانە'…",
+        "render_tip": "💡 ئامۆژگاری: جۆری بینا و دیمەنەکە بنووسە (وەک \"ڤێلای دوو نهۆم، دەرەوە\" یان \"دیمەنی ئاسمانی\"). زیرەکی دەستکرد هەموو هێڵێک دەگرێتەخۆ کە کێشاوتە — بۆیە بڵێ بازنەکان پەنجەرەن یان ڕووناکی.",
         "render_strength": "چەند نزیک لە سکێچەکەت بێت",
         "render_close": "نزیک بمێنێتەوە", "render_free": "داهێنەرانەتر",
         "render_go": "وێنە دروست بکە ✨", "render_making": "دروستدەکرێت… لەوانەیە ١٠–٣٠ چرکە بخایەنێت",
@@ -6494,9 +6497,15 @@ def api_render():
             return jsonify(error="no_image"), 400
         # Edge-guided (Canny ControlNet): follows the sketch's LINES but generates a
         # brand-new photorealistic image — the correct tool for sketch -> render.
-        styled = (prompt + ", photorealistic architectural render, professional "
-                  "architectural photograph, ultra-detailed, realistic materials and "
-                  "lighting, high quality, 8k")
+        # Strong architectural framing so the form reads as a REAL building at full
+        # scale, not a small object/lamp (edge-following is very literal).
+        styled = (prompt + ". A real, full-scale inhabitable ARCHITECTURE building "
+                  "shown in its real environment, photorealistic exterior "
+                  "architectural photography, realistic human scale, detailed facade, "
+                  "windows and real construction materials (concrete, glass, stone, "
+                  "wood), natural daylight, professional, ultra-detailed, high "
+                  "quality, 8k. It is a building — NOT a lamp, light fixture, toy, "
+                  "product, sculpture or small object.")
         model = RENDER_IMG2IMG_MODEL
         inp = {"prompt": styled, "control_image": image,
                "output_format": "jpg", "output_quality": 90}
