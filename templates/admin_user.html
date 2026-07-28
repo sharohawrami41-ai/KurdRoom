@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .uhead { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .uhead .big { width:64px; height:64px; border-radius:50%; flex:0 0 auto;
+    object-fit:cover; border:2px solid var(--accent); }
+  .uhead .nm { font-size:1.25rem; font-weight:800; line-height:1.2; }
+  .uhead .un { color:var(--accent); font-size:.82rem; }
+  .kv { display:grid; grid-template-columns:minmax(120px,auto) 1fr; gap:6px 14px;
+    font-size:.84rem; }
+  .kv .k { color:var(--muted); }
+  .kv .v { word-break:break-word; overflow-wrap:anywhere; }
+  .ugrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr));
+    gap:10px; }
+  .ubox { background:var(--input-bg); border:1px solid var(--card-border);
+    border-radius:14px; padding:12px 10px; text-align:center; }
+  .ubox .n { font-size:1.35rem; font-weight:800; color:var(--accent);
+    font-variant-numeric:tabular-nums; }
+  .ubox .l { font-size:.66rem; color:var(--muted); margin-top:2px; }
+  .rawtbl { width:100%; font-size:.76rem; border-collapse:collapse; }
+  .rawtbl td { padding:5px 8px; border-bottom:1px solid var(--card-border);
+    vertical-align:top; word-break:break-word; overflow-wrap:anywhere; }
+  .rawtbl td:first-child { color:var(--muted); white-space:nowrap; width:1%; }
+</style>
+
+<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0 18px">
+  <h2 style="font-size:1.4rem">🕵️ {{ t('user_details') }}</h2>
+  <a class="pill" href="{{ url_for('admin_users') }}" style="margin-inline-start:auto">
+    👥 {{ t('users') }} {{ '←' if is_rtl else '→' }}</a>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+  <div class="uhead">
+    {% set purl = av(u.id) %}
+    {% if purl %}<img class="big" src="{{ purl }}" alt="">
+    {% else %}<span class="avi avi-letter big" style="display:grid; place-items:center;
+      font-size:1.6rem">{{ u.username[0]|upper }}</span>{% endif %}
+    <div>
+      <div class="nm">{{ u.full_name or u.username }}</div>
+      <div class="un">@{{ u.username }} · #{{ u.id }}</div>
+      <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap">
+        {% if u.is_admin %}<span class="badge high">{{ t('admin') }}</span>{% endif %}
+        {% if u.plus %}<span class="badge low" style="border-color:gold; color:gold">⭐ Plus</span>{% endif %}
+        {% if u.email_verified %}<span class="badge today">✉️</span>{% endif %}
+        {% if u.is_private %}<span class="badge low">🔒</span>{% endif %}
+        <span class="badge low">Lv {{ xpinfo.level }} · {{ xpinfo.xp }} XP</span>
+        <span class="badge low">🔥 {{ streak }}</span>
+      </div>
+    </div>
+    <div style="margin-inline-start:auto; display:flex; gap:6px; flex-wrap:wrap">
+      <a class="pill" href="{{ url_for('user_profile', username=u.username) }}">
+        👤 {{ t('open_l') }}</a>
+    </div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card" style="margin-bottom:16px">
+    <h2>🧾 {{ t('acct_l') }}</h2><div class="hint"></div>
+    <div class="kv">
+      <span class="k">{{ t('email_addr') }}</span><span class="v" dir="ltr">{{ u.email or '—' }}</span>
+      <span class="k">{{ t('full_name') }}</span><span class="v">{{ u.full_name or '—' }}</span>
+      <span class="k">{{ t('created') }}</span><span class="v" dir="ltr">{{ (u.created_at or '—')[:19].replace('T',' ') }}</span>
+      <span class="k">{{ t('last_login') }}</span><span class="v" dir="ltr">{{ (u.last_login or t('never'))[:19].replace('T',' ') }}</span>
+      {% if 'last_seen' in u.keys() %}
+      <span class="k">{{ t('st_online') }}</span><span class="v" dir="ltr">{{ (u.last_seen or '—')[:19].replace('T',' ') }}</span>
+      {% endif %}
+      {% if u.plus %}
+      <span class="k">⭐ {{ t('plus_until_l') }}</span>
+      <span class="v" dir="ltr">{{ t('plus_perm') if (u.is_admin or not u.plus_until) else u.plus_until[:10] }}</span>
+      {% endif %}
+      <span class="k">📲 {{ t('enable_notifs') }}</span><span class="v">{{ counts.devices }}</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>🎓 {{ t('education_l') }}</h2><div class="hint"></div>
+    <div class="kv">
+      <span class="k">{{ t('edu_level') if t('edu_level') != 'edu_level' else 'Level' }}</span>
+      <span class="v">{{ u.edu_level or '—' }}</span>
+      <span class="k">{{ t('reg_q') }}</span><span class="v">{{ u.uni_region or '—' }}</span>
+      <span class="k">{{ t('deg_uni') }}</span><span class="v">{{ loc_opt(u.institution) or '—' }}</span>
+      <span class="k">{{ t('deg_college') }}</span><span class="v">{{ loc_opt(u.college) or '—' }}</span>
+      <span class="k">{{ t('deg_dept') }}</span><span class="v">{{ loc_opt(u.department) or '—' }}</span>
+      {% if u.stage %}<span class="k">Stage</span><span class="v">{{ u.stage }}</span>{% endif %}
+      {% if u.school_level %}<span class="k">🏫</span><span class="v">{{ u.school_level }} · {{ u.grade }}</span>{% endif %}
+      {% if u.job_title %}<span class="k">💼</span><span class="v">{{ loc_opt(u.job_title) }}</span>{% endif %}
+    </div>
+
+    {% set degs = [('bsc', t('deg_bsc')), ('msc', t('deg_msc')),
+                   ('phd', t('deg_phd')), ('prof', t('deg_prof'))] %}
+    {% for key, label in degs %}
+      {% set uni = raw.get(key ~ '_uni') %}
+      {% if uni %}
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--card-border)">
+        <strong style="font-size:.84rem">{{ label }}</strong>
+        <div class="kv" style="margin-top:6px">
+          <span class="k">{{ t('deg_uni') }}</span><span class="v">{{ loc_opt(uni) }}</span>
+          <span class="k">{{ t('deg_college') }}</span><span class="v">{{ loc_opt(raw.get(key ~ '_college')) or '—' }}</span>
+          <span class="k">{{ t('deg_dept') }}</span><span class="v">{{ loc_opt(raw.get(key ~ '_dept')) or '—' }}</span>
+          {% if key == 'prof' and raw.get('prof_rank') %}
+          <span class="k">{{ t('prof_rank_l') }}</span><span class="v">{{ raw.get('prof_rank') }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+  <h2>📊 {{ t('activity_l') }}</h2><div class="hint"></div>
+  <div class="ugrid">
+    <div class="ubox"><div class="n">{{ counts.plans }}</div><div class="l">📋 {{ t('st_plans') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.plans_done }}</div><div class="l">✅ {{ t('st_done') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.habits }}</div><div class="l">🔁 {{ t('st_habits') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.notes }}</div><div class="l">📝 {{ t('st_notes') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.posts }}</div><div class="l">📰 {{ t('st_posts') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.comments }}</div><div class="l">💬 {{ t('st_comments') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.exams }}</div><div class="l">📄 {{ t('exams') if t('exams') != 'exams' else 'Exams' }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.homework }}</div><div class="l">📚 {{ t('homework') if t('homework') != 'homework' else 'Homework' }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.flashcards }}</div><div class="l">🃏 {{ t('st_cards') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.dms_sent }}</div><div class="l">✉️ DM</div></div>
+    <div class="ubox"><div class="n">{{ counts.group_msgs }}</div><div class="l">👥 {{ t('st_messages') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.groups }}</div><div class="l">👨‍👩‍👧 {{ t('st_groups') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.friends }}</div><div class="l">🤝 {{ t('friends') }}</div></div>
+    <div class="ubox"><div class="n">{{ counts.active_days }}</div><div class="l">📅 {{ t('st_study_days') }}</div></div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card" style="margin-bottom:16px">
+    <h2>👨‍👩‍👧 {{ t('st_groups') }}</h2><div class="hint"></div>
+    {% for gr in groups %}
+      <div style="padding:6px 0; border-bottom:1px solid var(--card-border)">
+        <a href="{{ url_for('group_page', group_id=gr.id) }}">{{ gr.name }}</a></div>
+    {% else %}<div class="hint" style="display:block">—</div>{% endfor %}
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <h2>📰 {{ t('st_posts') }}</h2><div class="hint"></div>
+    {% for p in recent_posts %}
+      <div style="padding:6px 0; border-bottom:1px solid var(--card-border); font-size:.84rem">
+        <a href="{{ url_for('posts') }}#p{{ p.id }}">{{ p.title or ('#' ~ p.id) }}</a>
+        <span style="color:var(--muted); font-size:.72rem" dir="ltr">
+          · {{ (p.created_at or '')[:10] }}</span></div>
+    {% else %}<div class="hint" style="display:block">—</div>{% endfor %}
+  </div>
+</div>
+
+{% if badges %}
+<div class="card" style="margin-bottom:16px">
+  <h2>🏅 {{ t('badges') if t('badges') != 'badges' else 'Badges' }}</h2><div class="hint"></div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap">
+    {% for b in badges %}<span class="badge low">{{ BADGES.get(b['code'], '🏅') }} {{ b['code'] }}</span>{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:16px">
+  <details>
+    <summary style="cursor:pointer; font-weight:700">🗄 {{ t('all_stored') }}</summary>
+    <div style="overflow-x:auto; margin-top:10px">
+      <table class="rawtbl">
+        {% for k, v in raw.items() %}
+        <tr><td>{{ k }}</td><td dir="auto">{{ v if v not in (None, '') else '—' }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </details>
+</div>
+{% endblock %}

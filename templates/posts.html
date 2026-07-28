@@ -1,112 +1,292 @@
 {% extends "base.html" %}
 {% from "_widgets.html" import avi with context %}
 {% block content %}
-  <h2 style="font-size:1.4rem; margin:8px 0 14px">📰 {{ t('posts_t') }}</h2>
+{% set CAT_ICO = {'research':'🔬','science':'🧪','tech':'💻','ai':'🤖','other':'✨'} %}
+<style>
+  /* ---------- feed shell ---------- */
+  .feed { max-width: 640px; margin-inline: auto; }
+  .fbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .chips { display:flex; gap:7px; overflow-x:auto; padding-bottom:4px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:0 0 auto; padding:7px 14px; border-radius:999px; font-size:.79rem;
+    white-space:nowrap; border:1px solid var(--card-border); background:var(--card);
+    color:var(--text); transition:.16s; }
+  .chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .chip.on { background:var(--accent); border-color:var(--accent); color:#fff;
+    box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent); }
 
-  <!-- category filter -->
-  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px">
-    <a class="pill {{ 'active-page' if not cat }}" href="{{ url_for('posts') }}">{{ t('cat_all') }}</a>
-    {% for c in cats %}
-    <a class="pill {{ 'active-page' if cat == c }}" href="{{ url_for('posts', cat=c) }}">
-      {{ {'research':'🔬','science':'🧪','tech':'💻','ai':'🤖','other':'✨'}[c] }}
-      {{ t('cat_' + c) }}</a>
+  /* ---------- composer ---------- */
+  .composer { background:var(--card); border:1px solid var(--card-border);
+    border-radius:18px; padding:12px; margin-bottom:16px; }
+  .comp-top { display:flex; align-items:center; gap:10px; }
+  .comp-open { flex:1; min-width:0; text-align:start; cursor:pointer;
+    background:var(--input-bg); border:1px solid var(--card-border);
+    border-radius:999px; padding:11px 16px; color:var(--muted); font-size:.88rem; }
+  .comp-open:hover { background: color-mix(in srgb, var(--accent) 8%, var(--input-bg)); }
+  .comp-body { display:none; margin-top:12px; }
+  .composer.open .comp-body { display:block; animation:fadeUp .22s ease both; }
+  .composer.open .comp-open { display:none; }
+  .comp-acts { display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    margin-top:10px; padding-top:10px; border-top:1px solid var(--card-border); }
+  .comp-file { display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+    font-size:.82rem; color:var(--muted); padding:7px 12px; border-radius:10px; }
+  .comp-file:hover { background:var(--input-bg); color:var(--text); }
+  .comp-file input { display:none; }
+
+  /* ---------- post card ---------- */
+  .post { background:var(--card); border:1px solid var(--card-border);
+    border-radius:18px; margin-bottom:16px; overflow:hidden;
+    transition: border-color .2s, transform .2s; }
+  .post:hover { border-color: color-mix(in srgb, var(--accent) 32%, var(--card-border)); }
+  .post.hot { border-color: color-mix(in srgb, #f97316 42%, var(--card-border)); }
+  .p-head { display:flex; align-items:center; gap:10px; padding:13px 14px 0; }
+  .p-who { flex:1; min-width:0; }
+  .p-who .nm { font-weight:700; font-size:.92rem; display:flex; align-items:center;
+    gap:6px; flex-wrap:wrap; }
+  .p-who .mt { font-size:.7rem; color:var(--muted); display:flex; gap:6px;
+    align-items:center; flex-wrap:wrap; }
+  .p-menu { flex:0 0 auto; }
+  .p-body { padding:10px 14px 0; }
+  .p-title { font-size:1.05rem; font-weight:800; line-height:1.4; }
+  .p-text { font-size:.92rem; line-height:1.7; margin-top:5px; white-space:pre-wrap;
+    word-break:break-word; overflow-wrap:anywhere; }
+  .p-text.clip { max-height:7.4em; overflow:hidden;
+    -webkit-mask-image:linear-gradient(180deg,#000 60%,transparent);
+    mask-image:linear-gradient(180deg,#000 60%,transparent); }
+  .p-more { font-size:.8rem; color:var(--accent); cursor:pointer; margin-top:4px;
+    display:inline-block; }
+  .p-img { display:block; width:100%; max-height:520px; object-fit:cover;
+    margin-top:12px; background:var(--input-bg); }
+  .p-stats { display:flex; align-items:center; gap:8px; padding:10px 14px 0;
+    font-size:.75rem; color:var(--muted); }
+  .p-stats .likepill { display:inline-flex; align-items:center; gap:4px; }
+  .p-acts { display:flex; margin:8px 6px 6px; padding-top:6px;
+    border-top:1px solid var(--card-border); }
+  .p-acts form, .p-acts > button { flex:1; }
+  .p-acts button { width:100%; background:none; border:none; cursor:pointer;
+    color:var(--muted); font-size:.83rem; font-weight:600; padding:9px 4px;
+    border-radius:10px; display:inline-flex; align-items:center;
+    justify-content:center; gap:6px; transition:.15s; }
+  .p-acts button:hover { background:var(--input-bg); color:var(--text); }
+  .p-acts button.liked { color:var(--high); }
+  .p-cmt { padding:0 14px 12px; }
+  .cmt { display:flex; gap:8px; padding:7px 0; align-items:flex-start; }
+  .cmt .bub { background:var(--input-bg); border-radius:16px; padding:8px 12px;
+    font-size:.84rem; max-width:100%; min-width:0; }
+  .cmt .bub .u { color:var(--accent); font-weight:700; font-size:.78rem;
+    display:block; }
+  .cmt .bub .x { white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
+  .cmt-form { display:flex; gap:8px; margin-top:8px; align-items:center; }
+  .cmt-form input { flex:1; min-width:0; border-radius:999px; }
+  .see-all { font-size:.8rem; color:var(--muted); cursor:pointer; padding:4px 0;
+    display:inline-block; }
+
+  /* ---------- trending strip ---------- */
+  .trend { background:var(--card); border:1px solid var(--card-border);
+    border-radius:18px; padding:12px 14px; margin-bottom:16px; }
+  .trend h3 { font-size:.86rem; margin-bottom:8px; display:flex; gap:6px;
+    align-items:center; }
+  .trend a { display:flex; gap:9px; align-items:center; padding:7px 0;
+    border-top:1px solid var(--card-border); font-size:.84rem; }
+  .trend a:first-of-type { border-top:none; }
+  .trend .rk { width:22px; height:22px; flex:0 0 auto; border-radius:7px;
+    display:grid; place-items:center; font-size:.68rem; font-weight:800; color:#fff;
+    background:linear-gradient(135deg, #f97316, #ef4444); }
+  .trend .tt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; }
+  .trend .sc { font-size:.7rem; color:var(--muted); flex:0 0 auto; }
+  .hotb { font-size:.6rem; padding:2px 7px; border-radius:999px; color:#fff;
+    background:linear-gradient(135deg, #f97316, #ef4444); }
+  @media (max-width:600px) { .p-title { font-size:1rem; } }
+</style>
+
+<div class="feed">
+  <div class="fbar">
+    <h2 style="font-size:1.35rem">📰 {{ t('posts_t') }}</h2>
+  </div>
+
+  <!-- sort -->
+  <div class="chips" style="margin-bottom:10px">
+    {% set sort_lbl = {'hot': t('sort_hot'), 'new': t('sort_new'),
+                       'mixed': t('sort_mixed'), 'old': t('sort_old')} %}
+    {% for s in sorts %}
+      <a class="chip {{ 'on' if sort == s }}"
+         href="{{ url_for('posts', cat=cat or None, sort=s) }}">{{ sort_lbl[s] }}</a>
     {% endfor %}
   </div>
 
-  <!-- new post -->
-  <div class="card" style="margin-bottom:20px">
-    <details>
-      <summary style="font-size:1rem; font-weight:700; cursor:pointer">✍️ {{ t('new_post') }}</summary>
-      <form method="post" action="{{ url_for('post_create') }}" enctype="multipart/form-data"
-            style="margin-top:12px">
-        <label>{{ t('title') }}</label>
-        <input name="title" required maxlength="120">
-        <div class="grid2" style="gap:10px">
-          <div>
-            <label>{{ t('post_cat') }}</label>
-            <select name="category">
-              {% for c in cats %}<option value="{{ c }}">{{ t('cat_' + c) }}</option>{% endfor %}
-            </select>
-          </div>
-          <div>
-            <label>{{ t('post_img') }}</label>
-            <input type="file" name="image" accept=".png,.jpg,.jpeg,.webp,.gif">
-          </div>
-        </div>
-        <label>{{ t('details') }}</label>
-        <textarea name="content" rows="5" maxlength="4000"></textarea>
-        <div style="margin-top:12px">
-          <button class="primary" type="submit" style="width:auto; padding:11px 30px">
-            📰 {{ t('publish') }}</button>
-        </div>
-      </form>
-    </details>
+  <!-- category -->
+  <div class="chips" style="margin-bottom:16px">
+    <a class="chip {{ 'on' if not cat }}"
+       href="{{ url_for('posts', sort=sort) }}">{{ t('cat_all') }}</a>
+    {% for c in cats %}
+      <a class="chip {{ 'on' if cat == c }}"
+         href="{{ url_for('posts', cat=c, sort=sort) }}">{{ CAT_ICO[c] }} {{ t('cat_' + c) }}</a>
+    {% endfor %}
+  </div>
+
+  {% if trending %}
+  <div class="trend kr-reveal">
+    <h3>🔥 {{ t('trending_t') }}</h3>
+    {% for p in trending %}
+    <a href="#p{{ p.id }}">
+      <span class="rk">{{ loop.index }}</span>
+      <span class="tt">{{ p.title }}</span>
+      <span class="sc" dir="ltr">❤️ {{ p.likes }} · 💬 {{ p.n_comments }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- composer -->
+  <div class="composer" id="composer">
+    <div class="comp-top">
+      {{ avi(cu.id, cu.username, 40, '1rem') }}
+      <button type="button" class="comp-open"
+              onclick="document.getElementById('composer').classList.add('open')">
+        {{ t('whats_on_mind') }}</button>
+    </div>
+    <form class="comp-body" method="post" action="{{ url_for('post_create') }}"
+          enctype="multipart/form-data">
+      <label>{{ t('title') }}</label>
+      <input name="title" required maxlength="120">
+      <label>{{ t('details') }}</label>
+      <textarea name="content" rows="4" maxlength="4000"></textarea>
+      <div class="comp-acts">
+        <select name="category" style="width:auto; min-width:130px">
+          {% for c in cats %}<option value="{{ c }}">{{ CAT_ICO[c] }} {{ t('cat_' + c) }}</option>{% endfor %}
+        </select>
+        <label class="comp-file">🖼 {{ t('post_photo') }}
+          <input type="file" name="image" accept=".png,.jpg,.jpeg,.webp,.gif"
+                 onchange="this.parentNode.querySelector('span').textContent = this.files.length ? ' ✓' : ''">
+          <span></span></label>
+        <button class="primary" type="submit"
+                style="width:auto; padding:10px 26px; margin-inline-start:auto">
+          {{ t('publish') }}</button>
+      </div>
+    </form>
   </div>
 
   {% for p in posts %}
-  <div class="card" style="margin-bottom:18px">
-    <div style="display:flex; align-items:center; gap:10px">
+  <article class="post kr-reveal {{ 'hot' if p.hot }}" id="p{{ p.id }}">
+    <div class="p-head">
       <a href="{{ url_for('user_profile', username=p.username) }}">
-        {{ avi(p.user_id, p.username, 40, '1rem') }}</a>
-      <div style="flex:1; min-width:0">
-        <strong>{{ p.full_name or p.username }}</strong>
-        <span class="badge medium" style="font-size:.56rem">Lv {{ p.level }}</span>
-        <div style="font-size:.7rem; color:var(--muted)" dir="ltr">
-          <time data-ts="{{ p.created_at }}" data-fmt="dot">{{ p.created_at[:16].replace('T', ' · ') }}</time></div>
+        {{ avi(p.user_id, p.username, 42, '1rem') }}</a>
+      <div class="p-who">
+        <div class="nm">
+          <a href="{{ url_for('user_profile', username=p.username) }}"
+             style="color:var(--text)">{{ p.full_name or p.username }}</a>
+          <span class="badge medium" style="font-size:.56rem">Lv {{ p.level }}</span>
+          {% if p.hot %}<span class="hotb">{{ t('hot_badge') }}</span>{% endif %}
+        </div>
+        <div class="mt" dir="ltr">
+          <time data-ts="{{ p.created_at }}" data-fmt="dot">{{ p.created_at[:16].replace('T', ' · ') }}</time>
+          <span>·</span>
+          <span>{{ CAT_ICO[p.category] }} {{ t('cat_' + p.category) }}</span>
+          {% if p.views %}<span>·</span><span>👁 {{ p.views }}</span>{% endif %}
+        </div>
       </div>
-      <span class="badge medium">
-        {{ {'research':'🔬','science':'🧪','tech':'💻','ai':'🤖','other':'✨'}[p.category] }}
-        {{ t('cat_' + p.category) }}</span>
       {% if p.user_id == cu.id or cu.is_admin %}
-      <form method="post" action="{{ url_for('post_delete', post_id=p.id) }}"
+      <form class="p-menu" method="post" action="{{ url_for('post_delete', post_id=p.id) }}"
             data-confirm="{{ t('confirm_del_plan') }}">
         <button class="small warn" type="submit">✕</button>
       </form>
       {% endif %}
     </div>
 
-    <h2 style="font-size:1.15rem; margin-top:12px">{{ p.title }}</h2>
-    <p style="font-size:.92rem; line-height:1.7; margin-top:6px; white-space:pre-wrap;
-       word-break:break-word">{{ p.content }}</p>
-    {% if p.image %}
-    <img src="{{ url_for('post_image', post_id=p.id) }}" alt=""
-         style="max-width:100%; max-height:420px; border-radius:14px; margin-top:12px;
-         display:block">
-    {% endif %}
-
-    <div style="display:flex; gap:10px; align-items:center; margin-top:14px">
-      <form method="post" action="{{ url_for('post_like', post_id=p.id) }}">
-        <button class="small" type="submit"
-                style="{{ 'border-color:var(--high); color:var(--high);' if p.mine }}">
-          ❤️ {{ p.likes }}</button>
-      </form>
-      <span style="font-size:.8rem; color:var(--muted)">💬 {{ p.n_comments }}</span>
+    <div class="p-body">
+      <div class="p-title">{{ p.title }}</div>
+      {% if p.content %}
+      <div class="p-text {{ 'clip' if p.content|length > 340 }}">{{ p.content }}</div>
+      {% if p.content|length > 340 %}
+      <span class="p-more" onclick="this.previousElementSibling.classList.remove('clip'); this.remove()">
+        {{ t('post_see_more') }}</span>
+      {% endif %}
+      {% endif %}
     </div>
 
-    <details style="margin-top:10px">
-      <summary style="font-size:.82rem">💬 {{ t('comments_t') }} ({{ p.n_comments }})</summary>
-      <div style="margin-top:8px">
-        {% for c in p.comments %}
-        <div style="display:flex; gap:8px; padding:7px 0; border-bottom:1px solid var(--card-border);
-             font-size:.85rem; align-items:flex-start">
-          {{ avi(c.user_id, c.username, 26, '.7rem') }}
-          <div><strong style="color:var(--accent)">{{ c.username }}</strong>
-            <span style="white-space:pre-wrap; word-break:break-word"> {{ c.content }}</span></div>
-        </div>
+    {% if p.image %}
+    <img class="p-img" loading="lazy" decoding="async"
+         src="{{ url_for('post_image', post_id=p.id) }}" alt="">
+    {% endif %}
+
+    {% if p.likes or p.n_comments %}
+    <div class="p-stats">
+      {% if p.likes %}<span class="likepill">❤️ {{ p.likes }}</span>{% endif %}
+      <span style="margin-inline-start:auto">
+        {% if p.n_comments %}{{ p.n_comments }} 💬{% endif %}</span>
+    </div>
+    {% endif %}
+
+    <div class="p-acts">
+      <form method="post" action="{{ url_for('post_like', post_id=p.id) }}">
+        <button type="submit" class="{{ 'liked' if p.mine }}">
+          {{ '❤️' if p.mine else '🤍' }} {{ t('post_like') }}</button>
+      </form>
+      <button type="button" onclick="krToggleCmt({{ p.id }})">
+        💬 {{ t('post_comment') }}</button>
+      <button type="button" data-share="{{ p.id }}" data-title="{{ p.title }}">
+        ↗ {{ t('post_share') }}</button>
+    </div>
+
+    <div class="p-cmt" id="cmt{{ p.id }}" style="display:none">
+      {% set shown = p.comments[-3:] if p.comments|length > 3 else p.comments %}
+      {% if p.comments|length > 3 %}
+      <span class="see-all" onclick="this.nextElementSibling.style.display='block'; this.remove()">
+        {{ t('post_all_comments').replace('{n}', p.comments|length|string) }}</span>
+      <div style="display:none">
+        {% for c in p.comments[:-3] %}
+        <div class="cmt">{{ avi(c.user_id, c.username, 28, '.72rem') }}
+          <div class="bub"><span class="u">{{ c.username }}</span>
+            <span class="x">{{ c.content }}</span></div></div>
         {% endfor %}
-        <form method="post" action="{{ url_for('post_comment', post_id=p.id) }}"
-              style="display:flex; gap:8px; margin-top:10px">
-          <input name="content" required maxlength="500" placeholder="{{ t('write_comment') }}"
-                 style="flex:1">
-          <button class="small" type="submit">➤</button>
-        </form>
       </div>
-    </details>
-  </div>
+      {% endif %}
+      {% for c in shown %}
+      <div class="cmt">{{ avi(c.user_id, c.username, 28, '.72rem') }}
+        <div class="bub"><span class="u">{{ c.username }}</span>
+          <span class="x">{{ c.content }}</span></div></div>
+      {% endfor %}
+      <form class="cmt-form" method="post" action="{{ url_for('post_comment', post_id=p.id) }}">
+        {{ avi(cu.id, cu.username, 28, '.72rem') }}
+        <input name="content" required maxlength="500" placeholder="{{ t('write_comment') }}">
+        <button class="small" type="submit">➤</button>
+      </form>
+    </div>
+  </article>
   {% else %}
   <div class="card" style="text-align:center; padding:40px">
     <div style="font-size:2.5rem">📰</div>
     <p style="color:var(--muted); margin-top:10px">{{ t('no_posts') }}</p>
   </div>
   {% endfor %}
+</div>
+
+<script>
+function krToggleCmt(id) {
+  var b = document.getElementById("cmt" + id);
+  if (!b) return;
+  var open = b.style.display !== "none";
+  b.style.display = open ? "none" : "block";
+  if (!open) { var i = b.querySelector("input[name=content]"); if (i) i.focus(); }
+}
+// open the comment box automatically for whatever post the link pointed at
+(function () {
+  var h = location.hash.match(/^#p(\d+)$/);
+  if (h) { krToggleCmt(h[1]); var el = document.getElementById("p" + h[1]);
+           if (el) el.scrollIntoView({ block: "center" }); }
+  document.querySelectorAll("[data-share]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var url = location.origin + location.pathname + "#p" + b.dataset.share;
+      if (navigator.share) { navigator.share({ title: b.dataset.title, url: url })
+        .catch(function () {}); return; }
+      (navigator.clipboard ? navigator.clipboard.writeText(url)
+                           : Promise.reject()).then(function () {
+        b.textContent = "✓ {{ t('post_copied') }}";
+      }).catch(function () { prompt("", url); });
+    });
+  });
+})();
+</script>
 {% endblock %}

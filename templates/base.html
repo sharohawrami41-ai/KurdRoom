@@ -905,6 +905,200 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
 .ws-tour-btns button { padding:11px 22px; border-radius:12px; cursor:pointer; font-size:.9rem;
   border:1px solid var(--card-border); background:transparent; color:inherit; }
 .ws-tour-btns .primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
+
+/* ==========================================================================
+   PHONE FIT — nothing is ever allowed to run off the side of the screen.
+   The old bug: a row like "avatar · name · ⚔ · ✕ Remove" is a flex line whose
+   buttons refuse to shrink, so on a 360 px screen the row grew wider than the
+   card, pushed the page sideways, and the view-transition snapshot froze it
+   there — which is exactly what the cut-off screenshots show.
+   ========================================================================== */
+html, body { max-width: 100%; overflow-x: clip; }
+.container { overflow-x: clip; }               /* clip, so sticky bars still work */
+img, video, svg, canvas, iframe, table { max-width: 100%; }
+pre, code { white-space: pre-wrap; word-break: break-word; }
+/* a flex/grid child defaults to min-width:auto, which is what lets a long word
+   or an un-shrinkable button blow the row wider than the screen */
+.card > *, .plan > *, .grid2 > *, .chatbox > * { min-width: 0; }
+
+@media (max-width: 720px) {
+  /* every row wraps instead of overflowing */
+  .plan { flex-wrap: wrap; row-gap: 10px; padding: 13px 13px; }
+  .plan > form, .plan > .plan-actions { flex: 0 0 auto; }
+  .plan-body { flex: 1 1 140px; }
+  .plan-actions { flex-direction: row; flex-wrap: wrap; }
+  /* buttons may shrink and their labels ellipsis rather than push the row out */
+  .plan button, .plan .pill, .plan a.pill { min-width: 0; max-width: 100%; }
+  button.small { padding: 7px 10px; font-size: .74rem; }
+
+  /* long names / emails / links never widen a card */
+  .card, .plan, .grid2 > * { min-width: 0; }
+  .card { padding: 16px 14px; border-radius: 15px; overflow-wrap: anywhere; }
+  .container { padding: 16px 12px 70px; }
+  h2 { font-size: 1.05rem; }
+
+  /* tables scroll inside their own card instead of stretching the page */
+  .card > table, table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* chat bubbles stay inside the column */
+  .msg, .bub, .gbub { max-width: 90% !important; }
+  .gbub, .bub { overflow-wrap: anywhere; }
+  /* a voice note asked for 200px of runway — on a 360px screen that plus the
+     avatar and the padding is what pushed the bubble past the edge */
+  .vmsg { min-width: 0 !important; }
+  .chatbox { max-width: 100%; overflow-x: clip; }
+
+  /* the friend/request rows from the screenshots: the name column keeps the
+     first line, the action buttons wrap onto the next one */
+  .plan > form { margin-inline-start: 0; flex: 0 1 auto; }
+  .plan > form button { white-space: normal; }
+}
+@media (max-width: 420px) {
+  /* on the narrowest phones destructive buttons keep only their icon */
+  .plan .lbl-wide { display: none; }
+  button.small { padding: 7px 9px; }
+}
+
+/* ==========================================================================
+   BACK BUTTON — a floating pill in the corner, above the bottom tab bar.
+   ========================================================================== */
+.kback {
+  position: fixed; z-index: 55;
+  inset-inline-start: 14px; bottom: calc(88px + env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 15px 10px 12px; border-radius: 999px;
+  font-size: .84rem; font-weight: 700; color: var(--text); cursor: pointer;
+  border: 1px solid var(--card-border);
+  background: color-mix(in srgb, var(--bg1) 78%, transparent);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.35);
+  transition: transform .16s, border-color .16s, opacity .2s;
+  opacity: 0; transform: translateY(10px); pointer-events: none;
+}
+.kback.show { opacity: 1; transform: none; pointer-events: auto; }
+.kback:hover { border-color: var(--accent); color: var(--accent); }
+.kback:active { transform: scale(.94); }
+.kback .kbi { font-size: 1rem; line-height: 1; }
+[dir="rtl"] .kback .kbi { transform: scaleX(-1); }
+@media (min-width: 1081px) { .kback { bottom: 24px; } }
+
+/* ==========================================================================
+   SCROLL REVEAL — arena.education style. Blocks ease up as they enter view;
+   headings additionally stagger word by word.
+   ========================================================================== */
+.rv { opacity: 0; transform: translateY(26px); filter: blur(6px);
+  transition: opacity .68s cubic-bezier(.22,.85,.3,1),
+              transform .68s cubic-bezier(.22,.85,.3,1),
+              filter .68s ease; will-change: opacity, transform; }
+.rv.in { opacity: 1; transform: none; filter: none; }
+.rvw { display: inline-block; opacity: 0; transform: translateY(14px);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.22,.85,.3,1); }
+.rvw.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .rv, .rvw { opacity: 1 !important; transform: none !important; filter: none !important; }
+}
+
+/* ==========================================================================
+   TUTORIAL — Instagram-reel player in a frame that matches the app background.
+   ========================================================================== */
+.tut-btn { display:inline-flex; align-items:center; gap:8px; }
+.tut-btn .tv {
+  width: 24px; height: 17px; border-radius: 5px; position: relative; flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--accent), #e879f9);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.tut-btn .tv::after { content:""; position:absolute; top:50%; left:50%;
+  transform: translate(-42%,-50%); border-style: solid; border-width: 4.5px 0 4.5px 7.5px;
+  border-color: transparent transparent transparent #fff; }
+.tut-ov { position: fixed; inset: 0; z-index: 400; display: none;
+  align-items: center; justify-content: center; padding: 18px;
+  background: rgba(6,4,18,.72); backdrop-filter: blur(10px); }
+.tut-ov.on { display: flex; animation: fadeUp .22s ease both; }
+.tut-frame {
+  position: relative; width: min(430px, 100%); max-height: 92vh;
+  border-radius: 26px; padding: 12px; overflow: hidden;
+  border: 1px solid var(--card-border);
+  background:
+    radial-gradient(600px 380px at 15% -10%, #2b1f5c 0%, transparent 58%),
+    radial-gradient(520px 320px at 110% 8%, #3d1a4f 0%, transparent 55%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
+  box-shadow: 0 34px 90px rgba(0,0,0,.6);
+  animation: popIn .3s cubic-bezier(.2,.9,.3,1.1) both;
+}
+body.light .tut-frame {
+  background:
+    radial-gradient(600px 380px at 15% -10%, #dcd4ff 0%, transparent 58%),
+    radial-gradient(520px 320px at 110% 8%, #ffd9f2 0%, transparent 55%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
+}
+.tut-head { display:flex; align-items:center; gap:10px; padding: 4px 6px 12px; }
+.tut-head .tt { font-weight: 800; font-size: 1rem; }
+.tut-head .ts { color: var(--muted); font-size: .74rem; }
+.tut-x { margin-inline-start: auto; background:none; border:none; color: var(--muted);
+  font-size: 1.15rem; cursor: pointer; padding: 4px 6px; border-radius: 10px; }
+.tut-x:hover { color: var(--text); }
+/* 9:16 reel stage */
+.tut-stage { position: relative; aspect-ratio: 9 / 16; width: 100%;
+  border-radius: 18px; overflow: hidden; background: #06040f;
+  border: 1px solid var(--card-border); }
+.tut-stage video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tut-stage:fullscreen, .tut-stage:-webkit-full-screen {
+  aspect-ratio: auto; width: 100vw; height: 100vh; border-radius: 0; }
+.tut-stage:fullscreen video { object-fit: contain; }
+/* custom modern controls */
+.tut-ctl { position: absolute; inset-inline: 0; bottom: 0; padding: 30px 12px 12px;
+  background: linear-gradient(to top, rgba(0,0,0,.72), transparent);
+  display: flex; flex-direction: column; gap: 8px;
+  opacity: 1; transition: opacity .3s; }
+.tut-stage.playing .tut-ctl { opacity: 0; }
+.tut-stage.playing:hover .tut-ctl, .tut-stage.playing.touched .tut-ctl { opacity: 1; }
+.tut-bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,.24);
+  cursor: pointer; position: relative; }
+.tut-bar i { position:absolute; inset-block:0; inset-inline-start:0; width:0;
+  border-radius: 999px; background: linear-gradient(90deg, var(--accent), #e879f9); }
+.tut-bar b { position:absolute; top:50%; width:11px; height:11px; border-radius:50%;
+  background:#fff; transform: translate(-50%,-50%); box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  inset-inline-start: 0; }
+.tut-row { display: flex; align-items: center; gap: 10px; color: #fff; }
+.tut-row button { width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+  border: none; color: #fff; font-size: .95rem; display: inline-flex;
+  align-items: center; justify-content: center;
+  background: rgba(255,255,255,.16); backdrop-filter: blur(8px);
+  transition: transform .14s, background .14s; }
+.tut-row button:hover { background: rgba(255,255,255,.28); }
+.tut-row button.play { background: linear-gradient(135deg, var(--accent), #a855f7);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--accent) 50%, transparent); }
+.tut-time { font-size: .74rem; font-variant-numeric: tabular-nums; letter-spacing: .3px;
+  opacity: .92; }
+.tut-time .sep { opacity: .5; margin: 0 3px; }
+.tut-row .sp { margin-inline-start: auto; }
+/* "coming soon" card, shown until a video is uploaded */
+.tut-soon { position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px; text-align:center; padding: 26px; }
+.tut-soon .ring { width: 84px; height: 84px; border-radius: 50%; display:grid;
+  place-items:center; font-size: 2.1rem;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: softPulse 2.6s ease-in-out infinite; }
+.tut-soon .h { font-size: 1.22rem; font-weight: 800;
+  background: linear-gradient(90deg, var(--accent), #e879f9, #38bdf8, var(--accent));
+  background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
+  color: transparent; animation: brandShine 6s linear infinite; }
+.tut-soon .d { color: var(--muted); font-size: .86rem; line-height: 1.65; max-width: 280px; }
+.tut-soon .dots { display:flex; gap:6px; }
+.tut-soon .dots i { width:7px; height:7px; border-radius:50%; background: var(--accent);
+  animation: krBounce 1.3s ease-in-out infinite; }
+.tut-soon .dots i:nth-child(2){ animation-delay:.18s }
+.tut-soon .dots i:nth-child(3){ animation-delay:.36s }
+
+/* notification-tone picker */
+.snd-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.snd-opt { display:inline-flex; align-items:center; gap:7px; padding:9px 14px;
+  border-radius:999px; cursor:pointer; font-size:.84rem;
+  border:1px solid var(--card-border); background:var(--card); transition:.16s; }
+.snd-opt:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.snd-opt.sel { border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, var(--card)); }
 </style>
 </head>
 <body class="{{ theme }}">
@@ -994,6 +1188,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   {% if premium_enabled %}<a href="{{ url_for('plus_page') }}" style="{{ 'color:gold' if not cu.plus }}">⭐ {{ t('plus_t') }}</a>{% endif %}
   <a href="{{ url_for('user_profile', username=cu.username) if cu else url_for('profile') }}">👤 {{ t('profile') }}</a>
   <a href="{{ url_for('guide') }}">📖 {{ t('guide_t') }}</a>
+  <a href="#" class="tut-btn" onclick="krTutorial(event)"><span class="tv"></span> {{ t('tutorial') }}</a>
+  <a href="{{ url_for('stats_page') }}">📊 {{ t('stats_t') }}</a>
   <a href="{{ url_for('grades') }}">📊 {{ t('grade_book') }}</a>
   <a href="{{ url_for('support') }}">🛟 {{ t('support_t') }}</a>
   {% if cu.is_admin %}<a href="{{ url_for('admin') }}">🛠 {{ t('admin_panel') }}</a>{% endif %}
@@ -1117,6 +1313,8 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
     {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
   <div class="msec">{{ t('account') }}</div>
+  <a href="{{ url_for('stats_page') }}">📊 {{ t('stats_t') }}</a>
+  <a href="#" class="tut-btn" onclick="krTutorial(event)"><span class="tv"></span> {{ t('tutorial') }}</a>
   {{ account_rows() }}
 </div>
 
@@ -1178,6 +1376,52 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
   <div class="acts">
     <button class="go" id="instGo" type="button">⬇️ {{ t('inst_btn') }}</button>
     <button class="no" id="instNo" type="button">{{ t('inst_later') }}</button>
+  </div>
+</div>
+
+{# ============================ back to previous page ============================ #}
+<button type="button" class="kback" id="kBack" onclick="krGoBack()"
+        aria-label="{{ t('back') }}"><span class="kbi">‹</span>{{ t('back') }}</button>
+
+{# ============================ tutorial player ============================ #}
+<div class="tut-ov" id="tutOv" role="dialog" aria-modal="true">
+  <div class="tut-frame">
+    <div class="tut-head">
+      <span class="tv" style="width:26px;height:18px;border-radius:6px;position:relative;
+        background:linear-gradient(135deg,var(--accent),#e879f9)"></span>
+      <div>
+        <div class="tt">{{ t('tut_title') }}</div>
+        <div class="ts">{{ t('tut_sub') }}</div>
+      </div>
+      <button class="tut-x" type="button" onclick="krTutClose()" aria-label="✕">✕</button>
+    </div>
+    <div class="tut-stage" id="tutStage">
+      {% if settings.get('tutorial_video_url') %}
+      <video id="tutVid" playsinline preload="metadata"
+             {% if settings.get('tutorial_poster_url') %}poster="{{ settings.get('tutorial_poster_url') }}"{% endif %}
+             src="{{ settings.get('tutorial_video_url') }}"></video>
+      <div class="tut-ctl">
+        <div class="tut-bar" id="tutBar"><i></i><b></b></div>
+        <div class="tut-row">
+          <button type="button" class="play" id="tutPlay" aria-label="play">▶</button>
+          <button type="button" id="tutBack10" aria-label="-10s">⟲</button>
+          <button type="button" id="tutMute" aria-label="mute">🔊</button>
+          <span class="tut-time"><span id="tutCur">0:00</span><span class="sep">/</span><span id="tutDur">0:00</span></span>
+          <button type="button" class="sp" id="tutSpeed" style="width:auto;padding:0 12px;border-radius:999px;font-size:.76rem">1×</button>
+          <button type="button" id="tutFull" aria-label="fullscreen">⛶</button>
+        </div>
+      </div>
+      {% else %}
+      <div class="tut-soon">
+        <div class="ring">🎬</div>
+        <div class="h">{{ t('tut_soon') }}</div>
+        <div class="d">{{ t('tut_soon_d') }}</div>
+        <div class="dots"><i></i><i></i><i></i></div>
+        <button type="button" class="pill primary" style="margin-top:4px"
+                onclick="krTutClose()">{{ t('tut_notify') }}</button>
+      </div>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -1649,11 +1893,15 @@ summary { cursor: pointer; color: var(--muted); font-size:.8rem; }
       krClearTray(d.kinds || []);
       if (d.dm_id > krSeen.d) {
         krSeen.d = d.dm_id; localStorage.setItem("kr_seen_d", d.dm_id);
-        if (location.pathname !== d.dm_link) showToast(d.dm_text, d.dm_link);
+        if (location.pathname !== d.dm_link) {
+          showToast(d.dm_text, d.dm_link);
+          if (window.krAlert) krAlert(true);       // tone + strong buzz
+        }
       }
       else if (d.notif_id > krSeen.n) {
         krSeen.n = d.notif_id; localStorage.setItem("kr_seen_n", d.notif_id);
         showToast(d.notif_text, d.notif_link);
+        if (window.krAlert) krAlert(false);        // tone + gentle buzz
       }
     } catch (err) {}
   }
@@ -2145,29 +2393,54 @@ window.krExtractImagePrompt = function (text) {
   if (!m) return { clean: text, prompt: "" };
   return { clean: text.slice(0, m.index).trim(), prompt: m[1].trim() };
 };
-/* Save an image to the phone. On mobile the share sheet offers "Save Image"
-   (into Photos/Gallery); otherwise it downloads as a file. Avoids the old bug where
-   a cross-origin image just navigated the browser to the image URL. */
+/* ---------------------------------------------------------------------------
+   DOWNLOAD — one tap, straight to the device. No share sheet, no navigating
+   away to the image. Three layers, each a fallback for the one before:
+     1. fetch the bytes and save the blob (works when CORS allows it)
+     2. /dl?u=… — our own server fetches the file and returns it as an
+        attachment, so the browser must save it (works even without CORS)
+     3. a plain <a download> click as the last resort
+   --------------------------------------------------------------------------- */
 window.krDownload = async function (url, name) {
   name = name || "kurdroom.jpg";
-  try {
-    var resp = await fetch(url, { mode: "cors" });
-    var blob = await resp.blob();
-    try {
-      var file = new File([blob], name, { type: blob.type || "image/jpeg" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] });
-        return;
-      }
-    } catch (_) { /* share cancelled/unsupported -> fall through to download */ }
+
+  function saveBlob(blob) {
     var burl = URL.createObjectURL(blob);
     var a = document.createElement("a");
-    a.href = burl; a.download = name;
+    a.href = burl; a.download = name; a.rel = "noopener";
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(burl); }, 5000);
-  } catch (e) {
-    window.open(url, "_blank");   // last resort
+    setTimeout(function () { URL.revokeObjectURL(burl); }, 8000);
   }
+
+  /* already a local/blob/data URL? save it directly */
+  if (/^(blob:|data:)/.test(url) || url.indexOf(location.origin) === 0) {
+    try {
+      var r0 = await fetch(url);
+      saveBlob(await r0.blob());
+      if (window.krToastMsg) krToastMsg("⬇");
+      return true;
+    } catch (_) {}
+  }
+
+  try {                                   // 1. direct fetch
+    var resp = await fetch(url, { mode: "cors", credentials: "omit" });
+    if (resp.ok) { saveBlob(await resp.blob()); return true; }
+  } catch (_) {}
+
+  try {                                   // 2. through our own server
+    var proxied = "/dl?u=" + encodeURIComponent(url) + "&n=" + encodeURIComponent(name);
+    var resp2 = await fetch(proxied);
+    if (resp2.ok) { saveBlob(await resp2.blob()); return true; }
+    var a2 = document.createElement("a");  // let the browser stream it instead
+    a2.href = proxied; a2.download = name;
+    document.body.appendChild(a2); a2.click(); a2.remove();
+    return true;
+  } catch (_) {}
+
+  var a3 = document.createElement("a");    // 3. last resort
+  a3.href = url; a3.download = name; a3.target = "_blank"; a3.rel = "noopener";
+  document.body.appendChild(a3); a3.click(); a3.remove();
+  return false;
 };
 /* Build a text-to-image URL (Pollinations — no API key needed). */
 window.krImageURL = function (prompt, seed) {
@@ -2177,6 +2450,255 @@ window.krImageURL = function (prompt, seed) {
          encodeURIComponent(p.slice(0, 380)) +
          "?width=768&height=512&nologo=true&model=flux&seed=" + (seed || 1);
 };
+</script>
+
+<script>
+/* =========================================================================
+   1. BACK BUTTON
+   Shows only when there is somewhere to go back to. Falls back to the
+   dashboard so it is never a dead end, and flags the page so the slide
+   transition runs in the "back" direction.
+   ========================================================================= */
+(function () {
+  var btn = document.getElementById("kBack");
+  if (!btn) return;
+  var HOME = {{ (url_for('dashboard') if cu else url_for('index'))|tojson }};
+  /* the app's own entry pages don't need it */
+  var hide = ["/dashboard", "/", "/login", "/register", "/welcome-back"];
+  if (hide.indexOf(location.pathname) === -1) {
+    requestAnimationFrame(function () { btn.classList.add("show"); });
+  }
+  window.krGoBack = function () {
+    document.documentElement.classList.add("kr-back");
+    if (history.length > 1 && document.referrer &&
+        new URL(document.referrer, location.href).origin === location.origin) {
+      history.back();
+    } else {
+      location.href = HOME;
+    }
+  };
+  /* hide it while the user scrolls down, bring it back on scroll up */
+  var lastY = 0;
+  addEventListener("scroll", function () {
+    if (!btn.classList.contains("show") && scrollY < lastY) return;
+    var down = scrollY > lastY && scrollY > 140;
+    btn.style.transform = down ? "translateY(78px)" : "";
+    lastY = scrollY;
+  }, { passive: true });
+})();
+
+/* =========================================================================
+   2. TUTORIAL PLAYER — reel-shaped, custom controls, live counting timer.
+   ========================================================================= */
+(function () {
+  var ov = document.getElementById("tutOv");
+  if (!ov) return;
+  var stage = document.getElementById("tutStage");
+  var v = document.getElementById("tutVid");
+
+  window.krTutorial = function (e) {
+    if (e) e.preventDefault();
+    var mm = document.getElementById("mobileMenu");
+    if (mm) mm.classList.remove("open");
+    ov.classList.add("on");
+    document.body.style.overflow = "hidden";
+  };
+  window.krTutClose = function () {
+    ov.classList.remove("on");
+    document.body.style.overflow = "";
+    if (v) { v.pause(); }
+  };
+  ov.addEventListener("click", function (e) { if (e.target === ov) krTutClose(); });
+  addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && ov.classList.contains("on")) krTutClose();
+  });
+  if (!v) return;
+
+  var bar = document.getElementById("tutBar"),
+      fill = bar.querySelector("i"), knob = bar.querySelector("b"),
+      play = document.getElementById("tutPlay"),
+      cur = document.getElementById("tutCur"),
+      dur = document.getElementById("tutDur"),
+      mute = document.getElementById("tutMute"),
+      speed = document.getElementById("tutSpeed"),
+      full = document.getElementById("tutFull"),
+      back10 = document.getElementById("tutBack10"),
+      rates = [1, 1.25, 1.5, 2], ri = 0;
+
+  function fmt(s) {
+    s = Math.max(0, Math.floor(s || 0));
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+  function paint() {
+    var pct = v.duration ? (v.currentTime / v.duration) * 100 : 0;
+    fill.style.width = pct + "%";
+    knob.style.insetInlineStart = pct + "%";
+    cur.textContent = fmt(v.currentTime);
+    dur.textContent = fmt(v.duration);
+  }
+  v.addEventListener("loadedmetadata", paint);
+  v.addEventListener("timeupdate", paint);
+  v.addEventListener("play", function () {
+    play.textContent = "❚❚"; stage.classList.add("playing");
+  });
+  v.addEventListener("pause", function () {
+    play.textContent = "▶"; stage.classList.remove("playing");
+  });
+  v.addEventListener("ended", function () { stage.classList.remove("playing"); });
+  play.onclick = function () { v.paused ? v.play() : v.pause(); };
+  stage.addEventListener("click", function (e) {
+    if (e.target === v) { v.paused ? v.play() : v.pause(); }
+    stage.classList.add("touched");
+    clearTimeout(stage._t);
+    stage._t = setTimeout(function () { stage.classList.remove("touched"); }, 2600);
+  });
+  back10.onclick = function () { v.currentTime = Math.max(0, v.currentTime - 10); };
+  mute.onclick = function () {
+    v.muted = !v.muted; mute.textContent = v.muted ? "🔇" : "🔊";
+  };
+  speed.onclick = function () {
+    ri = (ri + 1) % rates.length; v.playbackRate = rates[ri];
+    speed.textContent = rates[ri] + "×";
+  };
+  full.onclick = function () {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    (stage.requestFullscreen || stage.webkitRequestFullscreen ||
+     v.webkitEnterFullscreen || function () {}).call(stage.requestFullscreen ? stage : v);
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("portrait").catch(function () {});
+    }
+  };
+  function seek(e) {
+    var r = bar.getBoundingClientRect();
+    var x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    var p = Math.min(1, Math.max(0, x / r.width));
+    if (document.dir === "rtl" || document.documentElement.dir === "rtl") p = 1 - p;
+    if (v.duration) { v.currentTime = p * v.duration; paint(); }
+  }
+  bar.addEventListener("click", seek);
+  bar.addEventListener("touchstart", seek, { passive: true });
+})();
+
+/* =========================================================================
+   3. SCROLL REVEAL — arena.education style entrance for every block, plus a
+   word-by-word stagger on headings. One observer, no scroll listener.
+   ========================================================================= */
+(function () {
+  if (!("IntersectionObserver" in window)) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      var el = en.target;
+      el.classList.add("in");
+      var words = el.querySelectorAll(".rvw");
+      words.forEach(function (w, i) {
+        setTimeout(function () { w.classList.add("in"); }, 45 + i * 42);
+      });
+      io.unobserve(el);
+    });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.06 });
+
+  function splitWords(h) {
+    if (h.dataset.rvw || h.children.length) return;
+    var txt = h.textContent.trim();
+    if (!txt || txt.length > 120) return;
+    h.dataset.rvw = "1";
+    h.textContent = "";
+    txt.split(/\s+/).forEach(function (w, i) {
+      var s = document.createElement("span");
+      s.className = "rvw";
+      s.textContent = (i ? " " : "") + w;
+      h.appendChild(s);
+    });
+  }
+
+  function arm() {
+    var sel = ".card, .plan, .ws-card, .quote, .grid2 > *, .post-card, .stat-tile";
+    document.querySelectorAll(sel).forEach(function (el, i) {
+      if (el.dataset.rv) return;
+      el.dataset.rv = "1";
+      /* whatever is already on screen at load stays visible — no flash */
+      var r = el.getBoundingClientRect();
+      if (r.top < innerHeight * 0.92) return;
+      el.classList.add("rv");
+      el.style.transitionDelay = Math.min(i % 6, 5) * 45 + "ms";
+      var h = el.querySelector(":scope > h1, :scope > h2, :scope > h3");
+      if (h) splitWords(h);
+      io.observe(el);
+    });
+  }
+  arm();
+  addEventListener("load", arm);
+  /* content added later (chat, feeds) gets the same treatment */
+  new MutationObserver(function () {
+    clearTimeout(window._rvT);
+    window._rvT = setTimeout(arm, 220);
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+
+{% if cu %}
+/* =========================================================================
+   4. NOTIFICATION SOUND — the tone this account picked, played the moment a
+   new message or alert lands. Browsers block audio until the user has
+   interacted once, so we unlock it on the first tap and remember it.
+   ========================================================================= */
+(function () {
+  var NAME = {{ my_sound|tojson }};
+  var el = null, unlocked = false;
+
+  function src(n) { return "/static/sounds/" + n + ".wav"; }
+  window.krSound = { name: NAME };
+
+  window.krSetSound = function (n) {
+    NAME = n; krSound.name = n;
+    if (el) { el.src = src(n); el.load(); }
+  };
+  window.krPlaySound = function (n) {
+    n = n || NAME;
+    if (!n || n === "off") return;
+    try {
+      if (!el) { el = new Audio(); el.preload = "auto"; }
+      if (el.src.indexOf("/" + n + ".wav") === -1) { el.src = src(n); }
+      el.currentTime = 0;
+      el.volume = 0.85;
+      var p = el.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (_) {}
+  };
+  /* unlock audio on the very first interaction of the session */
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    try {
+      el = new Audio(src(NAME)); el.preload = "auto";
+      el.volume = 0; el.play().then(function () {
+        el.pause(); el.currentTime = 0; el.volume = 0.85;
+      }).catch(function () {});
+    } catch (_) {}
+    removeEventListener("pointerdown", unlock);
+    removeEventListener("keydown", unlock);
+  }
+  addEventListener("pointerdown", unlock, { once: false });
+  addEventListener("keydown", unlock, { once: false });
+
+  /* stronger buzz + tone whenever the poller sees something new */
+  window.krAlert = function (loud) {
+    krPlaySound();
+    if (navigator.vibrate) {
+      navigator.vibrate(loud ? [70, 45, 70, 45, 140] : [55, 60, 55]);
+    }
+  };
+
+  /* a push arrived while the app is open -> play the tone straight away */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", function (e) {
+      if (e.data && e.data.type === "kr-alert") krAlert(!!e.data.loud);
+    });
+  }
+})();
+{% endif %}
 </script>
 </body>
 </html>

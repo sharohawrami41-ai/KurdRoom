@@ -1,5 +1,6 @@
 {# ===== shared education wizard (used by complete_profile + profile edit) =====
-   expects: u (user row or none), unis, colleges, deps, jobs, uni_vals, job_vals #}
+   expects: u (user row or none), unis, uni_groups, colleges, deps, jobs,
+            uni_vals, job_vals, prof_ranks #}
 {% set is_uni = u and u.edu_level in ('bachelor', 'bachelor_grad', 'master', 'phd', 'professor') %}
 {% set uval = u.institution if is_uni and u.institution in uni_vals else '' %}
 {% set uop = (unis | selectattr('v', 'equalto', uval) | list | first) if uval else None %}
@@ -10,6 +11,92 @@
 {% set dop = (dops | selectattr('v', 'equalto', u.department) | list | first) if (cval and u) else None %}
 {% set jval = u.job_title if u and u.job_title in job_vals else '' %}
 {% set jop = (jobs | selectattr('v', 'equalto', jval) | list | first) if jval else None %}
+
+{# the region-then-university picker: ask WHERE first, then WHICH #}
+{% macro uni_region_picker(field, value) %}
+  {% set vo = (unis | selectattr('v', 'equalto', value) | list | first) if value else None %}
+  <div class="fewrap" data-f="{{ field }}">
+    <label>🎓 {{ t('deg_uni') }}</label>
+    <div class="hint" style="margin:2px 0 8px">{{ t('reg_q') }}</div>
+    <div class="ocards regcards" data-for="{{ field }}"
+         style="grid-template-columns:repeat(3,1fr)">
+      {% for r, e in [('kurdistan','🏔'), ('iraq','🇮🇶'), ('international','🌍')] %}
+      <div class="ocard rcard" data-r="{{ r }}" onclick="regPick(this)">
+        <div class="oe">{{ e }}</div><div class="ol">{{ t('reg_' ~ r) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="{{ field }}" value="{{ value }}">
+    <button type="button" class="kpick {{ 'has' if vo }}" data-name="{{ field }}"
+            data-icon="🏛️" data-title="🎓 {{ t('deg_uni') }}" data-region=""
+            data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)"
+            style="margin-top:10px; display:{{ '' if vo else 'none' }}">
+      <span class="kpe">{{ vo.e if vo and vo.e else '🏛️' }}</span>
+      <span class="kplb">{{ vo.l if vo else t('choose_l') }}</span>
+      <span class="kpch">▼</span>
+    </button>
+    <div class="fmsg">{{ t('err_fill') }}</div>
+  </div>
+{% endmacro %}
+
+{# one card per degree a postgraduate holds #}
+{% macro degree_block(pfx, icon, title_key, sub_key) %}
+  {% set uv = (u[pfx ~ '_uni'] if u else '') or '' %}
+  {% set cv = (u[pfx ~ '_college'] if u else '') or '' %}
+  {% set dv = (u[pfx ~ '_dept'] if u else '') or '' %}
+  {% set uo = (unis | selectattr('v', 'equalto', uv) | list | first) if uv else None %}
+  {% set co = (colleges | selectattr('v', 'equalto', cv) | list | first) if cv else None %}
+  {% set dl = deps.get(cv, []) if cv else [] %}
+  {% set do = (dl | selectattr('v', 'equalto', dv) | list | first) if dv else None %}
+  <div class="degcard" id="deg_{{ pfx }}" style="display:none">
+    <div class="deghd"><span class="degic">{{ icon }}</span>
+      <div><div class="degt">{{ t(title_key) }}</div>
+        <div class="degs">{{ t(sub_key) }}</div></div></div>
+
+    {{ uni_region_picker(pfx ~ '_uni', uv) }}
+
+    <div class="fewrap" data-f="{{ pfx }}_college">
+      <label>{{ t('deg_college') }}</label>
+      <input type="hidden" name="{{ pfx }}_college" value="{{ cv }}">
+      <button type="button" class="kpick {{ 'has' if co }}" data-name="{{ pfx }}_college"
+              data-icon="📚" data-title="📚 {{ t('deg_college') }}"
+              data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+        <span class="kpe">{{ co.e if co and co.e else '📚' }}</span>
+        <span class="kplb">{{ co.l if co else t('choose_l') }}</span>
+        <span class="kpch">▼</span>
+      </button>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+
+    <div class="fewrap" data-f="{{ pfx }}_dept">
+      <label>{{ t('deg_dept') }}</label>
+      <input type="hidden" name="{{ pfx }}_dept" value="{{ dv }}">
+      <button type="button" class="kpick {{ 'has' if do }}" data-name="{{ pfx }}_dept"
+              data-icon="🧪" data-title="🧪 {{ t('deg_dept') }}"
+              data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+        <span class="kpe">{{ do.e if do and do.e else '🧪' }}</span>
+        <span class="kplb">{{ do.l if do else t('choose_l') }}</span>
+        <span class="kpch">▼</span>
+      </button>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+
+    {% if pfx == 'prof' %}
+    <div class="fewrap" data-f="prof_rank">
+      <label>🎖 {{ t('prof_rank_l') }}</label>
+      <input type="hidden" name="prof_rank" value="{{ (u.prof_rank if u else '') or '' }}">
+      <button type="button" class="kpick {{ 'has' if u and u.prof_rank }}"
+              data-name="prof_rank" data-icon="🎖" data-title="🎖 {{ t('prof_rank_l') }}"
+              data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
+        <span class="kpe">🎖</span>
+        <span class="kplb">{{ (u.prof_rank if u else '') or t('choose_l') }}</span>
+        <span class="kpch">▼</span>
+      </button>
+      <div class="fmsg">{{ t('err_fill') }}</div>
+    </div>
+    {% endif %}
+  </div>
+{% endmacro %}
 
 <label>{{ t('edu_q') }}</label>
 <input type="hidden" name="edu_level" id="eduLevel">
@@ -58,20 +145,9 @@
   </div>
 </div>
 
-<!-- university / master / phd / professor branch -->
+<!-- current university branch (undergraduate / bachelor holder) -->
 <div id="brUni" style="display:none">
-  <div class="fewrap" data-f="university">
-    <label>🎓 {{ t('uni_l') }}</label>
-    <input type="hidden" name="university" value="{{ uval }}">
-    <button type="button" class="kpick {{ 'has' if uop }}" data-name="university"
-            data-icon="🏛️" data-title="🎓 {{ t('uni_l') }}"
-            data-ph="{{ t('choose_l') }}" onclick="kpOpen(this)">
-      <span class="kpe">{{ uop.e if uop and uop.e else '🏛️' }}</span>
-      <span class="kplb">{{ uop.l if uop else t('choose_l') }}</span>
-      <span class="kpch">▼</span>
-    </button>
-    <div class="fmsg">{{ t('err_fill') }}</div>
-  </div>
+  {{ uni_region_picker('university', uval) }}
   <label>{{ t('ck_l') }}</label>
   <input type="hidden" name="college_kind">
   <div class="fewrap" data-f="college_kind">
@@ -133,6 +209,16 @@
   </div>
 </div>
 
+{# ============ postgraduate branch: one block per degree they hold ============ #}
+
+
+<div id="brGrad" style="display:none">
+  {{ degree_block('bsc', '🎓', 'deg_bsc', 'deg_bsc_d') }}
+  {{ degree_block('msc', '📜', 'deg_msc', 'deg_msc_d') }}
+  {{ degree_block('phd', '🧑‍🔬', 'deg_phd', 'deg_phd_d') }}
+  {{ degree_block('prof', '👨‍🏫', 'deg_prof', 'deg_prof_d') }}
+</div>
+
 <!-- work / others branch -->
 <div id="brJob" style="display:none">
   <div class="fewrap" data-f="job">
@@ -149,8 +235,27 @@
   </div>
 </div>
 
+<style>
+  .degcard { border:1px solid var(--card-border); background:var(--card);
+    border-radius:16px; padding:16px 15px; margin:14px 0;
+    animation: fadeUp .34s cubic-bezier(.22,.9,.36,1) both; }
+  .deghd { display:flex; align-items:center; gap:11px; margin-bottom:10px; }
+  .degic { font-size:1.5rem; flex:0 0 auto; }
+  .degt { font-weight:800; font-size:.98rem; }
+  .degs { color:var(--muted); font-size:.76rem; margin-top:2px; line-height:1.5; }
+  .regcards .ocard { padding:12px 6px; }
+  .regcards .ol { font-size:.78rem; }
+  @media (max-width:420px) { .regcards .ol { font-size:.7rem; } }
+</style>
+
 <script>
   const DEPS = {{ deps|tojson }};
+  const UNI_GROUPS = {{ uni_groups|tojson }};
+  const UNI_REGION_OF = {{ uni_region_of|tojson }};
+  const PROF_RANKS = {{ prof_ranks|tojson }};
+  const GRAD_CHAIN = { master: ["bsc", "msc"],
+                       phd: ["bsc", "msc", "phd"],
+                       professor: ["bsc", "msc", "phd", "prof"] };
   const EDU_U = {{ {'edu_level': (u.edu_level if u else '') or '',
                     'school_level': (u.school_level if u else '') or '',
                     'grade': (u.grade if u else '') or '',
@@ -164,6 +269,7 @@
   KPDATA.college = {{ colleges|tojson }};
   KPDATA.department = {{ dops|tojson }};
   KPDATA.job = {{ jobs|tojson }};
+  KPDATA.prof_rank = PROF_RANKS;
   KPHOOK.university = () => markBad("university", false);
   KPHOOK.college = (v) => {
     KPDATA.department = DEPS[v] || [];
@@ -172,6 +278,21 @@
   };
   KPHOOK.department = () => markBad("department", false);
   KPHOOK.job = () => markBad("job", false);
+  KPHOOK.prof_rank = () => markBad("prof_rank", false);
+
+  /* every degree block wires its own college -> department dependency */
+  ["bsc", "msc", "phd", "prof"].forEach((p) => {
+    KPDATA[p + "_college"] = {{ colleges|tojson }};
+    const cur = (form && form[p + "_college"] && form[p + "_college"].value) || "";
+    KPDATA[p + "_dept"] = DEPS[cur] || [];
+    KPHOOK[p + "_uni"] = () => markBad(p + "_uni", false);
+    KPHOOK[p + "_college"] = (v) => {
+      KPDATA[p + "_dept"] = DEPS[v] || [];
+      kpReset(p + "_dept");
+      markBad(p + "_college", false);
+    };
+    KPHOOK[p + "_dept"] = () => markBad(p + "_dept", false);
+  });
 
   function markBad(name, bad) {
     const w = form.querySelector('.fewrap[data-f="' + name + '"]');
@@ -187,17 +308,43 @@
     container.querySelectorAll(".ocard").forEach((c) => c.classList.remove("sel"));
     el.classList.add("sel");
   }
+
+  /* ---- step 1: which part of the world, step 2: which university ---- */
+  window.regPick = function (el) {
+    const row = el.parentElement;
+    const field = row.dataset.for;
+    pickCard(row, el);
+    const region = el.dataset.r;
+    KPDATA[field] = UNI_GROUPS[region] || [];
+    const btn = form.querySelector('.kpick[data-name="' + field + '"]');
+    if (btn) {
+      btn.dataset.region = region;
+      btn.style.display = "";
+      /* a university from another region no longer applies — clear it */
+      const hid = form[field];
+      if (hid && hid.value && UNI_REGION_OF[hid.value] !== region) kpReset(field);
+      if (!hid.value) setTimeout(() => kpOpen(btn), 130);
+    }
+    markBad(field, false);
+  };
+
   function lvlPick(el) {
     pickCard(document.getElementById("lvlCards"), el);
     const v = el.dataset.v;
     form.edu_level.value = v;
     markBad("edu_level", false);
+    const grad = GRAD_CHAIN[v];
     document.getElementById("brSchool").style.display = v === "school" ? "" : "none";
     document.getElementById("brUni").style.display =
-      ["university", "bachelor", "master", "phd", "professor"].includes(v) ? "" : "none";
+      ["university", "bachelor"].includes(v) ? "" : "none";
+    document.getElementById("brGrad").style.display = grad ? "" : "none";
     document.getElementById("brJob").style.display = v === "others" ? "" : "none";
     document.getElementById("stageWrap").style.display =
       v === "university" ? "" : "none";   // stage only for current undergrads
+    ["bsc", "msc", "phd", "prof"].forEach((p) => {
+      const box = document.getElementById("deg_" + p);
+      if (box) box.style.display = grad && grad.includes(p) ? "" : "none";
+    });
   }
   function slvlPick(el) {
     pickCard(el.parentElement, el);
@@ -238,7 +385,7 @@
       ok &= need("school_name", !!val("school_name"));
       ok &= need("school_level", !!val("school_level"));
       ok &= need("grade", !!val("grade"));
-    } else if (["university", "bachelor", "master", "phd", "professor"].includes(lvl)) {
+    } else if (["university", "bachelor"].includes(lvl)) {
       ok &= need("university", !!val("university"));
       const ck = val("college_kind");
       ok &= need("college_kind", !!ck);
@@ -250,16 +397,43 @@
         ok &= need("institute_dept", !!val("institute_dept"));
       }
       if (lvl === "university") ok &= need("stage", !!val("stage"));
+    } else if (GRAD_CHAIN[lvl]) {
+      GRAD_CHAIN[lvl].forEach((p) => {
+        ok &= need(p + "_uni", !!val(p + "_uni"));
+        ok &= need(p + "_college", !!val(p + "_college"));
+        ok &= need(p + "_dept", !!val(p + "_dept"));
+      });
+      if (lvl === "professor") ok &= need("prof_rank", !!val("prof_rank"));
     } else if (lvl === "others") {
       ok &= need("job", !!val("job"));
+    }
+    if (!ok) {
+      const bad = form.querySelector(".fewrap.bad");
+      if (bad) bad.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     return !!ok;
   }
   /* -------- prefill everything the user chose before -------- */
   (function initEdu() {
+    /* pre-select the region card that matches an already-saved university */
+    form.querySelectorAll(".regcards").forEach((row) => {
+      const field = row.dataset.for;
+      const cur = (form[field] && form[field].value) || "";
+      const region = UNI_REGION_OF[cur] || "";
+      if (region) {
+        const card = row.querySelector('.rcard[data-r="' + region + '"]');
+        if (card) {
+          pickCard(row, card);
+          KPDATA[field] = UNI_GROUPS[region] || [];
+          const btn = form.querySelector('.kpick[data-name="' + field + '"]');
+          if (btn) { btn.dataset.region = region; btn.style.display = ""; }
+        }
+      }
+    });
+
     let lvl = EDU_U.edu_level;
     if (!lvl) return;
-    if (lvl === "bachelor") lvl = "university";       // undergraduate
+    if (lvl === "bachelor") lvl = "university";          // undergraduate
     else if (lvl === "bachelor_grad") lvl = "bachelor";  // graduated bachelor holder
     if (lvl === "graduate") lvl = "others";
     const card = document.querySelector('#lvlCards .ocard[data-v="' + lvl + '"]');
@@ -276,8 +450,7 @@
           });
       }
     }
-    if (["university", "bachelor", "master", "phd", "professor"].includes(lvl) &&
-        EDU_U.college_kind) {
+    if (["university", "bachelor"].includes(lvl) && EDU_U.college_kind) {
       const ck = document.querySelector(
         '.fewrap[data-f="college_kind"] .ocard[data-v="' + EDU_U.college_kind + '"]');
       if (ck) ckPick(ck);

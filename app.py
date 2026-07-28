@@ -70,9 +70,17 @@ def avatar_url(user_id):
 # ---------------------------------------------------------------- database
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
+        g.db = sqlite3.connect(DB_PATH, timeout=15)
         g.db.row_factory = sqlite3.Row
+        # SPEED: WAL lets readers and the writer work at the same time, NORMAL
+        # sync skips an fsync per commit, and a 16 MB page cache keeps the hot
+        # tables in RAM. Together these make every page noticeably snappier.
         g.db.execute("PRAGMA foreign_keys = ON")
+        g.db.execute("PRAGMA journal_mode = WAL")
+        g.db.execute("PRAGMA synchronous = NORMAL")
+        g.db.execute("PRAGMA cache_size = -16000")
+        g.db.execute("PRAGMA temp_store = MEMORY")
+        g.db.execute("PRAGMA busy_timeout = 8000")
     return g.db
 
 
@@ -81,6 +89,88 @@ def close_db(exc):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
+# ============================================================ notification tones
+# Six short, friendly alert sounds. They are synthesised once into real .wav
+# files so phones can play them instantly, offline, with no extra downloads.
+#   chime   – two soft bell notes, warm and calm            (default)
+#   droplet – one water-drop blip, quick and unobtrusive
+#   marimba – three wooden notes, cheerful
+#   pop     – a single bright bubble pop, the shortest one
+#   rise    – three rising notes, "something good happened"
+#   pulse   – two low muted taps, the most discreet
+NTF_SOUNDS = ("chime", "droplet", "marimba", "pop", "rise", "pulse")
+NTF_SOUND_LABELS = {
+    "chime": "🔔 Chime", "droplet": "💧 Droplet", "marimba": "🎵 Marimba",
+    "pop": "🫧 Pop", "rise": "📈 Rise", "pulse": "🩶 Pulse", "off": "🔇 Silent",
+}
+SOUND_DIR = os.path.join(BASE_DIR, "static", "sounds")
+
+
+def _build_notification_sounds():
+    """Synthesise the alert tones into static/sounds/*.wav (once)."""
+    import math
+    import struct
+    import wave
+
+    os.makedirs(SOUND_DIR, exist_ok=True)
+    rate = 22050
+
+    def note(buf, at, freq, dur, gain=0.5, decay=14.0, wobble=0.0, harm=0.35):
+        """Add one plucked/bell note into the sample buffer."""
+        start = int(at * rate)
+        for i in range(int(dur * rate)):
+            k = start + i
+            if k >= len(buf):
+                break
+            t = i / rate
+            env = math.exp(-decay * t)
+            f = freq * (1.0 + wobble * t)
+            s = math.sin(2 * math.pi * f * t)
+            s += harm * math.sin(4 * math.pi * f * t) * math.exp(-decay * 2 * t)
+            buf[k] += gain * env * s
+
+    recipes = {
+        # (total seconds, [(startTime, freq, dur, gain, decay, wobble, harm)])
+        "chime": (0.85, [(0.00, 1046.50, 0.55, .50, 7.0, 0, .30),
+                         (0.11, 1567.98, 0.68, .42, 6.0, 0, .25)]),
+        "droplet": (0.40, [(0.00, 1250.00, 0.16, .55, 13.0, -0.45, .12),
+                           (0.10, 620.00, 0.28, .32, 11.0, -0.15, .10)]),
+        "marimba": (0.70, [(0.00, 783.99, 0.30, .45, 15.0, 0, .45),
+                           (0.09, 987.77, 0.30, .45, 15.0, 0, .45),
+                           (0.18, 1318.51, 0.45, .48, 12.0, 0, .40)]),
+        "pop": (0.22, [(0.00, 880.00, 0.10, .60, 30.0, 6.0, .20)]),
+        "rise": (0.62, [(0.00, 659.25, 0.22, .42, 16.0, 0, .25),
+                        (0.09, 880.00, 0.22, .44, 16.0, 0, .25),
+                        (0.18, 1318.51, 0.40, .46, 11.0, 0, .22)]),
+        "pulse": (0.48, [(0.00, 392.00, 0.16, .45, 20.0, 0, .10),
+                         (0.17, 392.00, 0.24, .38, 16.0, 0, .10)]),
+    }
+    for name, (total, notes) in recipes.items():
+        path = os.path.join(SOUND_DIR, name + ".wav")
+        if os.path.exists(path):
+            continue
+        buf = [0.0] * int(total * rate)
+        for at, f, d, gn, dec, wob, hm in notes:
+            note(buf, at, f, d, gn, dec, wob, hm)
+        # gentle 6 ms fade-in / 25 ms fade-out so nothing clicks
+        fi, fo = int(0.006 * rate), int(0.025 * rate)
+        for i in range(min(fi, len(buf))):
+            buf[i] *= i / fi
+        for i in range(min(fo, len(buf))):
+            buf[len(buf) - 1 - i] *= i / fo
+        peak = max((abs(x) for x in buf), default=1.0) or 1.0
+        frames = b"".join(struct.pack("<h", int(max(-1.0, min(1.0, x / peak * 0.86))
+                                                * 32767)) for x in buf)
+        try:
+            with wave.open(path, "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(rate)
+                w.writeframes(frames)
+        except Exception:
+            pass
 
 
 def init_db():
@@ -431,6 +521,36 @@ def init_db():
                  "ALTER TABLE users ADD COLUMN is_private INTEGER DEFAULT 0",
                  "ALTER TABLE dms ADD COLUMN pinned INTEGER DEFAULT 0",
                  "ALTER TABLE group_messages ADD COLUMN pinned INTEGER DEFAULT 0",
+                 # ---- v7: full degree history (bachelor / master / PhD / professor)
+                 "ALTER TABLE users ADD COLUMN bsc_uni TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN bsc_college TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN bsc_dept TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN msc_uni TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN msc_college TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN msc_dept TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN phd_uni TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN phd_college TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN phd_dept TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN prof_uni TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN prof_college TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN prof_dept TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN prof_rank TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN uni_region TEXT DEFAULT ''",
+                 # ---- v7: notification tone + post reach
+                 "ALTER TABLE users ADD COLUMN ntf_sound TEXT DEFAULT 'chime'",
+                 "ALTER TABLE posts ADD COLUMN views INTEGER DEFAULT 0",
+                 # ---- v7: indexes that make every hot query instant
+                 "CREATE INDEX IF NOT EXISTS ix_plans_user ON plans(user_id, done)",
+                 "CREATE INDEX IF NOT EXISTS ix_notif_user ON notifications(user_id, is_read)",
+                 "CREATE INDEX IF NOT EXISTS ix_dms_to ON dms(to_id, is_read)",
+                 "CREATE INDEX IF NOT EXISTS ix_dms_pair ON dms(from_id, to_id, id)",
+                 "CREATE INDEX IF NOT EXISTS ix_gm_group ON group_messages(group_id, id)",
+                 "CREATE INDEX IF NOT EXISTS ix_posts_cat ON posts(category, id)",
+                 "CREATE INDEX IF NOT EXISTS ix_plikes_post ON post_likes(post_id)",
+                 "CREATE INDEX IF NOT EXISTS ix_pcom_post ON post_comments(post_id)",
+                 "CREATE INDEX IF NOT EXISTS ix_friend_to ON friendships(to_id, status)",
+                 "CREATE INDEX IF NOT EXISTS ix_friend_from ON friendships(from_id, status)",
+                 "CREATE INDEX IF NOT EXISTS ix_activity_user ON activity(user_id, day)",
                  """CREATE TABLE IF NOT EXISTS chat_clears (
                      user_id INTEGER NOT NULL, kind TEXT NOT NULL,
                      target_id INTEGER NOT NULL, cleared_id INTEGER NOT NULL DEFAULT 0,
@@ -469,6 +589,7 @@ def init_db():
     # seed the editable registration option lists (admin can change them later)
     _REG_DEFAULTS = {
         "reg_universities": "\n".join([
+            "#kurdistan",
             "🏛️ | Salahaddin University-Erbil | زانکۆی سەڵاحەدین - هەولێر | جامعة صلاح الدين - أربيل",
             "🏛️ | University of Sulaimani | زانکۆی سلێمانی | جامعة السليمانية",
             "🏛️ | University of Duhok | زانکۆی دهۆک | جامعة دهوك",
@@ -496,7 +617,134 @@ def init_db():
             "🔬 | Komar University of Science and Technology | زانکۆی کۆمار بۆ زانست و تەکنەلۆژیا | جامعة كومار للعلوم والتكنولوجيا",
             "🏛️ | University of Human Development | زانکۆی گەشەپێدانی مرۆیی | جامعة التنمية البشرية",
             "🌍 | Qaiwan International University | زانکۆی نێودەوڵەتی قەیوان | جامعة قيوان الدولية",
-            "🏛️ | Nawroz University | زانکۆی نەورۆز | جامعة نوروز"]),
+            "🏛️ | Nawroz University | زانکۆی نەورۆز | جامعة نوروز",
+            "🏛️ | Erbil Technical Engineering College | کۆلێژی تەکنیکی ئەندازیاری هەولێر | الكلية التقنية الهندسية أربيل",
+            "🏛️ | Sulaimani University of Technology | زانکۆی تەکنەلۆژیای سلێمانی | جامعة السليمانية للتكنولوجيا",
+            "🏛️ | University of Kalar | زانکۆی کەلار | جامعة كلار",
+            "🏛️ | Erbil University | زانکۆی هەولێر | جامعة أربيل",
+            "🏛️ | Ishik University | زانکۆی ئیشیک | جامعة إيشيك",
+            "🏛️ | Rwandz Private Technical Institute | پەیمانگای تەکنیکی تایبەتی ڕەواندز | معهد رواندز التقني الخاص",
+            "🏛️ | Kurdistan Technical Institute | پەیمانگای تەکنیکی کوردستان | المعهد التقني كردستان",
+            "🏛️ | Sabis University | زانکۆی سابیس | جامعة سابيس",
+            "🏛️ | Duhok Private Technical Institute | پەیمانگای تەکنیکی تایبەتی دهۆک | معهد دهوك التقني الخاص",
+            "🏛️ | Al-Noor University (Nineveh) | زانکۆی النور | جامعة النور",
+            "#iraq",
+            "🏛️ | University of Baghdad | زانکۆی بەغدا | جامعة بغداد",
+            "🏛️ | Al-Mustansiriyah University | زانکۆی موستەنسیریە | الجامعة المستنصرية",
+            "🏢 | University of Technology - Iraq | زانکۆی تەکنەلۆژیا - عێراق | الجامعة التكنولوجية",
+            "🏛️ | Al-Nahrain University | زانکۆی نەهرەین | جامعة النهرين",
+            "🏛️ | University of Basrah | زانکۆی بەسرە | جامعة البصرة",
+            "🏛️ | University of Mosul | زانکۆی مووسڵ | جامعة الموصل",
+            "🏛️ | University of Kufa | زانکۆی کووفە | جامعة الكوفة",
+            "🏛️ | University of Babylon | زانکۆی بابل | جامعة بابل",
+            "🏛️ | University of Kerbala | زانکۆی کەربەلا | جامعة كربلاء",
+            "🏛️ | University of Tikrit | زانکۆی تکریت | جامعة تكريت",
+            "🏛️ | University of Anbar | زانکۆی ئەنبار | جامعة الأنبار",
+            "🏛️ | University of Diyala | زانکۆی دیالە | جامعة ديالى",
+            "🏛️ | University of Qadisiyah | زانکۆی قادسیە | جامعة القادسية",
+            "🏛️ | University of Wasit | زانکۆی واست | جامعة واسط",
+            "🏛️ | University of Thi-Qar | زانکۆی زیقار | جامعة ذي قار",
+            "🏛️ | University of Misan | زانکۆی مەیسان | جامعة ميسان",
+            "🏛️ | University of Muthanna | زانکۆی موسەننا | جامعة المثنى",
+            "🏛️ | University of Samarra | زانکۆی سامەڕا | جامعة سامراء",
+            "🏛️ | University of Fallujah | زانکۆی فەللوجە | جامعة الفلوجة",
+            "🏛️ | University of Kirkuk | زانکۆی کەرکووک | جامعة كركوك",
+            "🏛️ | Northern Technical University | زانکۆی تەکنیکی باکوور | الجامعة التقنية الشمالية",
+            "🏛️ | Middle Technical University | زانکۆی تەکنیکی ناوەڕاست | الجامعة التقنية الوسطى",
+            "🏛️ | Southern Technical University | زانکۆی تەکنیکی باشوور | الجامعة التقنية الجنوبية",
+            "🏛️ | Al-Furat Al-Awsat Technical University | زانکۆی تەکنیکی فوراتی ناوەڕاست | جامعة الفرات الأوسط التقنية",
+            "🏛️ | University of Al-Iraqia | زانکۆی عێراقیە | الجامعة العراقية",
+            "🏛️ | Al-Qasim Green University | زانکۆی سەوزی قاسم | جامعة القاسم الخضراء",
+            "🏛️ | University of Sumer | زانکۆی سومەر | جامعة سومر",
+            "🏛️ | University of Al-Hamdaniya | زانکۆی حەمدانیە | جامعة الحمدانية",
+            "🏛️ | Al-Kitab University | زانکۆی الکتاب | جامعة الكتاب",
+            "🏛️ | Al-Farahidi University | زانکۆی الفراهیدی | جامعة الفراهيدي",
+            "🏛️ | Al-Mansour University College | کۆلێژی زانکۆی مەنسوور | كلية المنصور الجامعة",
+            "🏛️ | Al-Turath University | زانکۆی توراس | جامعة التراث",
+            "🏛️ | Uruk University | زانکۆی ئوروک | جامعة أوروك",
+            "🏛️ | Al-Bayan University | زانکۆی بەیان | جامعة البيان",
+            "🏛️ | Dijlah University College | کۆلێژی زانکۆی دیجلە | كلية دجلة الجامعة",
+            "🏛️ | Al-Esraa University | زانکۆی ئیسرا | جامعة الإسراء",
+            "#international",
+            "🇦🇹 | University of Vienna | زانکۆی ڤیەننا | جامعة فيينا",
+            "🇦🇹 | TU Wien | زانکۆی تەکنیکی ڤیەننا | جامعة فيينا التقنية",
+            "🇬🇧 | University of Oxford | زانکۆی ئۆکسفۆرد | جامعة أكسفورد",
+            "🇬🇧 | University of Cambridge | زانکۆی کامبریج | جامعة كامبريدج",
+            "🇬🇧 | Imperial College London | ئیمپریاڵ کۆلێژ لەندەن | إمبريال كوليدج لندن",
+            "🇬🇧 | University College London | یونیڤێرسیتی کۆلێژ لەندەن | يونيفرسيتي كوليدج لندن",
+            "🇬🇧 | University of Manchester | زانکۆی مانچستەر | جامعة مانشستر",
+            "🇬🇧 | University of Edinburgh | زانکۆی ئێدنبەرا | جامعة إدنبرة",
+            "🇬🇧 | University of Leeds | زانکۆی لیدز | جامعة ليدز",
+            "🇬🇧 | University of Birmingham | زانکۆی بێرمنگهام | جامعة برمنغهام",
+            "🇺🇸 | Harvard University | زانکۆی هارڤارد | جامعة هارفارد",
+            "🇺🇸 | Massachusetts Institute of Technology (MIT) | ئێم ئای تی | معهد ماساتشوستس للتكنولوجيا",
+            "🇺🇸 | Stanford University | زانکۆی ستانفۆرد | جامعة ستانفورد",
+            "🇺🇸 | University of California, Berkeley | زانکۆی بێرکلی | جامعة كاليفورنيا بيركلي",
+            "🇺🇸 | Columbia University | زانکۆی کۆڵۆمبیا | جامعة كولومبيا",
+            "🇺🇸 | New York University | زانکۆی نیویۆرک | جامعة نيويورك",
+            "🇺🇸 | University of Michigan | زانکۆی میشیگان | جامعة ميشيغان",
+            "🇺🇸 | Georgia Institute of Technology | زانکۆی تەکنەلۆژیای جۆرجیا | معهد جورجيا للتكنولوجيا",
+            "🇺🇸 | Purdue University | زانکۆی پێردیو | جامعة بيردو",
+            "🇨🇦 | University of Toronto | زانکۆی تۆرۆنتۆ | جامعة تورنتو",
+            "🇨🇦 | McGill University | زانکۆی ماکگیل | جامعة ماكغيل",
+            "🇨🇦 | University of British Columbia | زانکۆی بریتیش کۆڵۆمبیا | جامعة كولومبيا البريطانية",
+            "🇨🇦 | University of Waterloo | زانکۆی واتەرلوو | جامعة واترلو",
+            "🇩🇪 | Technical University of Munich | زانکۆی تەکنیکی میونیخ | جامعة ميونخ التقنية",
+            "🇩🇪 | Heidelberg University | زانکۆی هایدلبێرگ | جامعة هايدلبرغ",
+            "🇩🇪 | RWTH Aachen University | زانکۆی ئاخن | جامعة آخن",
+            "🇩🇪 | Humboldt University of Berlin | زانکۆی هومبۆڵت بەرلین | جامعة هومبولت برلين",
+            "🇨🇭 | ETH Zurich | ئی تی هاش زوریخ | المعهد التقني السويسري زيورخ",
+            "🇨🇭 | EPFL Lausanne | ئی پی ئێف ئێل لۆزان | المعهد الفدرالي لوزان",
+            "🇳🇱 | Delft University of Technology | زانکۆی تەکنەلۆژیای دێلفت | جامعة دلفت التقنية",
+            "🇳🇱 | University of Amsterdam | زانکۆی ئەمستەردام | جامعة أمستردام",
+            "🇧🇪 | KU Leuven | کا یو لۆڤن | جامعة لوفان",
+            "🇫🇷 | Sorbonne University | زانکۆی سۆربۆن | جامعة السوربون",
+            "🇫🇷 | Université PSL Paris | زانکۆی پی ئێس ئێل پاریس | جامعة باريس PSL",
+            "🇮🇹 | University of Bologna | زانکۆی بۆلۆنیا | جامعة بولونيا",
+            "🇮🇹 | Sapienza University of Rome | زانکۆی ساپیێنزا ڕۆما | جامعة سابينزا روما",
+            "🇮🇹 | Politecnico di Milano | پۆلیتەکنیکی میلانۆ | بوليتكنيك ميلانو",
+            "🇪🇸 | University of Barcelona | زانکۆی بارسەلۆنا | جامعة برشلونة",
+            "🇪🇸 | Complutense University of Madrid | زانکۆی کۆمپلوتێنسی مەدرید | جامعة كومبلوتنسي مدريد",
+            "🇸🇪 | KTH Royal Institute of Technology | زانکۆی شاهانەی تەکنەلۆژیا | المعهد الملكي للتكنولوجيا",
+            "🇸🇪 | Lund University | زانکۆی لوند | جامعة لوند",
+            "🇩🇰 | University of Copenhagen | زانکۆی کۆپنهاگ | جامعة كوبنهاغن",
+            "🇳🇴 | University of Oslo | زانکۆی ئۆسلۆ | جامعة أوسلو",
+            "🇫🇮 | University of Helsinki | زانکۆی هێلسینکی | جامعة هلسنكي",
+            "🇵🇱 | University of Warsaw | زانکۆی وارشۆ | جامعة وارسو",
+            "🇨🇿 | Charles University Prague | زانکۆی چارلز پراگ | جامعة تشارلز براغ",
+            "🇭🇺 | Eötvös Loránd University | زانکۆی ئۆتڤۆش لۆراند | جامعة أوتفوش لوراند",
+            "🇹🇷 | Middle East Technical University (METU) | زانکۆی تەکنیکی ڕۆژهەڵاتی ناوەڕاست | جامعة الشرق الأوسط التقنية",
+            "🇹🇷 | Bilkent University | زانکۆی بیلکەنت | جامعة بيلكنت",
+            "🇹🇷 | Boğaziçi University | زانکۆی بۆغازیچی | جامعة بوغازيتشي",
+            "🇹🇷 | Istanbul Technical University | زانکۆی تەکنیکی ئیستەنبوڵ | جامعة إسطنبول التقنية",
+            "🇹🇷 | Istanbul University | زانکۆی ئیستەنبوڵ | جامعة إسطنبول",
+            "🇹🇷 | Ankara University | زانکۆی ئەنقەرە | جامعة أنقرة",
+            "🇮🇷 | University of Tehran | زانکۆی تاران | جامعة طهران",
+            "🇮🇷 | Sharif University of Technology | زانکۆی تەکنەلۆژیای شەریف | جامعة شريف التقنية",
+            "🇱🇧 | American University of Beirut | زانکۆی ئەمریکی بەیروت | الجامعة الأمريكية في بيروت",
+            "🇯🇴 | University of Jordan | زانکۆی ئوردن | الجامعة الأردنية",
+            "🇪🇬 | Cairo University | زانکۆی قاهیرە | جامعة القاهرة",
+            "🇪🇬 | American University in Cairo | زانکۆی ئەمریکی قاهیرە | الجامعة الأمريكية بالقاهرة",
+            "🇸🇦 | King Abdulaziz University | زانکۆی مەلیک عەبدولعەزیز | جامعة الملك عبدالعزيز",
+            "🇸🇦 | King Fahd University of Petroleum & Minerals | زانکۆی مەلیک فەهد | جامعة الملك فهد للبترول والمعادن",
+            "🇸🇦 | King Saud University | زانکۆی مەلیک سعود | جامعة الملك سعود",
+            "🇦🇪 | United Arab Emirates University | زانکۆی ئیمارات | جامعة الإمارات",
+            "🇦🇪 | American University of Sharjah | زانکۆی ئەمریکی شارجە | الجامعة الأمريكية في الشارقة",
+            "🇶🇦 | Qatar University | زانکۆی قەتەر | جامعة قطر",
+            "🇲🇾 | University of Malaya | زانکۆی مالایا | جامعة مالايا",
+            "🇸🇬 | National University of Singapore | زانکۆی نیشتمانی سینگاپور | جامعة سنغافورة الوطنية",
+            "🇯🇵 | University of Tokyo | زانکۆی تۆکیۆ | جامعة طوكيو",
+            "🇰🇷 | Seoul National University | زانکۆی نیشتمانی سیۆل | جامعة سيول الوطنية",
+            "🇨🇳 | Tsinghua University | زانکۆی چینگخوا | جامعة تسينغهوا",
+            "🇨🇳 | Peking University | زانکۆی پەکین | جامعة بكين",
+            "🇭🇰 | University of Hong Kong | زانکۆی هۆنگ کۆنگ | جامعة هونغ كونغ",
+            "🇮🇳 | Indian Institute of Technology (IIT) | پەیمانگای تەکنەلۆژیای هیندی | معهد الهند للتكنولوجيا",
+            "🇦🇺 | University of Melbourne | زانکۆی مێلبۆرن | جامعة ملبورن",
+            "🇦🇺 | University of Sydney | زانکۆی سیدنی | جامعة سيدني",
+            "🇦🇺 | University of New South Wales | زانکۆی نیو ساوس وێڵز | جامعة نيو ساوث ويلز",
+            "🇳🇿 | University of Auckland | زانکۆی ئۆکلاند | جامعة أوكلاند",
+            "🇿🇦 | University of Cape Town | زانکۆی کەیپ تاون | جامعة كيب تاون",
+            "🌍 | Other / not listed | هیتر / لە لیستدا نییە | أخرى / غير مدرجة"]),
         "reg_colleges": "\n".join([
             "🩺 | Medicine | پزیشکی | الطب",
             "🦷 | Dentistry | ددانسازی | طب الأسنان",
@@ -520,7 +768,28 @@ def init_db():
             "🕌 | Islamic Sciences | زانستە ئیسلامییەکان | العلوم الإسلامية",
             "📺 | Media & Communication | ڕاگەیاندن | الإعلام والاتصال",
             "📐 | Architecture | تەلارسازی | العمارة",
-            "🧳 | Tourism | گەشتوگوزار | السياحة"]),
+            "🧳 | Tourism | گەشتوگوزار | السياحة",
+            "💼 | Business & Management | بازرگانی و بەڕێوەبردن | إدارة الأعمال",
+            "🏦 | Finance & Banking | دارایی و بانکداری | المالية والمصارف",
+            "📈 | Data Science & Analytics | زانستی داتا و شیکاری | علم البيانات والتحليلات",
+            "🧠 | Psychology & Behavioural Sciences | دەروونناسی و زانستی ڕەفتار | علم النفس والعلوم السلوكية",
+            "🌍 | Social Sciences | زانستە کۆمەڵایەتییەکان | العلوم الاجتماعية",
+            "🌱 | Environmental Studies | لێکۆڵینەوەی ژینگە | الدراسات البيئية",
+            "🏥 | Public Health | تەندروستی گشتی | الصحة العامة",
+            "🥗 | Nutrition & Food Science | خۆراک و زانستی خواردن | التغذية وعلوم الأغذية",
+            "🎬 | Film, Animation & Digital Media | فیلم و ئەنیمەیشن و میدیای دیجیتاڵ | السينما والرسوم المتحركة والإعلام الرقمي",
+            "🎵 | Music & Performing Arts | مۆسیقا و هونەرە نمایشییەکان | الموسيقى والفنون الأدائية",
+            "✈️ | Aviation & Aerospace | فڕۆکەوانی و ئاسمانەوانی | الطيران والفضاء",
+            "🚢 | Maritime Studies | لێکۆڵینەوەی دەریایی | الدراسات البحرية",
+            "🛢️ | Petroleum & Energy | نەوت و وزە | النفط والطاقة",
+            "⛏️ | Mining & Geosciences | کانزا و زانستی زەوی | التعدين وعلوم الأرض",
+            "🏗️ | Urban Planning | پلاندانانی شارستانی | التخطيط العمراني",
+            "🤖 | Artificial Intelligence & Robotics | ژیریی دەستکرد و ڕۆبۆتیک | الذكاء الاصطناعي والروبوتات",
+            "🔐 | Cybersecurity | ئاسایشی سایبەری | الأمن السيبراني",
+            "📚 | Library & Information Science | زانستی کتێبخانە و زانیاری | علم المكتبات والمعلومات",
+            "🌐 | International Studies & Diplomacy | لێکۆڵینەوەی نێودەوڵەتی و دیپلۆماسی | الدراسات الدولية والدبلوماسية",
+            "🧬 | Biotechnology | بایۆتەکنەلۆژیا | التقنية الحيوية",
+            "👶 | Social Work & Human Services | کاری کۆمەڵایەتی | الخدمة الاجتماعية"]),
         "reg_departments": "\n".join([
             "Medicine: General Medicine|پزیشکی گشتی|الطب العام",
             "Dentistry: Dentistry|ددانسازی|طب الأسنان",
@@ -544,7 +813,28 @@ def init_db():
             "Islamic Sciences: Islamic Studies|خوێندنە ئیسلامییەکان|الدراسات الإسلامية, Sharia|شەریعە|الشريعة, Usul al-Din|ئوسولی دین|أصول الدين",
             "Media & Communication: Journalism|ڕۆژنامەگەری|الصحافة, Media|ڕاگەیاندن|الإعلام, Public Relations|پەیوەندییە گشتییەکان|العلاقات العامة, Digital Media|میدیای دیجیتاڵ|الإعلام الرقمي",
             "Architecture: Architecture|تەلارسازی|العمارة, Interior Design|دیزاینی ناوەوە|التصميم الداخلي",
-            "Tourism: Tourism Management|کارگێڕی گەشتوگوزار|إدارة السياحة, Hotel Management|کارگێڕی هوتێل|إدارة الفنادق"]),
+            "Tourism: Tourism Management|کارگێڕی گەشتوگوزار|إدارة السياحة, Hotel Management|کارگێڕی هوتێل|إدارة الفنادق, Event Management|بەڕێوەبردنی بۆنە|إدارة الفعاليات, Culinary Arts|هونەری چێشتلێنان|فنون الطهي",
+            "Business & Management: Business Administration|کارگێڕی کار|إدارة الأعمال, International Business|بازرگانی نێودەوڵەتی|الأعمال الدولية, Human Resource Management|بەڕێوەبردنی سەرچاوە مرۆییەکان|إدارة الموارد البشرية, Supply Chain & Logistics|زنجیرەی دابینکردن و لۆجستیک|سلاسل التوريد واللوجستيات, Entrepreneurship|خۆبەڕێوەبەری|ريادة الأعمال, Project Management|بەڕێوەبردنی پڕۆژە|إدارة المشاريع, Digital Marketing|بازاڕدۆزی دیجیتاڵ|التسويق الرقمي",
+            "Finance & Banking: Banking|بانکداری|الصيرفة, Islamic Finance|دارایی ئیسلامی|التمويل الإسلامي, Investment & Portfolio Management|وەبەرهێنان|إدارة الاستثمار, Insurance & Risk|دڵنیایی و مەترسی|التأمين وإدارة المخاطر, Financial Technology (FinTech)|تەکنەلۆژیای دارایی|التقنية المالية, Auditing|پشکنینی ژمێریاری|التدقيق",
+            "Data Science & Analytics: Data Science|زانستی داتا|علم البيانات, Business Analytics|شیکاری بازرگانی|تحليلات الأعمال, Machine Learning|فێربوونی ئامێر|تعلم الآلة, Big Data Engineering|ئەندازیاری داتای گەورە|هندسة البيانات الضخمة, Bioinformatics|بایۆئینفۆرماتیک|المعلوماتية الحيوية",
+            "Psychology & Behavioural Sciences: Clinical Psychology|دەروونناسی کلینیکی|علم النفس السريري, Counselling Psychology|دەروونناسی ڕاوێژکاری|علم النفس الإرشادي, Educational Psychology|دەروونناسی پەروەردەیی|علم النفس التربوي, Cognitive Science|زانستی مەعریفی|العلوم المعرفية, Organisational Psychology|دەروونناسی ڕێکخراوەیی|علم النفس التنظيمي",
+            "Social Sciences: Sociology|کۆمەڵناسی|علم الاجتماع, Anthropology|مرۆڤناسی|الأنثروبولوجيا, Criminology|تاوانناسی|علم الجريمة, Demography|دانیشتووناسی|الديموغرافيا, Gender Studies|لێکۆڵینەوەی ڕەگەز|دراسات النوع الاجتماعي, Development Studies|لێکۆڵینەوەی گەشەپێدان|دراسات التنمية",
+            "Environmental Studies: Environmental Science|زانستی ژینگە|علوم البيئة, Climate Change|گۆڕانی کەشوهەوا|تغير المناخ, Renewable Energy|وزەی نوێبووەوە|الطاقة المتجددة, Water & Waste Management|بەڕێوەبردنی ئاو و پاشماوە|إدارة المياه والنفايات, Sustainability|بەردەوامی|الاستدامة",
+            "Public Health: Epidemiology|پەتاناسی|علم الأوبئة, Health Administration|کارگێڕی تەندروستی|الإدارة الصحية, Community Health|تەندروستی کۆمەڵگا|صحة المجتمع, Occupational Health & Safety|تەندروستی و سەلامەتی پیشەیی|الصحة والسلامة المهنية, Global Health|تەندروستی جیهانی|الصحة العالمية",
+            "Nutrition & Food Science: Human Nutrition|خۆراکی مرۆڤ|تغذية الإنسان, Dietetics|ڕژێمی خۆراک|علم الحميات, Food Technology|تەکنەلۆژیای خۆراک|تكنولوجيا الأغذية, Food Safety|سەلامەتی خۆراک|سلامة الغذاء",
+            "Film, Animation & Digital Media: Film Production|بەرهەمهێنانی فیلم|الإنتاج السينمائي, Animation|ئەنیمەیشن|الرسوم المتحركة, Motion Graphics|گرافیکی جوڵاو|الرسوم المتحركة الحركية, Game Design|دیزاینی یاری|تصميم الألعاب, Photography|وێنەگرتن|التصوير, Content Creation|دروستکردنی ناوەڕۆک|صناعة المحتوى",
+            "Music & Performing Arts: Music Performance|نمایشی مۆسیقا|الأداء الموسيقي, Music Production|بەرهەمهێنانی مۆسیقا|الإنتاج الموسيقي, Musicology|مۆسیقاناسی|علم الموسيقى, Dance|سەما|الرقص, Acting|ئەکتەری|التمثيل",
+            "Aviation & Aerospace: Aeronautical Engineering|ئەندازیاری فڕۆکەوانی|هندسة الطيران, Pilot Training|ڕاهێنانی فڕۆکەوان|تدريب الطيارين, Air Traffic Management|بەڕێوەبردنی هاتوچۆی ئاسمانی|إدارة الحركة الجوية, Aerospace Engineering|ئەندازیاری ئاسمانەوانی|هندسة الفضاء",
+            "Maritime Studies: Marine Engineering|ئەندازیاری دەریایی|الهندسة البحرية, Nautical Science|زانستی کەشتیوانی|علوم الملاحة, Port & Shipping Management|بەڕێوەبردنی بەندەر|إدارة الموانئ والشحن",
+            "Petroleum & Energy: Petroleum Engineering|ئەندازیاری نەوت|هندسة النفط, Reservoir Engineering|ئەندازیاری کۆگا|هندسة المكامن, Drilling Engineering|ئەندازیاری لێدان|هندسة الحفر, Gas Engineering|ئەندازیاری گاز|هندسة الغاز, Energy Systems|سیستەمی وزە|أنظمة الطاقة, Petrochemical Engineering|ئەندازیاری پیترۆکیمیا|الهندسة البتروكيماوية",
+            "Mining & Geosciences: Mining Engineering|ئەندازیاری کانزا|هندسة التعدين, Geophysics|جیۆفیزیا|الجيوفيزياء, Geotechnical Engineering|ئەندازیاری زەوی|الهندسة الجيوتقنية, Remote Sensing & GIS|هەستەوەری دوور و GIS|الاستشعار عن بعد ونظم المعلومات",
+            "Urban Planning: Urban Design|دیزاینی شارستانی|التصميم العمراني, Regional Planning|پلاندانانی هەرێمی|التخطيط الإقليمي, Transport Planning|پلاندانانی گواستنەوە|تخطيط النقل, Landscape Architecture|تەلارسازی دیمەن|هندسة المناظر الطبيعية",
+            "Artificial Intelligence & Robotics: Artificial Intelligence|ژیریی دەستکرد|الذكاء الاصطناعي, Robotics|ڕۆبۆتیک|الروبوتات, Computer Vision|بینینی کۆمپیوتەری|الرؤية الحاسوبية, Natural Language Processing|پرۆسێسکردنی زمانی سروشتی|معالجة اللغات الطبيعية, Autonomous Systems|سیستەمی خۆگەڕ|الأنظمة ذاتية القيادة",
+            "Cybersecurity: Network Security|ئاسایشی تۆڕ|أمن الشبكات, Digital Forensics|شوێنەواری دیجیتاڵ|الأدلة الجنائية الرقمية, Cryptography|شێوەنووسی|التشفير, Information Assurance|دڵنیایی زانیاری|ضمان المعلومات",
+            "Library & Information Science: Library Science|زانستی کتێبخانە|علم المكتبات, Archival Studies|لێکۆڵینەوەی ئەرشیف|الدراسات الأرشيفية, Knowledge Management|بەڕێوەبردنی زانیاری|إدارة المعرفة",
+            "International Studies & Diplomacy: International Relations|پەیوەندییە نێودەوڵەتییەکان|العلاقات الدولية, Diplomacy|دیپلۆماسی|الدبلوماسية, Peace & Conflict Studies|لێکۆڵینەوەی ئاشتی|دراسات السلام والنزاع, Middle East Studies|لێکۆڵینەوەی ڕۆژهەڵاتی ناوەڕاست|دراسات الشرق الأوسط, Kurdish Studies|کوردناسی|الدراسات الكردية",
+            "Biotechnology: Molecular Biology|زیندەزانی مۆلیکیولی|البيولوجيا الجزيئية, Genetic Engineering|ئەندازیاری بۆماوەیی|الهندسة الوراثية, Industrial Biotechnology|بایۆتەکنەلۆژیای پیشەسازی|التقنية الحيوية الصناعية, Medical Biotechnology|بایۆتەکنەلۆژیای پزیشکی|التقنية الحيوية الطبية",
+            "Social Work & Human Services: Social Work|کاری کۆمەڵایەتی|الخدمة الاجتماعية, Child & Family Services|خزمەتگوزاری منداڵ و خێزان|خدمات الطفل والأسرة, Community Development|گەشەپێدانی کۆمەڵگا|تنمية المجتمع, Rehabilitation|چاکسازی|إعادة التأهيل"]),
         "reg_jobs": "\n".join([
             "Teacher", "Lecturer", "Doctor", "Nurse", "Pharmacist", "Engineer",
             "Lawyer", "Judge", "Accountant", "Government Employee",
@@ -577,6 +867,77 @@ def init_db():
                       for l in row[0].split("\n") if l.strip()]
             db.execute("UPDATE settings SET value = ? WHERE key = ?",
                        ("\n".join(merged), k))
+
+    # ---- v7 upgrade: split universities into Kurdistan / Iraq / International,
+    # and top up colleges + departments with the new worldwide entries.
+    # Anything the admin added by hand is kept exactly as it is; entries we know
+    # (e.g. University of Vienna) are simply moved under the right heading.
+    def _en_of(line):
+        parts = [p.strip() for p in line.split("|")]
+        if parts and _looks_emoji(parts[0]):
+            parts = parts[1:]
+        return parts[0] if parts else ""
+
+    # region lookup built from our own defaults
+    _def_region, _cur = {}, "kurdistan"
+    for line in _REG_DEFAULTS["reg_universities"].split("\n"):
+        if line.startswith("#"):
+            _cur = line[1:].strip().lower()
+            continue
+        _def_region[_en_of(line).lower()] = _cur
+
+    row = db.execute("SELECT value FROM settings WHERE key='reg_universities'").fetchone()
+    if row and not any(l.startswith("#") for l in (row[0] or "").split("\n")):
+        buckets = {"kurdistan": [], "iraq": [], "international": []}
+        seen = set()
+        for line in (row[0] or "").split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            en = _en_of(line)
+            key = en.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            buckets[_def_region.get(key, "kurdistan")].append(line)
+        # append every default entry the admin does not have yet
+        _cur = "kurdistan"
+        for line in _REG_DEFAULTS["reg_universities"].split("\n"):
+            if line.startswith("#"):
+                _cur = line[1:].strip().lower()
+                continue
+            if _en_of(line).lower() not in seen:
+                buckets[_cur].append(line)
+                seen.add(_en_of(line).lower())
+        out = []
+        for reg in ("kurdistan", "iraq", "international"):
+            out.append("#" + reg)
+            out.extend(buckets[reg])
+        db.execute("UPDATE settings SET value=? WHERE key='reg_universities'",
+                   ("\n".join(out),))
+
+    # colleges: append any default college the admin is missing
+    row = db.execute("SELECT value FROM settings WHERE key='reg_colleges'").fetchone()
+    if row:
+        have = {_en_of(l).lower() for l in (row[0] or "").split("\n") if l.strip()}
+        extra = [l for l in _REG_DEFAULTS["reg_colleges"].split("\n")
+                 if _en_of(l).lower() not in have]
+        if extra:
+            db.execute("UPDATE settings SET value=? WHERE key='reg_colleges'",
+                       ("\n".join([l for l in (row[0] or "").split("\n") if l.strip()]
+                                  + extra),))
+    # departments: append any default college block the admin is missing
+    row = db.execute("SELECT value FROM settings WHERE key='reg_departments'").fetchone()
+    if row:
+        have = {l.split(":", 1)[0].strip().lower()
+                for l in (row[0] or "").split("\n") if ":" in l}
+        extra = [l for l in _REG_DEFAULTS["reg_departments"].split("\n")
+                 if ":" in l and l.split(":", 1)[0].strip().lower() not in have]
+        if extra:
+            db.execute("UPDATE settings SET value=? WHERE key='reg_departments'",
+                       ("\n".join([l for l in (row[0] or "").split("\n") if l.strip()]
+                                  + extra),))
+
     # generate the push-notification (VAPID) keypair once, keep it in settings
     if not db.execute("SELECT 1 FROM settings WHERE key = 'vapid_private'").fetchone():
         try:
@@ -2415,6 +2776,283 @@ for _l, _d in V26.items():
     T[_l].update(_d)
 
 
+# ---------------------------------------------------------------- v7 strings
+V27 = {
+    "en": {
+        "back": "Back",
+        "tutorial": "Tutorial",
+        "tut_title": "How to use the app",
+        "tut_sub": "A short walkthrough of everything you can do here.",
+        "tut_soon": "Coming soon",
+        "tut_soon_d": "The tutorial video is being recorded right now. Check back in a few days — it will appear here automatically.",
+        "tut_notify": "Got it",
+        # ---- statistics
+        "stats_t": "Statistics",
+        "stats_sub": "How our community is growing.",
+        "st_users": "Members",
+        "st_users_today": "Joined today",
+        "st_users_week": "Joined this week",
+        "st_users_month": "Joined this month",
+        "st_online": "Online now",
+        "st_active_week": "Active this week",
+        "st_posts": "Posts",
+        "st_posts_week": "Posts this week",
+        "st_comments": "Comments",
+        "st_groups": "Study groups",
+        "st_messages": "Messages sent",
+        "st_plans": "Plans created",
+        "st_done": "Plans finished",
+        "st_habits": "Habits tracked",
+        "st_notes": "Notes written",
+        "st_cards": "Flashcards made",
+        "st_study_days": "Study days logged",
+        "st_active_today": "Studied today",
+        "st_unis": "Universities represented",
+        "st_growth": "New members — last 14 days",
+        "st_top_unis": "Top universities",
+        "st_top_depts": "Top departments",
+        "st_by_level": "By education level",
+        "st_by_region": "By region",
+        "st_completion": "Completion rate",
+        "st_none": "Not enough data yet.",
+        "st_members": "members",
+        # ---- university region picker
+        "reg_q": "Where is your university?",
+        "reg_kurdistan": "Kurdistan",
+        "reg_iraq": "Iraq",
+        "reg_international": "International",
+        "reg_kurdistan_d": "Universities inside the Kurdistan Region",
+        "reg_iraq_d": "Universities elsewhere in Iraq",
+        "reg_international_d": "Universities outside Iraq",
+        # ---- degree history
+        "deg_bsc": "Bachelor's degree",
+        "deg_msc": "Master's degree",
+        "deg_phd": "PhD",
+        "deg_prof": "Current academic post",
+        "deg_bsc_d": "Where you finished your bachelor's.",
+        "deg_msc_d": "Where you finished (or are doing) your master's.",
+        "deg_phd_d": "Where you finished (or are doing) your PhD.",
+        "deg_prof_d": "Where you teach or research today.",
+        "deg_uni": "University",
+        "deg_college": "College / Faculty",
+        "deg_dept": "Department",
+        "prof_rank_l": "Academic title",
+        "edu_backfill": "Please add your degree details — it only takes a minute.",
+        # ---- posts
+        "sort_l": "Sort",
+        "sort_hot": "🔥 Top",
+        "sort_new": "🆕 Newest",
+        "sort_mixed": "🎲 Mixed",
+        "sort_old": "🕰 Oldest",
+        "trending_t": "Trending now",
+        "views_l": "views",
+        "hot_badge": "🔥 Hot",
+        "whats_on_mind": "What's on your mind?",
+        "post_photo": "Photo",
+        "post_all_comments": "View all {n} comments",
+        "post_like": "Like",
+        "post_comment": "Comment",
+        "post_share": "Share",
+        "post_copied": "Link copied",
+        "post_see_more": "… See more",
+        # ---- notification sound
+        "ntf_sound_l": "Notification sound",
+        "ntf_sound_h": "Pick the tone your phone plays for new messages and reminders.",
+        "ntf_test": "Play",
+        "snd_chime": "Chime", "snd_droplet": "Droplet", "snd_marimba": "Marimba",
+        "snd_pop": "Pop", "snd_rise": "Rise", "snd_pulse": "Pulse",
+        "snd_off": "Silent",
+        # ---- admin
+        "user_details": "User details",
+        "all_stored": "All stored fields",
+        "activity_l": "Activity",
+        "acct_l": "Account",
+        "education_l": "Education",
+        "open_l": "Open",
+        "tutorial_video_l": "Tutorial video URL (mp4)",
+        "tutorial_poster_l": "Tutorial poster image URL",
+    },
+    "ar": {
+        "back": "رجوع",
+        "tutorial": "الشرح",
+        "tut_title": "كيف تستخدم التطبيق",
+        "tut_sub": "جولة قصيرة على كل ما يمكنك فعله هنا.",
+        "tut_soon": "قريبًا",
+        "tut_soon_d": "يتم تسجيل فيديو الشرح الآن. عد بعد أيام قليلة — سيظهر هنا تلقائيًا.",
+        "tut_notify": "تمام",
+        "stats_t": "الإحصائيات",
+        "stats_sub": "كيف ينمو مجتمعنا.",
+        "st_users": "الأعضاء",
+        "st_users_today": "انضموا اليوم",
+        "st_users_week": "انضموا هذا الأسبوع",
+        "st_users_month": "انضموا هذا الشهر",
+        "st_online": "متصل الآن",
+        "st_active_week": "نشِط هذا الأسبوع",
+        "st_posts": "المنشورات",
+        "st_posts_week": "منشورات هذا الأسبوع",
+        "st_comments": "التعليقات",
+        "st_groups": "مجموعات الدراسة",
+        "st_messages": "الرسائل المرسلة",
+        "st_plans": "الخطط المُنشأة",
+        "st_done": "الخطط المنجزة",
+        "st_habits": "العادات المتابَعة",
+        "st_notes": "الملاحظات",
+        "st_cards": "البطاقات التعليمية",
+        "st_study_days": "أيام الدراسة المسجلة",
+        "st_active_today": "درسوا اليوم",
+        "st_unis": "الجامعات الممثَّلة",
+        "st_growth": "أعضاء جدد — آخر ١٤ يومًا",
+        "st_top_unis": "أكثر الجامعات",
+        "st_top_depts": "أكثر الأقسام",
+        "st_by_level": "حسب المستوى الدراسي",
+        "st_by_region": "حسب المنطقة",
+        "st_completion": "نسبة الإنجاز",
+        "st_none": "لا توجد بيانات كافية بعد.",
+        "st_members": "عضو",
+        "reg_q": "أين تقع جامعتك؟",
+        "reg_kurdistan": "كردستان",
+        "reg_iraq": "العراق",
+        "reg_international": "دولية",
+        "reg_kurdistan_d": "جامعات داخل إقليم كردستان",
+        "reg_iraq_d": "جامعات في باقي العراق",
+        "reg_international_d": "جامعات خارج العراق",
+        "deg_bsc": "شهادة البكالوريوس",
+        "deg_msc": "شهادة الماجستير",
+        "deg_phd": "الدكتوراه",
+        "deg_prof": "المنصب الأكاديمي الحالي",
+        "deg_bsc_d": "أين أنهيت البكالوريوس.",
+        "deg_msc_d": "أين أنهيت (أو تدرس) الماجستير.",
+        "deg_phd_d": "أين أنهيت (أو تدرس) الدكتوراه.",
+        "deg_prof_d": "أين تُدرّس أو تبحث اليوم.",
+        "deg_uni": "الجامعة",
+        "deg_college": "الكلية",
+        "deg_dept": "القسم",
+        "prof_rank_l": "اللقب العلمي",
+        "edu_backfill": "أضف تفاصيل شهاداتك — لن يستغرق سوى دقيقة.",
+        "sort_l": "الترتيب",
+        "sort_hot": "🔥 الأعلى",
+        "sort_new": "🆕 الأحدث",
+        "sort_mixed": "🎲 مختلط",
+        "sort_old": "🕰 الأقدم",
+        "trending_t": "الأكثر تفاعلًا",
+        "views_l": "مشاهدة",
+        "hot_badge": "🔥 رائج",
+        "whats_on_mind": "بماذا تفكر؟",
+        "post_photo": "صورة",
+        "post_all_comments": "عرض كل التعليقات ({n})",
+        "post_like": "إعجاب",
+        "post_comment": "تعليق",
+        "post_share": "مشاركة",
+        "post_copied": "تم نسخ الرابط",
+        "post_see_more": "… عرض المزيد",
+        "ntf_sound_l": "صوت الإشعار",
+        "ntf_sound_h": "اختر النغمة التي يشغّلها هاتفك للرسائل والتذكيرات.",
+        "ntf_test": "تشغيل",
+        "snd_chime": "جرس", "snd_droplet": "قطرة", "snd_marimba": "ماريمبا",
+        "snd_pop": "فقاعة", "snd_rise": "صعود", "snd_pulse": "نبضة",
+        "snd_off": "صامت",
+        "user_details": "تفاصيل المستخدم",
+        "all_stored": "كل الحقول المخزنة",
+        "activity_l": "النشاط",
+        "acct_l": "الحساب",
+        "education_l": "التعليم",
+        "open_l": "فتح",
+        "tutorial_video_l": "رابط فيديو الشرح (mp4)",
+        "tutorial_poster_l": "رابط صورة غلاف الشرح",
+    },
+    "ku": {
+        "back": "گەڕانەوە",
+        "tutorial": "ڕێنمایی",
+        "tut_title": "چۆن ئەپەکە بەکاربهێنیت",
+        "tut_sub": "گەشتێکی کورت بەناو هەموو ئەو شتانەی لێرە دەتوانیت بیکەیت.",
+        "tut_soon": "بەم زووانە",
+        "tut_soon_d": "ڤیدیۆی ڕێنمایی ئێستا تۆمار دەکرێت. چەند ڕۆژێکی تر بگەڕێوە — خۆکارانە لێرە دەردەکەوێت.",
+        "tut_notify": "باشە",
+        "stats_t": "ئامارەکان",
+        "stats_sub": "کۆمەڵگاکەمان چۆن گەشە دەکات.",
+        "st_users": "ئەندامان",
+        "st_users_today": "ئەمڕۆ بەشدارییان کرد",
+        "st_users_week": "ئەم هەفتەیە بەشدارییان کرد",
+        "st_users_month": "ئەم مانگە بەشدارییان کرد",
+        "st_online": "ئێستا سەرهێڵ",
+        "st_active_week": "ئەم هەفتەیە چالاک",
+        "st_posts": "پۆستەکان",
+        "st_posts_week": "پۆستی ئەم هەفتەیە",
+        "st_comments": "لێدوانەکان",
+        "st_groups": "گرووپی خوێندن",
+        "st_messages": "نامەی نێردراو",
+        "st_plans": "پلانی دروستکراو",
+        "st_done": "پلانی تەواوکراو",
+        "st_habits": "خووی چاودێریکراو",
+        "st_notes": "تێبینییەکان",
+        "st_cards": "فلاشکارتەکان",
+        "st_study_days": "ڕۆژی خوێندنی تۆمارکراو",
+        "st_active_today": "ئەمڕۆ خوێندوویانە",
+        "st_unis": "زانکۆی بەشداربوو",
+        "st_growth": "ئەندامی نوێ — ١٤ ڕۆژی ڕابردوو",
+        "st_top_unis": "بەرزترین زانکۆکان",
+        "st_top_depts": "بەرزترین بەشەکان",
+        "st_by_level": "بەپێی ئاستی خوێندن",
+        "st_by_region": "بەپێی ناوچە",
+        "st_completion": "ڕێژەی تەواوکردن",
+        "st_none": "هێشتا داتای پێویست نییە.",
+        "st_members": "ئەندام",
+        "reg_q": "زانکۆکەت لە کوێیە؟",
+        "reg_kurdistan": "کوردستان",
+        "reg_iraq": "عێراق",
+        "reg_international": "نێودەوڵەتی",
+        "reg_kurdistan_d": "زانکۆکانی هەرێمی کوردستان",
+        "reg_iraq_d": "زانکۆکانی باقی عێراق",
+        "reg_international_d": "زانکۆکانی دەرەوەی عێراق",
+        "deg_bsc": "بڕوانامەی بەکالۆریۆس",
+        "deg_msc": "بڕوانامەی ماستەر",
+        "deg_phd": "دکتۆرا",
+        "deg_prof": "پۆستی ئەکادیمی ئێستا",
+        "deg_bsc_d": "لە کوێ بەکالۆریۆست تەواو کرد.",
+        "deg_msc_d": "لە کوێ ماستەرت تەواو کرد (یان دەیخوێنیت).",
+        "deg_phd_d": "لە کوێ دکتۆراکەت تەواو کرد (یان دەیخوێنیت).",
+        "deg_prof_d": "ئێستا لە کوێ وانە دەڵێیتەوە یان توێژینەوە دەکەیت.",
+        "deg_uni": "زانکۆ",
+        "deg_college": "کۆلێژ",
+        "deg_dept": "بەش",
+        "prof_rank_l": "نازناوی زانستی",
+        "edu_backfill": "تکایە وردەکاری بڕوانامەکانت زیاد بکە — تەنها خولەکێک دەخایەنێت.",
+        "sort_l": "ڕیزکردن",
+        "sort_hot": "🔥 باشترین",
+        "sort_new": "🆕 نوێترین",
+        "sort_mixed": "🎲 تێکەڵ",
+        "sort_old": "🕰 کۆنترین",
+        "trending_t": "ئێستا بەرزە",
+        "views_l": "بینین",
+        "hot_badge": "🔥 گەرم",
+        "whats_on_mind": "بیر لە چی دەکەیتەوە؟",
+        "post_photo": "وێنە",
+        "post_all_comments": "بینینی هەموو {n} لێدوانەکە",
+        "post_like": "بەدڵمە",
+        "post_comment": "لێدوان",
+        "post_share": "هاوبەشی",
+        "post_copied": "لینکەکە کۆپی کرا",
+        "post_see_more": "… زیاتر ببینە",
+        "ntf_sound_l": "دەنگی ئاگادارکردنەوە",
+        "ntf_sound_h": "ئەو دەنگە هەڵبژێرە کە مۆبایلەکەت بۆ نامە و بیرخەرەوە لێی دەدات.",
+        "ntf_test": "لێدان",
+        "snd_chime": "زەنگ", "snd_droplet": "دڵۆپ", "snd_marimba": "مارێمبا",
+        "snd_pop": "بڵقە", "snd_rise": "بەرزبوونەوە", "snd_pulse": "لێدان",
+        "snd_off": "بێدەنگ",
+        "user_details": "وردەکاری بەکارهێنەر",
+        "all_stored": "هەموو خانە هەڵگیراوەکان",
+        "activity_l": "چالاکی",
+        "acct_l": "هەژمار",
+        "education_l": "خوێندن",
+        "open_l": "کردنەوە",
+        "tutorial_video_l": "بەستەری ڤیدیۆی ڕێنمایی (mp4)",
+        "tutorial_poster_l": "بەستەری وێنەی سەرەکی ڕێنمایی",
+    },
+}
+for _l, _d in V27.items():
+    T[_l].update(_d)
+
+
 USERNAME_RE = r"(?!\.)(?!.*\.\.)[A-Za-z0-9_.]{3,20}(?<!\.)"
 
 EDU_LEVELS = ("school", "bachelor", "bachelor_grad", "master", "phd", "professor", "graduate")
@@ -2442,8 +3080,13 @@ def tr(key):
 
 
 def get_settings():
+    """Settings are read on nearly every template — cache them per request."""
+    cached = getattr(g, "_settings", None)
+    if cached is not None:
+        return cached
     rows = get_db().execute("SELECT key, value FROM settings").fetchall()
-    return {r["key"]: r["value"] for r in rows}
+    g._settings = {r["key"]: r["value"] for r in rows}
+    return g._settings
 
 
 @app.context_processor
@@ -2487,7 +3130,10 @@ def inject_globals():
                 unread_notifs=unread_n, unread_dms=unread_d,
                 av=avatar_url, BADGES=BADGES, site_logo=logo,
                 sponsor_img=sponsor_img, fib_qr_img=fib_qr_img,
-                app_version=APP_VERSION, premium_enabled=PREMIUM_ENABLED)
+                app_version=APP_VERSION, premium_enabled=PREMIUM_ENABLED,
+                ntf_sounds=NTF_SOUNDS,
+                my_sound=((cu["ntf_sound"] if cu and cu["ntf_sound"] else "chime")
+                          if cu else "chime"))
 
 
 # ---------------------------------------------------------------- helpers
@@ -2546,9 +3192,17 @@ def force_complete_profile():
               "api_pings", "offline", "api_ai_stream", "api_review",
               "api_prompt_helper", "api_site_board") or ep.startswith("push_"):
         return
-    row = get_db().execute("SELECT profile_v FROM users WHERE id = ?",
-                           (uid,)).fetchone()
-    if row and (row["profile_v"] or 0) < 2:
+    row = get_db().execute(
+        "SELECT profile_v, edu_level, bsc_uni FROM users WHERE id = ?",
+        (uid,)).fetchone()
+    if row is None:
+        return
+    if (row["profile_v"] or 0) < 2:
+        return redirect(url_for("complete_profile"))
+    # v7: postgraduates who signed up before the degree-history step exists
+    # are asked once to fill in the new blanks.
+    if (row["edu_level"] in DEGREE_CHAIN and not (row["bsc_uni"] or "").strip()):
+        flash(tr("edu_backfill"), "info")
         return redirect(url_for("complete_profile"))
 
 
@@ -2587,11 +3241,14 @@ def complete_profile():
         db.execute("UPDATE users SET first_name=?, middle_name=?, last_name=?, "
                    "full_name=?, email=?, edu_level=?, institution=?, "
                    "school_level=?, grade=?, college=?, department=?, stage=?, "
-                   "job_title=?, college_kind=?, profile_v=2 WHERE id=?",
+                   "job_title=?, college_kind=?, uni_region=?, profile_v=3, "
+                   + "=?, ".join(DEGREE_FIELDS) + "=? WHERE id=?",
                    (first, middle, last, full, email, edu["edu_level"],
                     edu["institution"], edu["school_level"], edu["grade"],
                     edu["college"], edu["department"], edu["stage"],
-                    edu["job_title"], edu["college_kind"], uid))
+                    edu["job_title"], edu["college_kind"],
+                    edu.get("uni_region", ""))
+                   + tuple(edu.get(f, "") for f in DEGREE_FIELDS) + (uid,))
         db.commit()
         flash(tr("ok_saved"), "ok")
         return redirect(url_for("dashboard"))
@@ -2698,11 +3355,19 @@ def push_to_user(uid, kind, actor="", link=""):
     priv = s.get("vapid_private", "")
     if not priv:
         return
-    u = db.execute("SELECT lang FROM users WHERE id = ?", (uid,)).fetchone()
+    u = db.execute("SELECT lang, ntf_sound FROM users WHERE id = ?", (uid,)).fetchone()
     lang = (u["lang"] if u and u["lang"] else "en")
+    sound = (u["ntf_sound"] if u and u["ntf_sound"] else "chime")
+    # Chats and deadlines buzz harder and always re-alert; quieter kinds keep a
+    # gentle single pulse so the phone never feels spammy.
+    loud = kind in ("dm", "group_msg", "friend_req", "deadline", "overdue",
+                    "exam_soon", "duel_end")
     payload = {"title": f"{NOTIF_ICONS.get(kind, '🔔')} {s.get('site_name', 'KurdRoom')}",
                "body": push_text(lang, kind, actor),
-               "url": link or "/", "tag": kind}
+               "url": link or "/", "tag": kind, "kind": kind,
+               "sound": sound,
+               "loud": loud,
+               "vibrate": ([70, 45, 70, 45, 140] if loud else [55, 60, 55])}
     threading.Thread(target=_do_push, args=(subs, payload, priv),
                      daemon=True).start()
 
@@ -3097,30 +3762,71 @@ def _parse_opt(raw):
     return {"v": en, "ku": ku, "ar": ar, "e": e}
 
 
+# The three groups a university can belong to. The stored option list uses
+# "#kurdistan" / "#iraq" / "#international" heading lines to separate them.
+UNI_REGIONS = ("kurdistan", "iraq", "international")
+
+
 def reg_options_rich():
+    """Parse the admin-editable option lists. Cached for the whole request."""
+    cached = getattr(g, "_reg_rich", None)
+    if cached is not None:
+        return cached
     st = get_settings()
 
     def plist(key):
         out = []
         for line in (st.get(key) or "").split("\n"):
-            o = _parse_opt(line) if line.strip() else None
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            o = _parse_opt(line)
             if o:
                 out.append(o)
         return out
 
-    unis = plist("reg_universities")
+    # universities carry a region tag taken from the nearest "#region" heading
+    unis, region = [], "kurdistan"
+    for line in (st.get("reg_universities") or "").split("\n"):
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("#"):
+            tag = s[1:].strip().lower()
+            region = tag if tag in UNI_REGIONS else region
+            continue
+        o = _parse_opt(s)
+        if o:
+            o = dict(o, r=region)
+            unis.append(o)
+
     colleges = plist("reg_colleges")
     jobs = plist("reg_jobs")
     deps = {}
     for line in (st.get("reg_departments") or "").split("\n"):
-        if ":" in line:
+        if ":" in line and not line.lstrip().startswith("#"):
             c, rest = line.split(":", 1)
             co = _parse_opt(c)
             if not co:
                 continue
             deps[co["v"]] = [o for o in (_parse_opt(x) for x in rest.split(","))
                              if o]
-    return unis, colleges, deps, jobs
+    out = (unis, colleges, deps, jobs)
+    g._reg_rich = out
+    return out
+
+
+def uni_region(name):
+    """Which group a stored university name belongs to ('' when unknown)."""
+    if not name:
+        return ""
+    unis, _, _, _ = reg_options_rich()
+    for o in unis:
+        if o["v"] == name:
+            return o.get("r", "")
+    return ""
+
+
+app_uni_region = uni_region
 
 
 def reg_options():
@@ -3164,11 +3870,34 @@ def strong_pw(pw):
             and re.search(r"[a-z]", pw) and re.search(r"[0-9]", pw))
 
 
+# Which degree blocks each level has to fill in.
+#   master    -> bachelor + master
+#   phd       -> bachelor + master + PhD
+#   professor -> bachelor + master + PhD + the post they hold now
+DEGREE_CHAIN = {
+    "master": ("bsc", "msc"),
+    "phd": ("bsc", "msc", "phd"),
+    "professor": ("bsc", "msc", "phd", "prof"),
+}
+DEGREE_FIELDS = ("bsc_uni", "bsc_college", "bsc_dept",
+                 "msc_uni", "msc_college", "msc_dept",
+                 "phd_uni", "phd_college", "phd_dept",
+                 "prof_uni", "prof_college", "prof_dept", "prof_rank")
+PROF_RANKS = ("Assistant Lecturer", "Lecturer", "Assistant Professor",
+              "Associate Professor", "Professor", "Emeritus Professor",
+              "Researcher", "Head of Department", "Dean")
+
+
+def _blank_degrees():
+    return {f: "" for f in DEGREE_FIELDS}
+
+
 def parse_edu_wizard(form):
     """Validate the education step. Returns (data, ok)."""
     lvl = form.get("edu_level", "")
     d = dict(edu_level="", institution="", school_level="", grade="", college="",
-             department="", stage="", job_title="", college_kind="")
+             department="", stage="", job_title="", college_kind="",
+             uni_region="", **_blank_degrees())
     if lvl == "school":
         d["edu_level"] = "school"
         d["institution"] = form.get("school_name", "").strip()[:100]
@@ -3182,19 +3911,21 @@ def parse_edu_wizard(form):
             g = -1
         if not d["institution"] or not rng or not rng[0] <= g <= rng[1]:
             return d, False
-    elif lvl in ("university", "bachelor", "master", "phd", "professor"):
+    elif lvl in ("university", "bachelor"):
         d["edu_level"] = {"university": "bachelor",
-                          "bachelor": "bachelor_grad"}.get(lvl, lvl)
+                          "bachelor": "bachelor_grad"}[lvl]
         unis, colleges, deps, _ = reg_options()
         d["institution"] = form.get("university", "").strip()[:120]
         kind = form.get("college_kind", "")
         d["college_kind"] = kind
         if d["institution"] not in unis or kind not in ("college", "institute"):
             return d, False
+        d["uni_region"] = uni_region(d["institution"])
         if kind == "college":
             d["college"] = form.get("college", "").strip()[:120]
             d["department"] = form.get("department", "").strip()[:120]
-            if d["college"] not in colleges or                     d["department"] not in deps.get(d["college"], []):
+            if d["college"] not in colleges or \
+                    d["department"] not in deps.get(d["college"], []):
                 return d, False
         else:
             d["college"] = form.get("institute_name", "").strip()[:120]
@@ -3205,6 +3936,30 @@ def parse_edu_wizard(form):
             d["stage"] = form.get("stage", "").strip()[:40]
             if not d["stage"]:
                 return d, False
+    elif lvl in ("master", "phd", "professor"):
+        # Postgraduates describe their whole academic path: every degree they
+        # hold, each with its university, college and department.
+        d["edu_level"] = lvl
+        d["college_kind"] = "college"
+        unis, colleges, deps, _ = reg_options()
+        for step in DEGREE_CHAIN[lvl]:
+            u = form.get(step + "_uni", "").strip()[:120]
+            c = form.get(step + "_college", "").strip()[:120]
+            dep = form.get(step + "_dept", "").strip()[:120]
+            if u not in unis or c not in colleges or dep not in deps.get(c, []):
+                return d, False
+            d[step + "_uni"], d[step + "_college"], d[step + "_dept"] = u, c, dep
+        if lvl == "professor":
+            rank = form.get("prof_rank", "").strip()[:60]
+            if rank not in PROF_RANKS:
+                return d, False
+            d["prof_rank"] = rank
+        # the newest degree is also the "current" institution shown on profiles
+        top = DEGREE_CHAIN[lvl][-1]
+        d["institution"] = d[top + "_uni"]
+        d["college"] = d[top + "_college"]
+        d["department"] = d[top + "_dept"]
+        d["uni_region"] = uni_region(d["institution"])
     elif lvl == "others":
         d["edu_level"] = "graduate"
         _, _, _, jobs = reg_options()
@@ -3224,10 +3979,16 @@ def _wizard_ctx():
         return [{"v": o["v"], "l": o.get(lang) or o["v"], "e": o["e"]}
                 for o in lst]
 
-    return dict(unis=pack(unis), colleges=pack(colleges),
+    # universities split into the three groups the picker asks about first
+    uni_groups = {r: pack([o for o in unis if o.get("r", "kurdistan") == r])
+                  for r in UNI_REGIONS}
+    return dict(unis=pack(unis), uni_groups=uni_groups,
+                uni_region_of={o["v"]: o.get("r", "kurdistan") for o in unis},
+                colleges=pack(colleges),
                 deps={k: pack(v) for k, v in deps.items()}, jobs=pack(jobs),
                 uni_vals=[o["v"] for o in unis],
-                job_vals=[o["v"] for o in jobs])
+                job_vals=[o["v"] for o in jobs],
+                prof_ranks=list(PROF_RANKS))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -3296,14 +4057,18 @@ def _create_user_from_pending(p, verified):
             "INSERT INTO users(username, password_hash, created_at, full_name, "
             "email, first_name, middle_name, last_name, edu_level, institution, "
             "school_level, grade, college, department, stage, job_title, "
-            "college_kind, email_verified, profile_v, lang) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "college_kind, email_verified, profile_v, lang, uni_region, "
+            + ", ".join(DEGREE_FIELDS) + ") "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
+            + ",?" * len(DEGREE_FIELDS) + ")",
             (p["username"], p["pw_hash"],
              datetime.utcnow().isoformat(timespec="seconds"), full, p["email"],
              p["first"], p["middle"], p["last"], p["edu_level"], p["institution"],
              p["school_level"], p["grade"], p["college"], p["department"],
              p["stage"], p["job_title"], p["college_kind"],
-             1 if verified else 0, 2, session.get("lang", "en")))
+             1 if verified else 0, 3, session.get("lang", "en"),
+             p.get("uni_region", ""))
+            + tuple(p.get(f, "") for f in DEGREE_FIELDS))
     except sqlite3.IntegrityError:
         flash(tr("err_user_exists"), "error")
         return redirect(url_for("register"))
@@ -4130,15 +4895,19 @@ def profile():
         db.execute("UPDATE users SET first_name=?, middle_name=?, last_name=?, "
                    "full_name=?, email=?, bio=?, edu_level=?, institution=?, "
                    "school_level=?, grade=?, college=?, department=?, stage=?, "
-                   "job_title=?, college_kind=?, is_private=?, allow_dm_all=? "
-                   "WHERE id=?",
+                   "job_title=?, college_kind=?, is_private=?, allow_dm_all=?, "
+                   "uni_region=?, ntf_sound=?, "
+                   + "=?, ".join(DEGREE_FIELDS) + "=? WHERE id=?",
                    (first, middle, last, full, email,
                     f.get("bio", "").strip()[:300], edu["edu_level"],
                     edu["institution"], edu["school_level"], edu["grade"],
                     edu["college"], edu["department"], edu["stage"],
                     edu["job_title"], edu["college_kind"],
                     1 if f.get("is_private") else 0,
-                    1 if f.get("allow_dm_all") else 0, uid))
+                    1 if f.get("allow_dm_all") else 0,
+                    edu.get("uni_region", ""),
+                    (f.get("ntf_sound") or "chime")[:20])
+                   + tuple(edu.get(x, "") for x in DEGREE_FIELDS) + (uid,))
         # optional username change (must stay unique, same rules as registration)
         new_un = request.form.get("username", "").strip()
         if new_un and new_un != current_user()["username"]:
@@ -5630,6 +6399,22 @@ def api_pings():
     return out
 
 
+@app.route("/prefs/ntf_sound", methods=["POST"])
+@login_required
+def prefs_ntf_sound():
+    """Pick which alert tone this account plays."""
+    s = (request.form.get("sound") or request.json and
+         request.json.get("sound") or "").strip()
+    if s not in NTF_SOUNDS + ("off",):
+        s = "chime"
+    db = get_db()
+    db.execute("UPDATE users SET ntf_sound = ? WHERE id = ?", (s, session["user_id"]))
+    db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return {"ok": True, "sound": s}
+    return redirect(request.referrer or url_for("profile"))
+
+
 _transcode_lock = threading.Lock()
 
 
@@ -5701,31 +6486,69 @@ def dm_file(msg_id):
 POST_CATS = ["research", "science", "tech", "ai", "other"]
 
 
+POST_SORTS = ("hot", "new", "mixed", "old")
+# A post is "hot" (worth showing on the public wall) once enough people
+# reacted to it. Likes count double, comments count triple — a conversation
+# is a stronger signal than a tap.
+HOT_THRESHOLD = 6
+
+
+def _post_score(likes, comments, views):
+    return likes * 2 + comments * 3 + (views or 0) // 10
+
+
 @app.route("/posts")
 @login_required
 def posts():
     db = get_db()
     uid = session["user_id"]
     cat = request.args.get("cat", "")
+    sort = request.args.get("sort", "hot")
+    if sort not in POST_SORTS:
+        sort = "hot"
     where, args = "", []
     if cat in POST_CATS:
         where, args = "WHERE p.category = ?", [cat]
     rows = db.execute(
-        f"SELECT p.*, u.username, u.full_name, "
+        f"SELECT p.id, p.user_id, p.title, p.content, p.category, p.image, "
+        f"p.created_at, p.views, u.username, u.full_name, "
         f"(SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes, "
         f"(SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS mine, "
         f"(SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS n_comments "
         f"FROM posts p JOIN users u ON u.id = p.user_id {where} "
-        f"ORDER BY p.id DESC LIMIT 60", [uid] + args).fetchall()
+        f"ORDER BY p.id DESC LIMIT 200", [uid] + args).fetchall()
+
     items = []
     for p in rows:
         comments = db.execute(
             "SELECT c.*, u.username FROM post_comments c JOIN users u ON u.id = c.user_id "
-            "WHERE c.post_id = ? ORDER BY c.id", (p["id"],)).fetchall()
+            "WHERE c.post_id = ? ORDER BY c.id LIMIT 30", (p["id"],)).fetchall()
+        score = _post_score(p["likes"], p["n_comments"], p["views"])
         items.append(dict(p, comments=comments,
-                          level=user_xp(p["user_id"])["level"]))
+                          level=user_xp(p["user_id"])["level"],
+                          score=score, hot=score >= HOT_THRESHOLD))
+
+    if sort == "new":
+        items.sort(key=lambda p: p["id"], reverse=True)
+    elif sort == "old":
+        items.sort(key=lambda p: p["id"])
+    elif sort == "hot":
+        items.sort(key=lambda p: (p["score"], p["id"]), reverse=True)
+    else:                                   # mixed: busiest first, then freshest
+        newest = max([p["id"] for p in items] or [1])
+        items.sort(key=lambda p: p["score"] + (p["id"] / newest) * 4, reverse=True)
+
+    items = items[:60]
+    trending = sorted([p for p in items if p["hot"]],
+                      key=lambda p: p["score"], reverse=True)[:3]
+    # count one view per post that actually reaches the screen
+    if items:
+        db.executemany("UPDATE posts SET views = COALESCE(views,0) + 1 WHERE id = ?",
+                       [(p["id"],) for p in items])
+        db.commit()
     return render_template("posts.html", user=current_user(), posts=items, cat=cat,
-                           cats=POST_CATS)
+                           cats=POST_CATS, sort=sort, sorts=POST_SORTS,
+                           trending=trending)
 
 
 @app.route("/post/create", methods=["POST"])
@@ -6980,12 +7803,6 @@ WORKSPACE_TOOLS = {
                "grammar, structure and academic tone while keeping their meaning and voice. Then "
                "list the main changes and one improvement tip. If they ask for an outline or "
                "essay help, provide it."),
-    "lang_translate": dict(icon="🌐", name="Academic Translator",
-        desc="Accurate, polished translation with word-choice notes.",
-        ph="Paste the text and say which language to translate to…",
-        system="You are an academic translator. Translate the text the student provides into the "
-               "language they ask for (English by default) with accurate, polished academic "
-               "style. After the translation, add 2–3 short notes on tricky word choices."),
     "lang_ielts": dict(icon="🎯", name="IELTS / TOEFL Coach",
         desc="Band feedback, practice questions and model answers.",
         ph="Paste your writing for scoring, or ask for practice…",
@@ -7179,8 +7996,6 @@ WS_TR = {
                       "ku": {"name": "دروستکەری وۆرکشیت", "desc": "وۆرکشیتی ئامادەی چاپ لەگەڵ کلیلی وەڵام.", "ph": "بابەت و ئاستەکە بنووسە…"}},
     "lang_write": {"ar": {"name": "تحسين الكتابة الأكاديمية", "desc": "تحسين الوضوح والقواعد والبنية والأسلوب.", "ph": "الصق نصك أو صف ما تحتاجه…"},
                    "ku": {"name": "ڕازاندنەوەی نووسینی ئەکادیمی", "desc": "باشترکردنی ڕوونی، ڕێزمان، پێکهاتە و شێواز.", "ph": "دەقەکەت دابنێ یان پێویستیت باس بکە…"}},
-    "lang_translate": {"ar": {"name": "المترجم الأكاديمي", "desc": "ترجمة دقيقة ومصقولة مع ملاحظات المفردات.", "ph": "الصق النص وحدّد لغة الترجمة…"},
-                       "ku": {"name": "وەرگێڕی ئەکادیمی", "desc": "وەرگێڕانی وردی جوانکراو لەگەڵ تێبینی وشە.", "ph": "دەقەکە دابنێ و زمانی وەرگێڕان دیاری بکە…"}},
     "lang_ielts": {"ar": {"name": "مدرّب IELTS/TOEFL", "desc": "تقييم بالباند وأسئلة تدريب وإجابات نموذجية.", "ph": "الصق كتابتك للتقييم أو اطلب تدريبًا…"},
                    "ku": {"name": "ڕاهێنەری IELTS/TOEFL", "desc": "هەڵسەنگاندنی باند، پرسیاری ڕاهێنان و وەڵامی نموونە.", "ph": "نووسینەکەت بۆ هەڵسەنگاندن دابنێ یان داوای ڕاهێنان بکە…"}},
 }
@@ -7242,7 +8057,7 @@ WORKSPACE_DEPTS = [
          tools=["edu_lesson", "edu_worksheet"]),
     dict(id="lang", icon="🌐",
          name=dict(en="Languages & Translation", ar="اللغات والترجمة", ku="زمان و وەرگێڕان"),
-         tools=["lang_write", "lang_translate", "lang_ielts"]),
+         tools=["lang_write", "lang_ielts"]),
 ]
 
 
@@ -7302,6 +8117,135 @@ def workspace_tool(tool_id):
     configured = bool((get_settings().get("ai_api_key") or "").strip())
     return render_template("workspace_tool.html", user=current_user(),
                            tool_id=tool_id, tw=meta, configured=configured)
+
+
+# ================================================================ downloads
+# Every "Download" button in the app funnels through here. Fetching the file
+# server-side and returning it with Content-Disposition: attachment means the
+# browser saves it straight to the device instead of opening a share sheet or
+# navigating away to the image (the old bug).
+DL_HOSTS = ("image.pollinations.ai", "pollinations.ai",
+            "replicate.delivery", "pbxt.replicate.delivery",
+            "replicate.com", "oaidalleapiprodscus.blob.core.windows.net")
+
+
+def _safe_dl_name(name, fallback="kurdroom"):
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "")).strip("._") or fallback
+    return name[:80]
+
+
+@app.route("/dl")
+@login_required
+def download_proxy():
+    """?u=<remote url>&n=<file name> -> the bytes, as a real file download."""
+    from urllib.parse import urlparse
+    import urllib.request
+    url = request.args.get("u", "")
+    name = _safe_dl_name(request.args.get("n", ""), "kurdroom.jpg")
+    try:
+        p = urlparse(url)
+    except ValueError:
+        abort(400)
+    if p.scheme not in ("http", "https") or p.hostname not in DL_HOSTS:
+        abort(400)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "KurdRoom/7"})
+        with urllib.request.urlopen(req, timeout=45) as r:
+            data = r.read(25 * 1024 * 1024)
+            ctype = r.headers.get("Content-Type", "application/octet-stream")
+    except Exception:
+        abort(502)
+    if "." not in name:
+        ext = {"image/png": ".png", "image/webp": ".webp",
+               "image/gif": ".gif"}.get(ctype.split(";")[0].strip(), ".jpg")
+        name += ext
+    return Response(data, mimetype=ctype, headers={
+        "Content-Disposition": f'attachment; filename="{name}"',
+        "Content-Length": str(len(data)),
+        "Cache-Control": "private, max-age=600",
+    })
+
+
+# ================================================================ statistics
+def _iso_days_ago(n):
+    return (datetime.utcnow() - _td(days=n)).isoformat(timespec="seconds")
+
+
+@app.route("/stats")
+@login_required
+def stats_page():
+    """Simple, honest community numbers everyone can see."""
+    db = get_db()
+    one = lambda q, a=(): db.execute(q, a).fetchone()[0]      # noqa: E731
+    day, week, month = _iso_days_ago(1), _iso_days_ago(7), _iso_days_ago(30)
+    today = date.today().isoformat()
+
+    totals = dict(
+        users=one("SELECT COUNT(*) FROM users"),
+        users_today=one("SELECT COUNT(*) FROM users WHERE created_at >= ?", (day,)),
+        users_week=one("SELECT COUNT(*) FROM users WHERE created_at >= ?", (week,)),
+        users_month=one("SELECT COUNT(*) FROM users WHERE created_at >= ?", (month,)),
+        online=one("SELECT COUNT(*) FROM users WHERE last_seen >= ?",
+                   ((datetime.utcnow() - _td(minutes=5))
+                    .isoformat(timespec="seconds"),)),
+        active_week=one("SELECT COUNT(*) FROM users WHERE last_seen >= ?", (week,)),
+        posts=one("SELECT COUNT(*) FROM posts"),
+        posts_week=one("SELECT COUNT(*) FROM posts WHERE created_at >= ?", (week,)),
+        comments=one("SELECT COUNT(*) FROM post_comments"),
+        groups=one("SELECT COUNT(*) FROM groups"),
+        messages=one("SELECT COUNT(*) FROM group_messages") +
+                 one("SELECT COUNT(*) FROM dms"),
+        plans=one("SELECT COUNT(*) FROM plans"),
+        plans_done=one("SELECT COUNT(*) FROM plans WHERE done = 1"),
+        habits=one("SELECT COUNT(*) FROM habits"),
+        notes=one("SELECT COUNT(*) FROM notes"),
+        flashcards=one("SELECT COUNT(*) FROM flashcards"),
+        study_days=one("SELECT COUNT(*) FROM activity"),
+        active_today=one("SELECT COUNT(*) FROM activity WHERE day = ?", (today,)),
+        universities=one("SELECT COUNT(DISTINCT institution) FROM users "
+                         "WHERE institution != ''"),
+    )
+    totals["done_pct"] = (round(totals["plans_done"] * 100 / totals["plans"])
+                          if totals["plans"] else 0)
+
+    top_unis = db.execute(
+        "SELECT institution AS name, COUNT(*) AS n FROM users "
+        "WHERE institution != '' GROUP BY institution ORDER BY n DESC, name LIMIT 8"
+    ).fetchall()
+    top_depts = db.execute(
+        "SELECT department AS name, COUNT(*) AS n FROM users "
+        "WHERE department != '' GROUP BY department ORDER BY n DESC, name LIMIT 8"
+    ).fetchall()
+    by_level = db.execute(
+        "SELECT edu_level AS name, COUNT(*) AS n FROM users "
+        "WHERE edu_level != '' GROUP BY edu_level ORDER BY n DESC").fetchall()
+    by_region = db.execute(
+        "SELECT uni_region AS name, COUNT(*) AS n FROM users "
+        "WHERE uni_region != '' GROUP BY uni_region ORDER BY n DESC").fetchall()
+
+    # sign-ups per day for the last 14 days (small sparkline on the page)
+    growth = []
+    for i in range(13, -1, -1):
+        d = (date.today() - _td(days=i)).isoformat()
+        growth.append(dict(day=d, n=one(
+            "SELECT COUNT(*) FROM users WHERE substr(created_at,1,10) = ?", (d,))))
+    peak = max([g["n"] for g in growth] + [1])
+    for gr in growth:
+        gr["pct"] = round(gr["n"] * 100 / peak)
+
+    return render_template("stats.html", user=current_user(), s=totals,
+                           top_unis=top_unis, top_depts=top_depts,
+                           by_level=by_level, by_region=by_region, growth=growth)
+
+
+# ================================================================ tutorial
+@app.route("/tutorial")
+@login_required
+def tutorial():
+    st = get_settings()
+    return render_template("tutorial.html", user=current_user(),
+                           video=(st.get("tutorial_video_url") or "").strip(),
+                           poster=(st.get("tutorial_poster_url") or "").strip())
 
 
 # ---------------------------------------------------------------- SEO
@@ -7378,6 +8322,51 @@ def admin_users():
     return render_template("admin_users.html", user=current_user(), users=users)
 
 
+@app.route("/admin/user/<int:user_id>")
+@admin_required
+def admin_user_detail(user_id):
+    """Everything the database knows about one account, on one page."""
+    db = get_db()
+    u = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if u is None:
+        abort(404)
+    def one(q, args=None):
+        return db.execute(q, args if args is not None else (user_id,)).fetchone()[0]
+
+    counts = dict(
+        plans=one("SELECT COUNT(*) FROM plans WHERE user_id = ?"),
+        plans_done=one("SELECT COUNT(*) FROM plans WHERE user_id = ? AND done = 1"),
+        habits=one("SELECT COUNT(*) FROM habits WHERE user_id = ?"),
+        notes=one("SELECT COUNT(*) FROM notes WHERE user_id = ?"),
+        posts=one("SELECT COUNT(*) FROM posts WHERE user_id = ?"),
+        comments=one("SELECT COUNT(*) FROM post_comments WHERE user_id = ?"),
+        exams=one("SELECT COUNT(*) FROM exams WHERE user_id = ?"),
+        homework=one("SELECT COUNT(*) FROM homework WHERE user_id = ?"),
+        flashcards=one("SELECT COUNT(*) FROM flashcards WHERE user_id = ?"),
+        dms_sent=one("SELECT COUNT(*) FROM dms WHERE from_id = ?"),
+        group_msgs=one("SELECT COUNT(*) FROM group_messages WHERE user_id = ?"),
+        groups=one("SELECT COUNT(*) FROM group_members WHERE user_id = ?"),
+        friends=one("SELECT COUNT(*) FROM friendships WHERE (from_id = ? "
+                    "OR to_id = ?) AND status='accepted'", (user_id, user_id)),
+        active_days=one("SELECT COUNT(*) FROM activity WHERE user_id = ?"),
+        devices=one("SELECT COUNT(*) FROM push_subs WHERE user_id = ?"),
+    )
+    groups = db.execute(
+        "SELECT g.id, g.name FROM group_members m JOIN groups g ON g.id = m.group_id "
+        "WHERE m.user_id = ? ORDER BY g.name", (user_id,)).fetchall()
+    recent_posts = db.execute(
+        "SELECT id, title, category, created_at FROM posts WHERE user_id = ? "
+        "ORDER BY id DESC LIMIT 10", (user_id,)).fetchall()
+    # every stored column, so nothing is hidden from the admin
+    raw = {k: u[k] for k in u.keys() if k not in ("password_hash",)}
+    return render_template("admin_user.html", user=current_user(), u=u,
+                           counts=counts, groups=groups, raw=raw,
+                           recent_posts=recent_posts, xpinfo=user_xp(user_id),
+                           streak=user_streak(user_id),
+                           badges=user_badges(user_id),
+                           degree_fields=DEGREE_FIELDS)
+
+
 @app.route("/admin/feedback")
 @admin_required
 def admin_feedback():
@@ -7412,12 +8401,14 @@ def admin_settings():
               "social_facebook", "social_website", "social_email", "plus_phone",
               "smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from",
               "reg_universities", "reg_colleges", "reg_departments", "reg_jobs",
-              "cofounders"]
+              "cofounders", "tutorial_video_url", "tutorial_poster_url"]
     for f in fields:
         if f in request.form:
             db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                        (f, request.form[f].strip()))
+    g._settings = None          # drop the per-request cache so the reload is fresh
+    g._reg_rich = None
     for flag in ("allow_registration", "sponsor_enabled"):
         db.execute("INSERT INTO settings(key,value) VALUES(?,?) "
                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -7798,6 +8789,41 @@ def _reminder_loop():
 
 
 threading.Thread(target=_reminder_loop, daemon=True).start()
+
+
+# ================================================================ speed
+@app.after_request
+def _speed_headers(resp):
+    """Cache fonts/icons/sounds hard, keep pages fresh, and always compress
+    what the browser will accept. Repeat visits load almost instantly."""
+    p = request.path
+    if p.startswith("/static/") and p not in ("/static/manifest.json",
+                                              "/static/sw.js"):
+        long_lived = p.endswith((".otf", ".ttf", ".woff", ".woff2", ".png",
+                                 ".jpg", ".jpeg", ".webp", ".svg", ".wav",
+                                 ".mp3", ".ico"))
+        # Flask already put its own "no-cache" here, so overwrite rather than
+        # setdefault — otherwise fonts and icons are re-validated on every load
+        # and the app feels slow on a phone connection.
+        resp.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if long_lived
+            else "public, max-age=3600")
+        resp.headers.pop("Expires", None)
+    elif p in ("/sw.js", "/static/manifest.json"):
+        resp.headers["Cache-Control"] = "no-cache"
+    elif resp.mimetype == "text/html":
+        resp.headers.setdefault("Cache-Control", "no-cache, private")
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    return resp
+
+
+try:                       # gzip every text response when the client allows it
+    from flask_compress import Compress
+    Compress(app)
+except Exception:
+    pass
+
+_build_notification_sounds()
 
 
 if __name__ == "__main__":

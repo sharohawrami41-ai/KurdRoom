@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .sgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    gap:12px; margin-bottom:18px; }
+  .scard { position:relative; overflow:hidden; background:var(--card);
+    border:1px solid var(--card-border); border-radius:18px; padding:16px 14px;
+    text-align:center; }
+  .scard::before { content:""; position:absolute; inset-inline:0; top:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent); opacity:.8; }
+  .scard .n { font-size:1.75rem; font-weight:800; color:var(--accent);
+    font-variant-numeric:tabular-nums; line-height:1.1; }
+  .scard .l { font-size:.72rem; color:var(--muted); margin-top:4px; }
+  .scard .ic { font-size:1rem; opacity:.9; }
+  .scard.hero .n { font-size:2.5rem;
+    background:linear-gradient(90deg, var(--accent), #e879f9, #38bdf8, var(--accent));
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text;
+    color:transparent; animation:brandShine 6s linear infinite; }
+  .live { display:inline-flex; align-items:center; gap:6px; }
+  .live i { width:8px; height:8px; border-radius:50%; background:#22c55e;
+    box-shadow:0 0 0 0 rgba(34,197,94,.6); animation:softPulse 2s ease-in-out infinite; }
+  .hbar { display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .hbar .lb { flex:1 1 0; min-width:0; font-size:.78rem; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+  .hbar .tr { flex:1.2 1 0; height:14px; border-radius:99px; background:var(--input-bg);
+    overflow:hidden; min-width:60px; }
+  /* the width is rendered by the server, so a bar is never blank; the grow is
+     a pure-CSS scale so it works even before any script runs */
+  .hbar .fl { height:100%; border-radius:99px;
+    background:linear-gradient(90deg, var(--accent), #a855f7);
+    transform-origin:left center;
+    animation: barGrow .9s cubic-bezier(.22,.9,.36,1) both; }
+  [dir="rtl"] .hbar .fl { transform-origin:right center; }
+  @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .hbar .nn { min-width:36px; font-size:.76rem; color:var(--muted); text-align:end;
+    font-variant-numeric:tabular-nums; }
+  .growrow { display:flex; align-items:flex-end; gap:5px; height:120px; margin-top:12px; }
+  .growcol { flex:1; min-width:0; display:flex; flex-direction:column;
+    align-items:center; gap:4px; }
+  .growcol .gb { width:100%; max-width:26px; border-radius:7px 7px 3px 3px;
+    background:linear-gradient(180deg, #a855f7, var(--accent));
+    transform-origin:bottom center;
+    animation: colGrow .8s cubic-bezier(.22,.9,.36,1) both; }
+  @keyframes colGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .growcol .gl { font-size:.55rem; color:var(--muted); white-space:nowrap; }
+  .growcol .gn { font-size:.66rem; font-weight:800; color:var(--accent); }
+  @media (max-width:560px) {
+    .growcol .gl { transform:rotate(-60deg); transform-origin:center; }
+    .growrow { height:140px; }
+  }
+</style>
+
+<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0 6px">
+  <h2 style="font-size:1.4rem">📊 {{ t('stats_t') }}</h2>
+  <span class="live" style="margin-inline-start:auto; font-size:.78rem; color:var(--muted)">
+    <i></i> {{ s.online }} {{ t('st_online') }}</span>
+</div>
+<div class="hint" style="display:block; margin-bottom:16px">{{ t('stats_sub') }}</div>
+
+<div class="sgrid">
+  <div class="scard hero kr-reveal">
+    <div class="ic">👥</div><div class="n" data-count="{{ s.users }}">{{ s.users }}</div>
+    <div class="l">{{ t('st_users') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">🌅</div>
+    <div class="n" data-count="{{ s.users_today }}">{{ s.users_today }}</div>
+    <div class="l">{{ t('st_users_today') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">📅</div>
+    <div class="n" data-count="{{ s.users_week }}">{{ s.users_week }}</div>
+    <div class="l">{{ t('st_users_week') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">🗓</div>
+    <div class="n" data-count="{{ s.users_month }}">{{ s.users_month }}</div>
+    <div class="l">{{ t('st_users_month') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">⚡</div>
+    <div class="n" data-count="{{ s.active_week }}">{{ s.active_week }}</div>
+    <div class="l">{{ t('st_active_week') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">🎓</div>
+    <div class="n" data-count="{{ s.universities }}">{{ s.universities }}</div>
+    <div class="l">{{ t('st_unis') }}</div></div>
+</div>
+
+<div class="card kr-reveal" style="margin-bottom:18px">
+  <h2>📈 {{ t('st_growth') }}</h2>
+  <div class="hint"></div>
+  <div class="growrow">
+    {% for g in growth %}
+    <div class="growcol">
+      <span class="gn">{{ g.n if g.n else '' }}</span>
+      <div class="gb" style="height:{{ [(g.pct * 1.1)|round(0)|int, 4]|max }}px"></div>
+      <span class="gl" dir="ltr">{{ g.day[5:] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="sgrid">
+  <div class="scard kr-reveal"><div class="ic">📰</div>
+    <div class="n" data-count="{{ s.posts }}">{{ s.posts }}</div>
+    <div class="l">{{ t('st_posts') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">🆕</div>
+    <div class="n" data-count="{{ s.posts_week }}">{{ s.posts_week }}</div>
+    <div class="l">{{ t('st_posts_week') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">💬</div>
+    <div class="n" data-count="{{ s.comments }}">{{ s.comments }}</div>
+    <div class="l">{{ t('st_comments') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">👨‍👩‍👧</div>
+    <div class="n" data-count="{{ s.groups }}">{{ s.groups }}</div>
+    <div class="l">{{ t('st_groups') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">✉️</div>
+    <div class="n" data-count="{{ s.messages }}">{{ s.messages }}</div>
+    <div class="l">{{ t('st_messages') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">📚</div>
+    <div class="n" data-count="{{ s.study_days }}">{{ s.study_days }}</div>
+    <div class="l">{{ t('st_study_days') }}</div></div>
+</div>
+
+<div class="sgrid">
+  <div class="scard kr-reveal"><div class="ic">📋</div>
+    <div class="n" data-count="{{ s.plans }}">{{ s.plans }}</div>
+    <div class="l">{{ t('st_plans') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">✅</div>
+    <div class="n" data-count="{{ s.plans_done }}">{{ s.plans_done }}</div>
+    <div class="l">{{ t('st_done') }} · {{ s.done_pct }}%</div></div>
+  <div class="scard kr-reveal"><div class="ic">🔁</div>
+    <div class="n" data-count="{{ s.habits }}">{{ s.habits }}</div>
+    <div class="l">{{ t('st_habits') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">📝</div>
+    <div class="n" data-count="{{ s.notes }}">{{ s.notes }}</div>
+    <div class="l">{{ t('st_notes') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">🃏</div>
+    <div class="n" data-count="{{ s.flashcards }}">{{ s.flashcards }}</div>
+    <div class="l">{{ t('st_cards') }}</div></div>
+  <div class="scard kr-reveal"><div class="ic">🔥</div>
+    <div class="n" data-count="{{ s.active_today }}">{{ s.active_today }}</div>
+    <div class="l">{{ t('st_active_today') }}</div></div>
+</div>
+
+{% set lvl_lbl = {
+  'school': '🏫 ' ~ t('wl_school'), 'university': '📖 ' ~ t('wl_uni'),
+  'bachelor': '🎓 ' ~ t('wl_bsc'), 'institute': '🏛 ' ~ t('cat_institute'),
+  'master': '📜 ' ~ t('wl_master'), 'phd': '🧑‍🔬 ' ~ t('wl_phd'),
+  'professor': '👨‍🏫 ' ~ t('wl_prof'), 'others': '💼 ' ~ t('wl_other') } %}
+{% set reg_lbl = {
+  'kurdistan': '🟡 ' ~ t('reg_kurdistan'), 'iraq': '🟢 ' ~ t('reg_iraq'),
+  'international': '🌍 ' ~ t('reg_international') } %}
+
+{% macro bars(rows, labels={}) %}
+  {% set mx = (rows | map(attribute='n') | max) if rows else 1 %}
+  {% for r in rows %}
+  <div class="hbar">
+    <span class="lb" title="{{ r.name }}">{{ labels.get(r.name) or loc_opt(r.name) }}</span>
+    <div class="tr"><div class="fl" style="width:{{ (r.n * 100 / mx)|round(1) }}%"></div></div>
+    <span class="nn" dir="ltr">{{ r.n }}</span>
+  </div>
+  {% endfor %}
+  {% if not rows %}<div class="hint" style="display:block">{{ t('st_none') }}</div>{% endif %}
+{% endmacro %}
+
+<div class="grid2">
+  <div class="card kr-reveal" style="margin-bottom:18px">
+    <h2>🏛 {{ t('st_top_unis') }}</h2><div class="hint"></div>{{ bars(top_unis) }}
+  </div>
+  <div class="card kr-reveal" style="margin-bottom:18px">
+    <h2>🧪 {{ t('st_top_depts') }}</h2><div class="hint"></div>{{ bars(top_depts) }}
+  </div>
+  <div class="card kr-reveal" style="margin-bottom:18px">
+    <h2>🎓 {{ t('st_by_level') }}</h2><div class="hint"></div>{{ bars(by_level, lvl_lbl) }}
+  </div>
+  <div class="card kr-reveal" style="margin-bottom:18px">
+    <h2>🌍 {{ t('st_by_region') }}</h2><div class="hint"></div>{{ bars(by_region, reg_lbl) }}
+  </div>
+</div>
+
+<script>
+/* The bars and columns are already the right size in the HTML — CSS grows them.
+   All this does is count the numbers up as they come into view. If anything
+   here fails the page still reads correctly, because the final number is what
+   the server printed. */
+(function () {
+  function countUp(el) {
+    if (el.dataset.done) return;
+    el.dataset.done = "1";
+    var to = +el.dataset.count || 0;
+    if (to < 2) return;
+    var t0 = 0, dur = 700;
+    requestAnimationFrame(function step(ts) {
+      if (!t0) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur);
+      el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+    });
+  }
+  var all = [].slice.call(document.querySelectorAll("[data-count]"));
+  if (!("IntersectionObserver" in window) ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;                       // leave the server's numbers exactly as they are
+  }
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (e.isIntersecting) { countUp(e.target); io.unobserve(e.target); }
+    });
+  }, { threshold: .4 });
+  all.forEach(function (el) { io.observe(el); });
+})();
+</script>
+{% endblock %}

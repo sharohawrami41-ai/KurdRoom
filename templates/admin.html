@@ -22,7 +22,8 @@
       {% for u in users %}
       <tr {% if loop.index > 3 %}class="xtrau" style="display:none"{% endif %}>
         <td>{{ u.id }}</td>
-        <td><strong>{{ u.username }}</strong>
+        <td><a href="{{ url_for('admin_user_detail', user_id=u.id) }}"
+               title="{{ t('user_details') }}"><strong>{{ u.username }}</strong> 🔍</a>
             {% if u.id == user.id %} <span class="badge today">{{ t('you') }}</span>{% endif %}</td>
         <td style="font-size:.82rem">{{ u.full_name or '—' }}</td>
         <td style="font-size:.78rem; color:var(--muted)">{{ u.email or '—' }}</td>

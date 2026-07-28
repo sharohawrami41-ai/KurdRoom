@@ -195,8 +195,23 @@ function wrap(text, cx, cy, maxW, lh) {
   x.fillText(line, cx, y);
 }
 function dl() {
-  const a = document.createElement("a");
-  a.download = "poster.png"; a.href = cvs.toDataURL("image/png"); a.click();
+  // A detached <a>.click() is ignored by most phone browsers — which is why
+  // this button used to do nothing. Save the real blob through krDownload,
+  // which appends the link to the page before clicking it.
+  const name = "poster-" + Date.now() + ".png";
+  if (cvs.toBlob) {
+    cvs.toBlob(function (blob) {
+      if (!blob) { fallback(name); return; }
+      krDownload(URL.createObjectURL(blob), name);
+    }, "image/png");
+  } else {
+    fallback(name);
+  }
+  function fallback(n) {
+    const a = document.createElement("a");
+    a.download = n; a.href = cvs.toDataURL("image/png"); a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+  }
 }
 document.fonts.ready.then(loadFontAndDraw);
 loadFontAndDraw();

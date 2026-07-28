@@ -122,10 +122,12 @@
       <div class="plan-actions" style="flex-direction:row">
         <form method="post" action="{{ url_for('friend_accept', fid=r.id) }}">
           <button class="small" style="border-color:var(--ok); color:var(--ok)"
-                  type="submit">✓ {{ t('accept') }}</button>
+                  type="submit" title="{{ t('accept') }}">✓<span
+            class="lbl-wide"> {{ t('accept') }}</span></button>
         </form>
         <form method="post" action="{{ url_for('friend_decline', fid=r.id) }}">
-          <button class="small warn" type="submit">✕ {{ t('decline') }}</button>
+          <button class="small warn" type="submit" title="{{ t('decline') }}">✕<span
+            class="lbl-wide"> {{ t('decline') }}</span></button>
         </form>
       </div>
     </div>
@@ -151,7 +153,8 @@
         </form>
         <form method="post" action="{{ url_for('friend_decline', fid=f.fid) }}"
               data-confirm="{{ t('remove_friend') }}?">
-          <button class="small warn" type="submit">✕ {{ t('remove_friend') }}</button>
+          <button class="small warn" type="submit" title="{{ t('remove_friend') }}">✕<span
+            class="lbl-wide"> {{ t('remove_friend') }}</span></button>
         </form>
       </div>
       {% endfor %}
@@ -164,7 +167,8 @@
       <div class="plan low" style="align-items:center; opacity:.8">
         <div class="plan-body">{{ r.username }} <span style="color:var(--muted)">…</span></div>
         <form method="post" action="{{ url_for('friend_decline', fid=r.id) }}">
-          <button class="small warn" type="submit">✕ {{ t('cancel') }}</button>
+          <button class="small warn" type="submit" title="{{ t('cancel') }}">✕<span
+            class="lbl-wide"> {{ t('cancel') }}</span></button>
         </form>
       </div>
       {% endfor %}

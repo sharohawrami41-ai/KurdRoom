@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+{# Standalone page for the tutorial. The player itself (reel-shaped stage,
+   custom controls, counting timer, "coming soon" card) lives in base.html so
+   the same thing can also open as an overlay from anywhere in the app. #}
+<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0 6px">
+  <h2 style="font-size:1.4rem"><span class="tut-btn"><span class="tv"></span></span>
+    {{ t('tut_title') }}</h2>
+</div>
+<div class="hint" style="display:block; margin-bottom:16px">{{ t('tut_sub') }}</div>
+
+<div class="card kr-reveal" style="display:flex; flex-direction:column; align-items:center;
+     gap:14px; text-align:center">
+  <div style="width:min(360px,100%)">
+    <div class="tut-stage" style="position:relative">
+      {% if video %}
+      <video id="tutVidPage" playsinline preload="metadata"
+             {% if poster %}poster="{{ poster }}"{% endif %} src="{{ video }}"
+             style="width:100%;height:100%;object-fit:cover"></video>
+      {% else %}
+      <div class="tut-soon">
+        <div class="ring">🎬</div>
+        <div class="h">{{ t('tut_soon') }}</div>
+        <div class="d">{{ t('tut_soon_d') }}</div>
+        <div class="dots"><i></i><i></i><i></i></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <button type="button" class="pill primary" onclick="krTutorial(event)">
+    ▶ {{ t('tutorial') }}</button>
+  <div class="hint" style="display:block">{{ t('tut_sub') }}</div>
+</div>
+
+{% if video %}
+<script>
+// the small preview on the page is a poster only — tapping it opens the real player
+(function () {
+  var p = document.getElementById("tutVidPage");
+  if (!p) return;
+  p.addEventListener("click", function (e) { e.preventDefault(); krTutorial(e); });
+})();
+</script>
+{% endif %}
+{% endblock %}

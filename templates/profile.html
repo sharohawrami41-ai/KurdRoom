@@ -155,6 +155,31 @@
           <span class="sw"></span>
         </label>
 
+        <hr style="margin:18px 0; border-color:var(--card-border)">
+        <h2 style="font-size:1rem">🔔 {{ t('ntf_sound_l') }}</h2>
+        <div class="hint">{{ t('ntf_sound_h') }}</div>
+        <input type="hidden" name="ntf_sound" id="sndInp" value="{{ my_sound }}">
+        <div class="snd-row">
+          {% for s in ntf_sounds %}
+          <button type="button" class="snd-opt {{ 'sel' if my_sound == s }}"
+                  data-s="{{ s }}" onclick="pickSound(this)">
+            {{ {'chime':'🔔','droplet':'💧','marimba':'🎵','pop':'🫧','rise':'📈','pulse':'🩶'}.get(s, '🔔') }}
+            {{ t('snd_' + s) }}</button>
+          {% endfor %}
+          <button type="button" class="snd-opt {{ 'sel' if my_sound == 'off' }}"
+                  data-s="off" onclick="pickSound(this)">🔇 {{ t('snd_off') }}</button>
+        </div>
+        <script>
+          function pickSound(btn) {
+            document.querySelectorAll(".snd-opt").forEach(function (b) {
+              b.classList.toggle("sel", b === btn);
+            });
+            document.getElementById("sndInp").value = btn.dataset.s;
+            if (window.krSetSound) krSetSound(btn.dataset.s);
+            if (window.krPlaySound) krPlaySound(btn.dataset.s);   /* hear it now */
+          }
+        </script>
+
         <label>{{ t('pw_keep') }}</label>
         <input type="password" name="new_password" minlength="6" autocomplete="new-password">
         <div style="margin-top:16px">
