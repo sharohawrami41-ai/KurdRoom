@@ -580,6 +580,59 @@ body.light .beam { opacity: .5; }
 .toast.show { transform: translateX(-50%) translateY(0); }
 .toast .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- download banner: slides down from the top of the screen ---------- */
+/* The slide uses a keyframe animation rather than a class-toggled transition:
+   a filled animation always wins, so the banner can never get stuck off-screen
+   on a browser that skipped the transition. */
+.dtoast { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%;
+  z-index: 460; width: min(92vw, 380px);
+  transform: translateX(-50%) translateY(-170%);
+  opacity: 0; pointer-events: none;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 18px; overflow: hidden;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 18px 48px rgba(0,0,0,.45);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.dtoast.show { opacity: 1; pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+  animation: dlIn .42s cubic-bezier(.2,.9,.3,1.25) both; }
+@keyframes dlIn {
+  from { transform: translateX(-50%) translateY(-170%); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);     opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .dtoast.show { animation: none; } }
+.dtoast .dic { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 12px;
+  display: grid; place-items: center; font-size: 1.05rem; color: #fff;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+.dtoast.done .dic { background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 6px 18px rgba(34,197,94,.45); }
+.dtoast.err .dic { background: linear-gradient(135deg, #f97316, #ef4444);
+  box-shadow: 0 6px 18px rgba(239,68,68,.42); }
+.dtoast .dtx { flex: 1; min-width: 0; }
+.dtoast .dh { font-size: .86rem; font-weight: 700; line-height: 1.25; }
+.dtoast .ds { font-size: .72rem; color: var(--muted); margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* indeterminate sweep along the bottom edge while the file is still coming */
+.dtoast .dbar { position: absolute; inset-inline: 0; bottom: 0; height: 3px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); overflow: hidden; }
+.dtoast .dbar i { position: absolute; inset-block: 0; width: 42%; border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--accent), #e879f9, transparent);
+  animation: dlSweep 1.15s linear infinite; }
+.dtoast.done .dbar i, .dtoast.err .dbar i { animation: none; width: 100%;
+  background: #22c55e; }
+.dtoast.err .dbar i { background: #ef4444; }
+@keyframes dlSweep { from { inset-inline-start: -45%; } to { inset-inline-start: 100%; } }
+/* the little spinning ring inside the icon while it downloads */
+.dtoast .dspin { width: 17px; height: 17px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+  animation: dlSpin .7s linear infinite; }
+@keyframes dlSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .dtoast .dbar i, .dtoast .dspin { animation: none; }
+}
+
 /* ---------- @mentions + sponsor bar ---------- */
 .mention { color: var(--accent); font-weight: 700; }
 .sponsor-bar { display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -1313,8 +1366,8 @@ body.light .tut-frame {
   <a href="{{ url_for('notifications') }}">🔔 {{ t('notifications') }}
     {% if unread_notifs %}<span class="pcount">{{ unread_notifs }}</span>{% endif %}</a>
   <div class="msec">{{ t('account') }}</div>
-  <a href="{{ url_for('stats_page') }}">📊 {{ t('stats_t') }}</a>
-  <a href="#" class="tut-btn" onclick="krTutorial(event)"><span class="tv"></span> {{ t('tutorial') }}</a>
+  {# Tutorial and Statistics live inside account_rows() — listing them here too
+     is what made them appear twice in this menu. #}
   {{ account_rows() }}
 </div>
 
@@ -2401,8 +2454,61 @@ window.krExtractImagePrompt = function (text) {
         attachment, so the browser must save it (works even without CORS)
      3. a plain <a download> click as the last resort
    --------------------------------------------------------------------------- */
+/* The banner that slides down from the top so the user can see something is
+   actually happening — "Downloading…" while the bytes arrive, then "Saved to
+   your device". Exposed as krDlToast so any other feature can reuse it. */
+(function () {
+  var el = null, hideTimer = null;
+  var TXT = {
+    start: {{ t('dl_start')|tojson }},
+    done:  {{ t('dl_done')|tojson }},
+    fail:  {{ t('dl_fail')|tojson }},
+    failD: {{ t('dl_fail_d')|tojson }}
+  };
+  function ensure() {
+    if (el) return el;
+    el = document.createElement("div");
+    el.className = "dtoast";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    el.innerHTML =
+      '<div class="dic"><span class="dspin"></span></div>' +
+      '<div class="dtx"><div class="dh"></div><div class="ds"></div></div>' +
+      '<div class="dbar"><i></i></div>';
+    document.body.appendChild(el);
+    return el;
+  }
+  /* state: "start" | "done" | "fail" */
+  window.krDlToast = function (state, fileName) {
+    var t = ensure();
+    clearTimeout(hideTimer);
+    t.classList.remove("done", "err");
+    if (state === "start") {
+      t.querySelector(".dic").innerHTML = '<span class="dspin"></span>';
+      t.querySelector(".dh").textContent = TXT.start;
+      t.querySelector(".ds").textContent = fileName || "";
+    } else if (state === "done") {
+      t.classList.add("done");
+      t.querySelector(".dic").textContent = "✓";
+      t.querySelector(".dh").textContent = TXT.done;
+      t.querySelector(".ds").textContent = fileName || "";
+      if (navigator.vibrate) navigator.vibrate(40);
+      hideTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+    } else {
+      t.classList.add("err");
+      t.querySelector(".dic").textContent = "!";
+      t.querySelector(".dh").textContent = TXT.fail;
+      t.querySelector(".ds").textContent = TXT.failD;
+      hideTimer = setTimeout(function () { t.classList.remove("show"); }, 4000);
+    }
+    void t.offsetHeight;          // flush the layout so the slide-in animates
+    t.classList.add("show");
+  };
+})();
+
 window.krDownload = async function (url, name) {
   name = name || "kurdroom.jpg";
+  krDlToast("start", name);
 
   function saveBlob(blob) {
     var burl = URL.createObjectURL(blob);
@@ -2410,6 +2516,7 @@ window.krDownload = async function (url, name) {
     a.href = burl; a.download = name; a.rel = "noopener";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(burl); }, 8000);
+    krDlToast("done", name);
   }
 
   /* already a local/blob/data URL? save it directly */
@@ -2417,7 +2524,6 @@ window.krDownload = async function (url, name) {
     try {
       var r0 = await fetch(url);
       saveBlob(await r0.blob());
-      if (window.krToastMsg) krToastMsg("⬇");
       return true;
     } catch (_) {}
   }
@@ -2434,12 +2540,14 @@ window.krDownload = async function (url, name) {
     var a2 = document.createElement("a");  // let the browser stream it instead
     a2.href = proxied; a2.download = name;
     document.body.appendChild(a2); a2.click(); a2.remove();
+    krDlToast("done", name);
     return true;
   } catch (_) {}
 
   var a3 = document.createElement("a");    // 3. last resort
   a3.href = url; a3.download = name; a3.target = "_blank"; a3.rel = "noopener";
   document.body.appendChild(a3); a3.click(); a3.remove();
+  krDlToast("fail", name);
   return false;
 };
 /* Build a text-to-image URL (Pollinations — no API key needed). */

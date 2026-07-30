@@ -134,14 +134,16 @@
     <div class="l">{{ t('st_active_today') }}</div></div>
 </div>
 
+{# 'bachelor' is someone still at university; 'bachelor_grad' already has the
+   degree — two different groups, shown on two different rows. #}
 {% set lvl_lbl = {
-  'school': '🏫 ' ~ t('wl_school'), 'university': '📖 ' ~ t('wl_uni'),
-  'bachelor': '🎓 ' ~ t('wl_bsc'), 'institute': '🏛 ' ~ t('cat_institute'),
+  'school': '🏫 ' ~ t('wl_school'),
+  'bachelor': '📖 ' ~ t('wl_uni'),
+  'university': '📖 ' ~ t('wl_uni'),
+  'bachelor_grad': '🎓 ' ~ t('wl_bsc'),
+  'institute': '🏛 ' ~ t('cat_institute'),
   'master': '📜 ' ~ t('wl_master'), 'phd': '🧑‍🔬 ' ~ t('wl_phd'),
   'professor': '👨‍🏫 ' ~ t('wl_prof'), 'others': '💼 ' ~ t('wl_other') } %}
-{% set reg_lbl = {
-  'kurdistan': '🟡 ' ~ t('reg_kurdistan'), 'iraq': '🟢 ' ~ t('reg_iraq'),
-  'international': '🌍 ' ~ t('reg_international') } %}
 
 {% macro bars(rows, labels={}) %}
   {% set mx = (rows | map(attribute='n') | max) if rows else 1 %}
@@ -164,9 +166,6 @@
   </div>
   <div class="card kr-reveal" style="margin-bottom:18px">
     <h2>🎓 {{ t('st_by_level') }}</h2><div class="hint"></div>{{ bars(by_level, lvl_lbl) }}
-  </div>
-  <div class="card kr-reveal" style="margin-bottom:18px">
-    <h2>🌍 {{ t('st_by_region') }}</h2><div class="hint"></div>{{ bars(by_region, reg_lbl) }}
   </div>
 </div>
 

@@ -1,49 +1,110 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2 style="font-size:1.4rem; margin:8px 0 18px">🔔 {{ t('notifications') }}</h2>
+{% set NTF_ICO = {'friend_req':'👥','friend_acc':'🤝','group_msg':'💬','group_add':'➕',
+                  'badge':'🏅','dm':'✉️','duel_req':'⚔️','duel_acc':'⚔️','duel_end':'🏆',
+                  'deadline':'⏰','overdue':'🚨','exam_soon':'📚','homework':'📝',
+                  'weekly':'🏆','mention':'📣','plus_wait':'💳','plus_on':'⭐',
+                  'plus_off':'⌛'} %}
+<style>
+  /* search field */
+  .nsearch { position:relative; margin-bottom:14px; }
+  .nsearch input { width:100%; padding:11px 40px 11px 40px; border-radius:999px;
+    font-size:.88rem; }
+  [dir="rtl"] .nsearch input { padding:11px 40px; }
+  .nsearch .sic { position:absolute; inset-inline-start:14px; top:50%;
+    transform:translateY(-50%); font-size:.95rem; color:var(--muted);
+    pointer-events:none; }
+  .nsearch .sclear { position:absolute; inset-inline-end:8px; top:50%;
+    transform:translateY(-50%); border:none; background:none; cursor:pointer;
+    color:var(--muted); font-size:1rem; padding:6px 9px; border-radius:50%;
+    display:none; }
+  .nsearch .sclear:hover { color:var(--text); background:var(--input-bg); }
+  .nsearch.has .sclear { display:block; }
 
-  {% if reminders %}
-  <div class="card" style="margin-bottom:20px; border-color: color-mix(in srgb, var(--high) 50%, transparent)">
-    <h2>⏰ {{ t('reminders') }}</h2>
-    <div class="hint"></div>
-    {% for r in reminders %}
-    <a href="{{ r.link }}" style="color:inherit">
-      <div class="plan high" style="align-items:center">
-        <span style="font-size:1.4rem">{{ '📚' if r.kind == 'exam' else '👥' }}</span>
-        <div class="plan-body">
-          <strong>{{ t('ntf_' + r.kind) }} {{ r.actor }}</strong>
-          <div style="font-size:.78rem; color:var(--muted)">
-            {% if r.left == 0 %}{{ t('today') }}!{% else %}{{ r.left }} {{ t('days_short') }}{% endif %}
-          </div>
+  /* rows hidden by the 5-item limit or by the search */
+  .nrow.hid { display:none; }
+  .nrow mark { background:color-mix(in srgb, var(--accent) 32%, transparent);
+    color:inherit; border-radius:4px; padding:0 2px; }
+
+  .nmore { width:100%; margin-top:12px; padding:11px 16px; border-radius:14px;
+    cursor:pointer; font-size:.85rem; font-weight:700; color:var(--text);
+    border:1px solid var(--card-border); background:var(--input-bg);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    transition:.16s; }
+  .nmore:hover { border-color:var(--accent); color:var(--accent); }
+  .nmore .cnt { font-size:.72rem; font-weight:600; color:var(--muted); }
+  .nmore .chev { transition:transform .22s; }
+  .nmore.open .chev { transform:rotate(180deg); }
+  .ncount { font-size:.72rem; color:var(--muted); margin-top:10px;
+    text-align:center; }
+  .nempty { text-align:center; padding:26px 10px; color:var(--muted);
+    font-size:.86rem; }
+  .nempty .e { font-size:1.9rem; display:block; margin-bottom:6px; }
+</style>
+
+<h2 style="font-size:1.4rem; margin:8px 0 18px">🔔 {{ t('notifications') }}</h2>
+
+{% if reminders %}
+<div class="card" style="margin-bottom:20px; border-color: color-mix(in srgb, var(--high) 50%, transparent)">
+  <h2>⏰ {{ t('reminders') }}</h2>
+  <div class="hint"></div>
+  {% for r in reminders %}
+  <a href="{{ r.link }}" style="color:inherit">
+    <div class="plan high" style="align-items:center">
+      <span style="font-size:1.4rem">{{ '📚' if r.kind == 'exam' else '👥' }}</span>
+      <div class="plan-body">
+        <strong>{{ t('ntf_' + r.kind) }} {{ r.actor }}</strong>
+        <div style="font-size:.78rem; color:var(--muted)">
+          {% if r.left == 0 %}{{ t('today') }}!{% else %}{{ r.left }} {{ t('days_short') }}{% endif %}
         </div>
       </div>
-    </a>
-    {% endfor %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  {% if stored %}
+  <div class="nsearch" id="nSearchWrap">
+    <span class="sic">🔎</span>
+    <input id="nSearch" type="search" autocomplete="off" enterkeyhint="search"
+           placeholder="{{ t('ntf_search') }}" aria-label="{{ t('ntf_search') }}">
+    <button type="button" class="sclear" id="nClear" aria-label="✕">✕</button>
   </div>
   {% endif %}
 
-  <div class="card">
-    <div class="hint">{{ t('no_notifications') if not stored and not reminders else '' }}</div>
+  <div class="hint">{{ t('no_notifications') if not stored and not reminders else '' }}</div>
+
+  <div id="nList">
     {% for n in stored %}
-    <a href="{{ n.link or '#' }}" style="color:inherit">
+    {% set label %}
+      {%- if n.kind == 'badge' -%}
+        {{ t('ntf_badge') }} {{ t('badge_' + n.actor + '_n') }}
+      {%- elif n.kind in ('plus_on', 'plus_off') -%}
+        {{ t('ntf_' + n.kind) }}
+      {%- elif n.kind in ('group_msg', 'group_add', 'duel_end', 'deadline',
+                          'overdue', 'exam_soon', 'homework', 'weekly', 'plus_wait') -%}
+        {{ t('ntf_' + n.kind) }} “{{ n.actor }}”
+      {%- else -%}
+        {{ n.actor }} {{ t('ntf_' + n.kind) }}
+      {%- endif -%}
+    {% endset %}
+    <a class="nrow" href="{{ n.link or '#' }}" style="color:inherit"
+       data-s="{{ (label ~ ' ' ~ n.kind ~ ' ' ~ (n.actor or '') ~ ' ' ~ n.created_at)|lower|trim }}">
       <div class="plan {{ 'medium' if not n.is_read else 'low' }}" style="align-items:center">
-        <span style="font-size:1.3rem">
-          {{ {'friend_req':'👥','friend_acc':'🤝','group_msg':'💬','group_add':'➕',
-              'badge':'🏅','dm':'✉️','duel_req':'⚔️','duel_acc':'⚔️','duel_end':'🏆',
-              'deadline':'⏰','overdue':'🚨','exam_soon':'📚','homework':'📝',
-              'weekly':'🏆','mention':'📣','plus_wait':'💳','plus_on':'⭐',
-              'plus_off':'⌛'}.get(n.kind, '🔔') }}</span>
+        <span style="font-size:1.3rem">{{ NTF_ICO.get(n.kind, '🔔') }}</span>
         <div class="plan-body">
           {% if n.kind == 'badge' %}
-            <strong>{{ t('ntf_badge') }} {{ BADGES.get(n.actor, '🏅') }}
+            <strong class="ntx">{{ t('ntf_badge') }} {{ BADGES.get(n.actor, '🏅') }}
               {{ t('badge_' + n.actor + '_n') }}</strong>
           {% elif n.kind in ('plus_on', 'plus_off') %}
-            <strong>{{ t('ntf_' + n.kind) }}</strong>
+            <strong class="ntx">{{ t('ntf_' + n.kind) }}</strong>
           {% elif n.kind in ('group_msg', 'group_add', 'duel_end', 'deadline',
                              'overdue', 'exam_soon', 'homework', 'weekly', 'plus_wait') %}
-            <strong>{{ t('ntf_' + n.kind) }} “{{ n.actor }}”</strong>
+            <strong class="ntx">{{ t('ntf_' + n.kind) }} “{{ n.actor }}”</strong>
           {% else %}
-            <strong>{{ n.actor }}</strong> {{ t('ntf_' + n.kind) }}
+            <span class="ntx"><strong>{{ n.actor }}</strong> {{ t('ntf_' + n.kind) }}</span>
           {% endif %}
           <div style="font-size:.72rem; color:var(--muted)" dir="ltr">
             <time data-ts="{{ n.created_at }}">{{ n.created_at[5:16].replace('T',' ') }}</time></div>
@@ -52,4 +113,113 @@
     </a>
     {% endfor %}
   </div>
+
+  <div class="nempty" id="nEmpty" style="display:none">
+    <span class="e">🔎</span>{{ t('ntf_no_match') }}</div>
+
+  {% if stored|length > 5 %}
+  <button type="button" class="nmore" id="nMore">
+    <span class="lbl">{{ t('ntf_show_more') }}</span>
+    <span class="cnt" id="nMoreCnt"></span>
+    <span class="chev">▼</span>
+  </button>
+  {% endif %}
+  {% if stored %}
+  <div class="ncount" id="nCount"></div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var list = document.getElementById("nList");
+  if (!list) return;
+  var rows = [].slice.call(list.querySelectorAll(".nrow"));
+  var search = document.getElementById("nSearch");
+  var wrap = document.getElementById("nSearchWrap");
+  var clear = document.getElementById("nClear");
+  var more = document.getElementById("nMore");
+  var moreCnt = document.getElementById("nMoreCnt");
+  var count = document.getElementById("nCount");
+  var empty = document.getElementById("nEmpty");
+  var LIMIT = 5, open = false;
+  var MORE = {{ t('ntf_show_more')|tojson }};
+  var LESS = {{ t('ntf_show_less')|tojson }};
+  var SHOWING = {{ t('ntf_showing')|tojson }};
+
+  function highlight(row, q) {
+    row.querySelectorAll(".ntx").forEach(function (el) {
+      if (!el.dataset.raw) el.dataset.raw = el.innerHTML;
+      if (!q) { el.innerHTML = el.dataset.raw; return; }
+      // only ever wrap plain text, never touch the existing tags
+      var tmp = document.createElement("div");
+      tmp.innerHTML = el.dataset.raw;
+      (function walk(node) {
+        [].slice.call(node.childNodes).forEach(function (c) {
+          if (c.nodeType === 3) {
+            var i = c.nodeValue.toLowerCase().indexOf(q);
+            if (i === -1) return;
+            var mk = document.createElement("mark");
+            var mid = c.splitText(i);
+            mid.splitText(q.length);
+            mk.textContent = mid.nodeValue;
+            mid.parentNode.replaceChild(mk, mid);
+          } else if (c.nodeType === 1) walk(c);
+        });
+      })(tmp);
+      el.innerHTML = tmp.innerHTML;
+    });
+  }
+
+  function apply() {
+    var q = (search ? search.value : "").trim().toLowerCase();
+    if (wrap) wrap.classList.toggle("has", !!q);
+    var matched = rows.filter(function (r) {
+      return !q || r.dataset.s.indexOf(q) !== -1;
+    });
+    var cap = (open || q) ? matched.length : Math.min(LIMIT, matched.length);
+    rows.forEach(function (r) { r.classList.add("hid"); });
+    matched.slice(0, cap).forEach(function (r) {
+      r.classList.remove("hid");
+      highlight(r, q);
+    });
+    if (empty) empty.style.display = matched.length ? "none" : "";
+    if (more) {
+      // searching already shows everything that matched, so the button rests
+      more.style.display = (!q && matched.length > LIMIT) ? "" : "none";
+      more.classList.toggle("open", open);
+      more.querySelector(".lbl").textContent = open ? LESS : MORE;
+      moreCnt.textContent = open ? "" : "+" + (matched.length - LIMIT);
+    }
+    if (count) {
+      var shown = Math.min(cap, matched.length);
+      count.textContent = (shown && shown < rows.length)
+        ? SHOWING.replace("{a}", shown).replace("{b}", rows.length) : "";
+    }
+  }
+
+  if (more) {
+    more.addEventListener("click", function () {
+      open = !open;
+      apply();
+      if (!open) list.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+  if (search) {
+    var deb;
+    search.addEventListener("input", function () {
+      clearTimeout(deb);
+      deb = setTimeout(apply, 90);
+    });
+    search.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { search.value = ""; apply(); }
+    });
+  }
+  if (clear) {
+    clear.addEventListener("click", function () {
+      search.value = ""; apply(); search.focus();
+    });
+  }
+  apply();
+})();
+</script>
 {% endblock %}

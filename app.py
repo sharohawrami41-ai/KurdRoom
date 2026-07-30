@@ -2855,6 +2855,11 @@ V27 = {
         "post_share": "Share",
         "post_copied": "Link copied",
         "post_see_more": "… See more",
+        "dl_start": "Downloading…", "dl_done": "Saved to your device",
+        "dl_fail": "Download failed", "dl_fail_d": "Check your connection and try again.",
+        "ntf_search": "Search notifications", "ntf_show_more": "Show more",
+        "ntf_show_less": "Show less", "ntf_no_match": "Nothing matches that search.",
+        "ntf_showing": "Showing {a} of {b}",
         # ---- notification sound
         "ntf_sound_l": "Notification sound",
         "ntf_sound_h": "Pick the tone your phone plays for new messages and reminders.",
@@ -2945,6 +2950,11 @@ V27 = {
         "post_share": "مشاركة",
         "post_copied": "تم نسخ الرابط",
         "post_see_more": "… عرض المزيد",
+        "dl_start": "جارٍ التنزيل…", "dl_done": "تم الحفظ على جهازك",
+        "dl_fail": "فشل التنزيل", "dl_fail_d": "تحقق من اتصالك وحاول مرة أخرى.",
+        "ntf_search": "ابحث في الإشعارات", "ntf_show_more": "عرض المزيد",
+        "ntf_show_less": "عرض أقل", "ntf_no_match": "لا نتائج مطابقة لبحثك.",
+        "ntf_showing": "عرض {a} من {b}",
         "ntf_sound_l": "صوت الإشعار",
         "ntf_sound_h": "اختر النغمة التي يشغّلها هاتفك للرسائل والتذكيرات.",
         "ntf_test": "تشغيل",
@@ -3033,6 +3043,11 @@ V27 = {
         "post_share": "هاوبەشی",
         "post_copied": "لینکەکە کۆپی کرا",
         "post_see_more": "… زیاتر ببینە",
+        "dl_start": "داگرتن…", "dl_done": "پاشەکەوت کرا لە ئامێرەکەت",
+        "dl_fail": "داگرتن سەرکەوتوو نەبوو", "dl_fail_d": "پەیوەندییەکەت بپشکنە و دووبارە هەوڵ بدە.",
+        "ntf_search": "گەڕان لە ئاگادارکردنەوەکان", "ntf_show_more": "زیاتر پیشان بدە",
+        "ntf_show_less": "کەمتر پیشان بدە", "ntf_no_match": "هیچ ئەنجامێک نەدۆزرایەوە.",
+        "ntf_showing": "{a} لە {b} پیشان دەدرێت",
         "ntf_sound_l": "دەنگی ئاگادارکردنەوە",
         "ntf_sound_h": "ئەو دەنگە هەڵبژێرە کە مۆبایلەکەت بۆ نامە و بیرخەرەوە لێی دەدات.",
         "ntf_test": "لێدان",
@@ -6027,8 +6042,10 @@ def notifications():
     from datetime import timedelta
     db = get_db()
     uid = session["user_id"]
+    # the page shows 5 at a time and expands on demand, so send a deeper
+    # history than before — searching should be able to reach older items
     stored = db.execute("SELECT * FROM notifications WHERE user_id = ? "
-                        "ORDER BY id DESC LIMIT 50", (uid,)).fetchall()
+                        "ORDER BY id DESC LIMIT 200", (uid,)).fetchall()
     # dynamic reminders: exams within 3 days, meetings within 1 day
     reminders = []
     for e in db.execute("SELECT * FROM exams WHERE user_id = ?", (uid,)):
@@ -8216,12 +8233,11 @@ def stats_page():
         "SELECT department AS name, COUNT(*) AS n FROM users "
         "WHERE department != '' GROUP BY department ORDER BY n DESC, name LIMIT 8"
     ).fetchall()
+    # 'bachelor' = still at university, 'bachelor_grad' = already graduated —
+    # they are stored separately, so they are counted separately here too.
     by_level = db.execute(
         "SELECT edu_level AS name, COUNT(*) AS n FROM users "
         "WHERE edu_level != '' GROUP BY edu_level ORDER BY n DESC").fetchall()
-    by_region = db.execute(
-        "SELECT uni_region AS name, COUNT(*) AS n FROM users "
-        "WHERE uni_region != '' GROUP BY uni_region ORDER BY n DESC").fetchall()
 
     # sign-ups per day for the last 14 days (small sparkline on the page)
     growth = []
@@ -8235,7 +8251,7 @@ def stats_page():
 
     return render_template("stats.html", user=current_user(), s=totals,
                            top_unis=top_unis, top_depts=top_depts,
-                           by_level=by_level, by_region=by_region, growth=growth)
+                           by_level=by_level, growth=growth)
 
 
 # ================================================================ tutorial
