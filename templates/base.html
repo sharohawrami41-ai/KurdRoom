@@ -74,7 +74,10 @@ body {
   background: radial-gradient(1200px 700px at 15% -10%, #2b1f5c 0%, transparent 55%),
               radial-gradient(1000px 600px at 110% 10%, #3d1a4f 0%, transparent 50%),
               linear-gradient(160deg, var(--bg1), var(--bg2));
-  background-attachment: fixed;
+  /* background-attachment: fixed was removed on purpose. A fixed background
+     cannot be scrolled by the compositor, so the browser has to repaint the
+     whole thing on every frame — one of the worst offenders for scroll jank
+     on phones. .container paints its own gradient on top anyway. */
   min-height: 100vh;
   color: var(--text);
 }
@@ -90,10 +93,45 @@ body.light {
   background: radial-gradient(1200px 700px at 15% -10%, #dcd4ff 0%, transparent 55%),
               radial-gradient(1000px 600px at 110% 10%, #ffd9f2 0%, transparent 50%),
               linear-gradient(160deg, var(--bg1), var(--bg2));
-  background-attachment: fixed;
 }
 a { color: var(--accent); text-decoration: none; }
 html, body { overflow-x: hidden; max-width: 100vw; }  /* never scroll sideways */
+
+/* ==========================================================================
+   SMOOTH SCROLLING — the small settings that make a web app feel native.
+   ========================================================================== */
+html {
+  -webkit-text-size-adjust: 100%;          /* no reflow when the phone rotates */
+  scroll-behavior: smooth;
+}
+body {
+  /* a scroll that reaches the end stops there instead of dragging the page
+     behind it — this is most of why a native app feels "tight" */
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+/* every inner scroller gets momentum and keeps its scroll to itself */
+.chatbox, .mobile-menu, .kpov, .chips, [data-scroll] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+/* NOTE: deliberately no `contain` on .card / .plan — layout or paint
+   containment would clip the dropdown panels and emoji pickers that open out
+   of them. The wins above are the safe, structural ones. */
+
+/* While the finger is moving, nothing decorative moves with it. The little
+   robot in the header, the brand shimmer and the badge pulses all sit inside
+   the sticky bar, so every frame they animate is a frame the browser has to
+   repaint that bar mid-scroll. They resume the moment the scroll settles —
+   you never see them stop, you only feel the scroll get lighter. */
+body.is-scrolling #brandBot *,
+body.is-scrolling .btxt,
+body.is-scrolling .badge.overdue,
+body.is-scrolling .nav-count,
+body.is-scrolling .dot-count,
+body.is-scrolling .orb {
+  animation-play-state: paused !important;
+}
 .container {
   max-width: 1050px; margin: 0 auto; padding: 24px 18px 60px;
   min-height: 100vh;
@@ -117,8 +155,9 @@ body.light .container {
   display: flex; align-items: center; gap: 12px;
   min-height: 64px; flex-wrap: nowrap;      /* one line, always */
   padding: 8px 22px;
-  background: color-mix(in srgb, var(--bg1) 78%, transparent);
-  backdrop-filter: blur(16px);
+  /* nearly opaque instead of frosted: a sticky bar with backdrop-filter is
+     re-blurred on every scroll frame, which is what made scrolling stutter */
+  background: color-mix(in srgb, var(--bg1) 97%, transparent);
   border-bottom: 1px solid var(--card-border);
 }
 .brand { white-space: nowrap; flex-shrink: 1; min-width: 0; overflow: hidden; }
@@ -286,8 +325,8 @@ details.dd > summary::-webkit-details-marker { display: none; }
   .burger { display:inline-flex; }
   .bottombar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
     display: flex; justify-content: space-around; padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--bg1) 85%, transparent);
-    backdrop-filter: blur(16px); border-top: 1px solid var(--card-border); }
+    background: color-mix(in srgb, var(--bg1) 97%, transparent);
+    border-top: 1px solid var(--card-border); }
   .bottombar a { display:flex; flex-direction:column; align-items:center; gap:2px;
     font-size:1.25rem; color:var(--muted); padding:4px 6px; border-radius:12px;
     position:relative; transition:.18s;
@@ -299,8 +338,8 @@ details.dd > summary::-webkit-details-marker { display: none; }
   body { padding-bottom: 76px; }
 }
 .mobile-menu { display:none; position: fixed; inset: 0; z-index: 80;
-  background: color-mix(in srgb, var(--bg1) 92%, transparent); backdrop-filter: blur(18px);
-  padding: 20px; overflow-y: auto; }
+  background: color-mix(in srgb, var(--bg1) 99%, transparent);
+  padding: 20px; overflow-y: auto; overscroll-behavior: contain; }
 .mobile-menu.open { display:block; animation: fadeUp .25s ease both; }
 .mobile-menu .msec { font-size:.7rem; text-transform:uppercase; letter-spacing:1px;
   color:var(--muted); margin: 18px 4px 6px; }
@@ -328,10 +367,15 @@ details.dd > summary::-webkit-details-marker { display: none; }
   line-height:1; }
 .langs a.active { background: var(--accent); color:#fff; }
 
-/* ---------- cards / layout ---------- */
+/* ---------- cards / layout ----------
+   No backdrop-filter here. A frosted card has to re-blur everything behind it
+   on every single frame, and a page with ten cards means ten live blurs while
+   you scroll — that was the main source of the stutter. The card sits on the
+   page's own gradient, so a plain translucent fill looks the same and costs
+   nothing. */
 .card {
   background: var(--card); border: 1px solid var(--card-border);
-  border-radius: 18px; padding: 22px; backdrop-filter: blur(12px);
+  border-radius: 18px; padding: 22px;
 }
 h2 { font-size: 1.12rem; margin-bottom: 4px; }
 .hint { color: var(--muted); font-size: .82rem; margin-bottom: 14px; }
@@ -396,14 +440,25 @@ body.light select option { background: #ffffff; color: #241d45; }
   100% { background-position: 0% 50% }
 }
 @keyframes softPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.12) } }
-.card { animation: fadeUp .5s cubic-bezier(.22,.9,.36,1) both; }
-.grid2 > :nth-child(2) { animation-delay: .07s }
-.grid2 > :nth-child(3) { animation-delay: .14s }
-.grid2 > :nth-child(4) { animation-delay: .21s }
-.grid2 > * { animation: fadeUp .5s cubic-bezier(.22,.9,.36,1) both; }
-.plan { animation: popIn .35s ease both; }
-.plan:nth-child(odd) { animation-delay: .04s }
-.quote { animation: fadeUp .45s ease both; }
+/* One gentle fade for the page instead of an animation per card.
+   A list of fifty rows used to start fifty animations at once on load, which
+   is exactly when the phone is busiest — that felt like a glitch.
+
+   IMPORTANT: no `both` fill on content. `both` holds the element at the
+   animation's first frame — opacity 0 — until the animation actually runs.
+   If the browser stalls, restores the page from the back/forward cache, or
+   suppresses animations for any reason, the card stays permanently invisible
+   and the page looks broken. Without the fill, the resting state is the
+   normal one and the animation is only ever a bonus on top. */
+.card { animation: fadeUp .34s cubic-bezier(.22,.9,.36,1); }
+.grid2 > :nth-child(2) { animation-delay: .05s }
+.grid2 > :nth-child(3) { animation-delay: .1s }
+.grid2 > :nth-child(4) { animation-delay: .15s }
+.grid2 > * { animation: fadeUp .34s cubic-bezier(.22,.9,.36,1); }
+/* rows appear instantly; only the first few in a list get a whisper of motion */
+.plan { animation: none; }
+.card > .plan:nth-child(-n+6) { animation: fadeUp .26s ease; }
+.quote { animation: fadeUp .4s ease; }
 .badge.overdue { animation: softPulse 1.6s ease-in-out infinite; }
 button { transition: transform .18s, box-shadow .18s, border-color .18s, color .18s, background .18s; }
 button:active { transform: scale(.96); }
@@ -411,11 +466,23 @@ button.primary:hover { transform: translateY(-2px);
   box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 50%, transparent); }
 .pill { transition: transform .18s, border-color .18s, background .18s; }
 .pill:hover { transform: translateY(-2px); }
-/* ---------- living background: drifting orbs + brand watermark ---------- */
-.bgfx { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+/* ---------- living background: drifting orbs + brand watermark ----------
+   PERFORMANCE NOTE. This layer used to run about twenty-five animations at
+   once — three 80px-blurred orbs, two full-width marquees, eight particles,
+   four shapes, six stars and a sweeping beam — every one of them forever, on
+   every page, behind whatever you were scrolling. Each needs its own GPU
+   layer, and the blurred orbs have to be re-rasterised as they move.
+   On a phone that is what the stutter was.
+
+   The look is kept. The motion is not: below, everything in here is frozen
+   on phones and tablets, and only the three slow orbs still drift on a
+   desktop, where there is power to spare. A still gradient and a moving one
+   look identical in a screenshot — but only one of them costs you frames. */
+.bgfx { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  /* nothing in here can affect the page, so the browser can paint it once */
+  contain: layout paint; }
 .container, footer { position: relative; z-index: 1; }
-.orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .32;
-  will-change: transform; }
+.orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .32; }
 .orb.o1 { width: 46vw; height: 46vw; max-width:520px; max-height:520px;
   background: var(--accent); top: -12%; inset-inline-start: -10%;
   animation: orbA 26s ease-in-out infinite alternate; }
@@ -514,6 +581,31 @@ body.light .tw { color: #1e1450; }
   to   { transform: rotate(24deg) translateX(85vw); } }
 body.light .beam { opacity: .5; }
 
+/* ==========================================================================
+   THE SMOOTHNESS SWITCH
+   Everything decorative in the background stops moving. The elements stay
+   exactly where they are — same colours, same composition — they just hold
+   still, so the compositor has nothing to redraw while you scroll.
+   ========================================================================== */
+.bgfx .orb, .bgfx .bg-marquee, .bgfx .pt, .bgfx .shp, .bgfx .tw, .bgfx .beam {
+  animation: none !important;
+  will-change: auto !important;
+}
+/* the particles and stars only exist as motion — frozen they are just dots */
+.bgfx .pt, .bgfx .tw { display: none; }
+/* the marquees are positioned by their animation, so park them sensibly */
+.bgfx .bg-marquee.m2 { transform: translateX(-25%); }
+
+/* On a desktop there is headroom, so let the three slow orbs breathe again.
+   Nothing else comes back — the small, numerous elements were the expensive
+   ones, not the big soft ones. */
+@media (min-width: 1081px) and (prefers-reduced-motion: no-preference) {
+  .bgfx .orb.o1 { animation: orbA 26s ease-in-out infinite alternate !important; }
+  .bgfx .orb.o2 { animation: orbB 32s ease-in-out infinite alternate !important; }
+  .bgfx .orb.o3 { animation: orbC 38s ease-in-out infinite alternate !important; }
+  .bgfx .tw { display: block; animation: twinkle ease-in-out infinite !important; }
+}
+
 /* ---------- install prompt (modern bottom sheet) ---------- */
 .inst-back { position: fixed; inset: 0; z-index: 250; background: rgba(4,2,14,.55);
   backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .3s; }
@@ -531,8 +623,10 @@ body.light .beam { opacity: .5; }
   background: color-mix(in srgb, var(--text) 25%, transparent); }
 .inst .hd { display: flex; align-items: center; gap: 14px; }
 .inst .hd img { width: 62px; height: 62px; border-radius: 16px;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 45%, transparent);
-  animation: instFloat 3s ease-in-out infinite alternate; }
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 45%, transparent); }
+/* only bob while the sheet is actually on screen — this used to animate
+   forever behind a closed sheet nobody could see */
+.inst.show .hd img { animation: instFloat 3s ease-in-out infinite alternate; }
 @keyframes instFloat { from { transform: translateY(0); } to { transform: translateY(-5px); } }
 .inst .hd .nm { font-size: 1.15rem; font-weight: 800; }
 .inst .hd .sb { font-size: .78rem; color: var(--muted); margin-top: 2px; line-height: 1.45; }
@@ -561,8 +655,8 @@ body.light .beam { opacity: .5; }
               color-mix(in srgb, var(--accent) 15%, transparent));
   border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 40%, transparent); }
-.ntf-bell span { display: inline-block; transform-origin: top center;
-  animation: bellRing 2.2s ease-in-out infinite; }
+.ntf-bell span { display: inline-block; transform-origin: top center; }
+.inst.show .ntf-bell span { animation: bellRing 2.2s ease-in-out infinite; }
 @keyframes bellRing {
   0%, 55%, 100% { transform: rotate(0); }
   60% { transform: rotate(16deg); } 66% { transform: rotate(-14deg); }
@@ -835,8 +929,8 @@ tr:hover td { background: rgba(255,255,255,.025); }
 .auth-panel { display:grid; grid-template-columns: 1.05fr 1fr; width:100%;
   max-width: 920px; border-radius: 26px; overflow:hidden;
   border:1px solid var(--card-border); background: var(--card);
-  backdrop-filter: blur(16px); box-shadow: 0 30px 80px rgba(0,0,0,.45);
-  animation: fadeUp .6s cubic-bezier(.22,.9,.36,1) both; }
+  box-shadow: 0 30px 80px rgba(0,0,0,.45);
+  animation: fadeUp .6s cubic-bezier(.22,.9,.36,1); }
 .auth-hero { position:relative; overflow:hidden; color:#fff;
   padding: 44px 38px; display:flex; flex-direction:column; gap:13px;
   background: linear-gradient(160deg, var(--accent), #e879f9 55%, #5cc8ff);
@@ -852,7 +946,7 @@ tr:hover td { background: rgba(255,255,255,.025); }
 .auth-hero .hero-tag { font-size:.95rem; opacity:.94; }
 .feat { display:flex; align-items:center; gap:10px; font-size:.9rem;
   background: rgba(0,0,0,.18); border-radius:12px; padding:10px 14px;
-  animation: fadeUp .5s ease both; }
+  animation: fadeUp .5s ease; }
 .feat:nth-of-type(1){ animation-delay:.15s } .feat:nth-of-type(2){ animation-delay:.25s }
 .feat:nth-of-type(3){ animation-delay:.35s } .feat:nth-of-type(4){ animation-delay:.45s }
 .mini-quote { margin-top:auto; font-style:italic; font-size:.84rem; opacity:.9; }
@@ -1035,21 +1129,10 @@ pre, code { white-space: pre-wrap; word-break: break-word; }
 [dir="rtl"] .kback .kbi { transform: scaleX(-1); }
 @media (min-width: 1081px) { .kback { bottom: 24px; } }
 
-/* ==========================================================================
-   SCROLL REVEAL — arena.education style. Blocks ease up as they enter view;
-   headings additionally stagger word by word.
-   ========================================================================== */
-.rv { opacity: 0; transform: translateY(26px); filter: blur(6px);
-  transition: opacity .68s cubic-bezier(.22,.85,.3,1),
-              transform .68s cubic-bezier(.22,.85,.3,1),
-              filter .68s ease; will-change: opacity, transform; }
-.rv.in { opacity: 1; transform: none; filter: none; }
-.rvw { display: inline-block; opacity: 0; transform: translateY(14px);
-  transition: opacity .5s ease, transform .5s cubic-bezier(.22,.85,.3,1); }
-.rvw.in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) {
-  .rv, .rvw { opacity: 1 !important; transform: none !important; filter: none !important; }
-}
+/* The scroll-reveal fade was removed on request: content is simply there as
+   soon as you scroll to it. These two rules stay as a safety net so that any
+   markup still carrying the old classes renders fully visible. */
+.rv, .rvw { opacity: 1; transform: none; filter: none; }
 
 /* ==========================================================================
    TUTORIAL — Instagram-reel player in a frame that matches the app background.
@@ -2562,6 +2645,24 @@ window.krImageURL = function (prompt, seed) {
 
 <script>
 /* =========================================================================
+   0. SCROLL STATE — one flag the whole stylesheet can react to.
+   While this class is on the body, every decorative animation is paused (see
+   the CSS above). One passive listener, one class toggle, nothing measured
+   and nothing written per event.
+   ========================================================================= */
+(function () {
+  var body = document.body, on = false, timer = null;
+  addEventListener("scroll", function () {
+    if (!on) { on = true; body.classList.add("is-scrolling"); }
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      on = false;
+      body.classList.remove("is-scrolling");
+    }, 160);
+  }, { passive: true });
+})();
+
+/* =========================================================================
    1. BACK BUTTON
    Shows only when there is somewhere to go back to. Falls back to the
    dashboard so it is never a dead end, and flags the page so the slide
@@ -2585,13 +2686,23 @@ window.krImageURL = function (prompt, seed) {
       location.href = HOME;
     }
   };
-  /* hide it while the user scrolls down, bring it back on scroll up */
-  var lastY = 0;
+  /* Hide it while the user scrolls down, bring it back on scroll up.
+     The style is written inside one requestAnimationFrame rather than on
+     every scroll event — a scroll can fire dozens of times per frame, and
+     touching .style each time forces the browser to recalculate mid-scroll. */
+  var lastY = 0, queued = false, hidden = false;
   addEventListener("scroll", function () {
-    if (!btn.classList.contains("show") && scrollY < lastY) return;
-    var down = scrollY > lastY && scrollY > 140;
-    btn.style.transform = down ? "translateY(78px)" : "";
-    lastY = scrollY;
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(function () {
+      queued = false;
+      var y = scrollY;
+      var down = y > lastY && y > 140;
+      lastY = y;
+      if (down === hidden) return;             // nothing changed, don't touch
+      hidden = down;
+      btn.style.transform = down ? "translateY(78px)" : "";
+    });
   }, { passive: true });
 })();
 
@@ -2688,63 +2799,11 @@ window.krImageURL = function (prompt, seed) {
 })();
 
 /* =========================================================================
-   3. SCROLL REVEAL — arena.education style entrance for every block, plus a
-   word-by-word stagger on headings. One observer, no scroll listener.
+   3. (removed) SCROLL REVEAL
+   The fade-in-on-scroll effect is gone. It also ran a MutationObserver over
+   the whole document, which re-scanned every card on every DOM change — a
+   steady cost on the chat and feed pages. Both are now gone.
    ========================================================================= */
-(function () {
-  if (!("IntersectionObserver" in window)) return;
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) {
-      if (!en.isIntersecting) return;
-      var el = en.target;
-      el.classList.add("in");
-      var words = el.querySelectorAll(".rvw");
-      words.forEach(function (w, i) {
-        setTimeout(function () { w.classList.add("in"); }, 45 + i * 42);
-      });
-      io.unobserve(el);
-    });
-  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.06 });
-
-  function splitWords(h) {
-    if (h.dataset.rvw || h.children.length) return;
-    var txt = h.textContent.trim();
-    if (!txt || txt.length > 120) return;
-    h.dataset.rvw = "1";
-    h.textContent = "";
-    txt.split(/\s+/).forEach(function (w, i) {
-      var s = document.createElement("span");
-      s.className = "rvw";
-      s.textContent = (i ? " " : "") + w;
-      h.appendChild(s);
-    });
-  }
-
-  function arm() {
-    var sel = ".card, .plan, .ws-card, .quote, .grid2 > *, .post-card, .stat-tile";
-    document.querySelectorAll(sel).forEach(function (el, i) {
-      if (el.dataset.rv) return;
-      el.dataset.rv = "1";
-      /* whatever is already on screen at load stays visible — no flash */
-      var r = el.getBoundingClientRect();
-      if (r.top < innerHeight * 0.92) return;
-      el.classList.add("rv");
-      el.style.transitionDelay = Math.min(i % 6, 5) * 45 + "ms";
-      var h = el.querySelector(":scope > h1, :scope > h2, :scope > h3");
-      if (h) splitWords(h);
-      io.observe(el);
-    });
-  }
-  arm();
-  addEventListener("load", arm);
-  /* content added later (chat, feeds) gets the same treatment */
-  new MutationObserver(function () {
-    clearTimeout(window._rvT);
-    window._rvT = setTimeout(arm, 220);
-  }).observe(document.body, { childList: true, subtree: true });
-})();
 
 {% if cu %}
 /* =========================================================================
